@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
+import { mensagemErro } from "@/lib/erros";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,8 +55,7 @@ function AuthPage() {
         else toast.success("Conta criada. Confirme o e-mail para entrar.");
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Erro ao entrar";
-      toast.error(msg);
+      toast.error(mensagemErro(err, "Não foi possível concluir. Tente novamente."));
     } finally {
       setCarregando(false);
     }
