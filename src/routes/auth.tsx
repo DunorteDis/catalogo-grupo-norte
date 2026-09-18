@@ -82,16 +82,12 @@ function AuthPage() {
         </div>
 
         <Button type="submit" disabled={carregando} className="mt-6 h-11 w-full rounded-xl font-bold">
-          {carregando ? "Aguarde..." : modo === "entrar" ? "Entrar" : "Criar conta"}
+          {carregando ? "Aguarde..." : "Entrar"}
         </Button>
 
-        <button
-          type="button"
-          onClick={() => setModo(modo === "entrar" ? "criar" : "entrar")}
-          className="mt-4 w-full text-center text-xs font-semibold text-muted-foreground underline"
-        >
-          {modo === "entrar" ? "Não tenho conta ainda" : "Já tenho conta"}
-        </button>
+        <p className="mt-4 text-center text-xs text-muted-foreground">
+          Novos acessos são criados pelo administrador dentro do sistema.
+        </p>
       </form>
     </div>
   );
