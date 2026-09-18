@@ -114,7 +114,7 @@ function CatalogoPage() {
   );
   const itens = Object.values(carrinho);
   const totalItens = itens.reduce((s, i) => s + i.quantidade, 0);
-  const cor = distribuidora?.cor || "#0b2265";
+  const cor = distribuidora?.cor || "#b73d25";
 
   function setQtd(p: Produto, qtd: number) {
     setCarrinho((atual) => {
