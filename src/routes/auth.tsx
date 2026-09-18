@@ -54,8 +54,7 @@ function AuthPage() {
         else toast.success("Conta criada. Confirme o e-mail para entrar.");
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Erro ao entrar";
-      toast.error(msg);
+      toast.error(mensagemErro(err, "Não foi possível concluir. Tente novamente."));
     } finally {
       setCarregando(false);
     }
