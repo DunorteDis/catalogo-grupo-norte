@@ -15,6 +15,7 @@ const LINKS = [
   { to: "/admin/distribuidoras", label: "Distribuidoras" },
   { to: "/admin/produtos", label: "Produtos" },
   { to: "/admin/pedidos", label: "Pedidos" },
+  { to: "/admin/usuarios", label: "Usuários" },
 ] as const;
 
 function AdminLayout() {
