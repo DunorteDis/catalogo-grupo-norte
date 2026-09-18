@@ -5,6 +5,7 @@ import { Copy, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
+import { mensagemErro } from "@/lib/erros";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -62,7 +63,7 @@ function VendedoresPage() {
       qc.invalidateQueries({ queryKey: ["admin-vendedores"] });
       toast.success("Vendedor cadastrado.");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(mensagemErro(e)),
   });
 
   const remover = useMutation({
@@ -71,7 +72,7 @@ function VendedoresPage() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-vendedores"] }),
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(mensagemErro(e)),
   });
 
   function copiarLink(slug: string) {
