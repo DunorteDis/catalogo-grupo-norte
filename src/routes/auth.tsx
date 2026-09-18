@@ -25,7 +25,6 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const [modo, setModo] = useState<"entrar" | "criar">("entrar");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [carregando, setCarregando] = useState(false);
@@ -40,22 +39,11 @@ function AuthPage() {
     e.preventDefault();
     setCarregando(true);
     try {
-      if (modo === "entrar") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
-        if (error) throw error;
-        navigate({ to: "/admin", replace: true });
-      } else {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password: senha,
-          options: { emailRedirectTo: `${window.location.origin}/admin` },
-        });
-        if (error) throw error;
-        if (data.session) navigate({ to: "/admin", replace: true });
-        else toast.success("Conta criada. Confirme o e-mail para entrar.");
-      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
+      if (error) throw error;
+      navigate({ to: "/admin", replace: true });
     } catch (err) {
-      toast.error(mensagemErro(err, "Não foi possível concluir. Tente novamente."));
+      toast.error(mensagemErro(err, "Não foi possível entrar. Tente novamente."));
     } finally {
       setCarregando(false);
     }
@@ -64,9 +52,7 @@ function AuthPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-6">
       <form onSubmit={enviar} className="w-full max-w-sm rounded-2xl border bg-card p-6">
-        <h1 className="text-2xl font-extrabold">
-          {modo === "entrar" ? "Entrar" : "Criar conta"}
-        </h1>
+        <h1 className="text-2xl font-extrabold">Entrar</h1>
         <p className="mt-1 text-sm text-muted-foreground">Área administrativa do catálogo.</p>
 
         <div className="mt-6 space-y-4">
