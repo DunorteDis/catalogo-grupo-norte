@@ -52,6 +52,13 @@ const MAPA: { teste: RegExp; texto: string }[] = [
     teste: /failed to fetch|network|timeout|fetch error/i,
     texto: "Falha de conexão. Verifique sua internet e tente novamente.",
   },
+  {
+    // Erro de configuração, não do usuário: sem essa chave nenhuma ação que usa
+    // o cliente de servidor (criar, resetar, listar acessos) consegue rodar.
+    teste: /missing supabase environment variable/i,
+    texto:
+      "O servidor está sem a chave SUPABASE_SERVICE_ROLE_KEY. Sem ela não dá para gerenciar acessos — configure a variável de ambiente e reinicie.",
+  },
 ];
 
 export function mensagemErro(erro: unknown, padrao = "Algo deu errado. Tente novamente."): string {

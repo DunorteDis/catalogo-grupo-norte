@@ -5,6 +5,7 @@ import { Loader2, Minus, Plus, Search, ShoppingCart, Trash2, X } from "lucide-re
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
+import { LOGOS } from "@/lib/logos";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -69,7 +70,7 @@ function CatalogoPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("distribuidoras")
-        .select("id, nome, logo_url, cor")
+        .select("id, nome, cor")
         .eq("slug", distribuidoraSlug)
         .eq("ativo", true)
         .maybeSingle();
@@ -204,9 +205,9 @@ function CatalogoPage() {
     <div className="min-h-screen bg-background pb-28">
       <header className="sticky top-0 z-20 border-b bg-card/95 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
-          {distribuidora.logo_url ? (
+          {LOGOS[distribuidoraSlug] ? (
             <img
-              src={distribuidora.logo_url}
+              src={LOGOS[distribuidoraSlug]}
               alt={distribuidora.nome}
               className="h-10 w-auto max-w-[150px] object-contain"
             />

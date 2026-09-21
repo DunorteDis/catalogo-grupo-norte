@@ -19,7 +19,6 @@ import { Route as AuthenticatedAdminDistribuidorasRouteImport } from './routes/_
 import { Route as AuthenticatedAdminPedidosRouteImport } from './routes/_authenticated/admin.pedidos'
 import { Route as AuthenticatedAdminProdutosRouteImport } from './routes/_authenticated/admin.produtos'
 import { Route as AuthenticatedAdminUsuariosRouteImport } from './routes/_authenticated/admin.usuarios'
-import { Route as AuthenticatedAdminVendedoresRouteImport } from './routes/_authenticated/admin.vendedores'
 import { Route as CSlugIndexRouteImport } from './routes/c.$slug.index'
 import { Route as CSlugDistribuidoraRouteImport } from './routes/c.$slug.$distribuidora'
 
@@ -76,12 +75,6 @@ const AuthenticatedAdminUsuariosRoute =
     path: '/usuarios',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
-const AuthenticatedAdminVendedoresRoute =
-  AuthenticatedAdminVendedoresRouteImport.update({
-    id: '/vendedores',
-    path: '/vendedores',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
 const CSlugIndexRoute = CSlugIndexRouteImport.update({
   id: '/c/$slug/',
   path: '/c/$slug/',
@@ -102,7 +95,6 @@ export interface FileRoutesByFullPath {
   '/admin/pedidos': typeof AuthenticatedAdminPedidosRoute
   '/admin/produtos': typeof AuthenticatedAdminProdutosRoute
   '/admin/usuarios': typeof AuthenticatedAdminUsuariosRoute
-  '/admin/vendedores': typeof AuthenticatedAdminVendedoresRoute
   '/c/$slug/$distribuidora': typeof CSlugDistribuidoraRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/c/$slug/': typeof CSlugIndexRoute
@@ -115,7 +107,6 @@ export interface FileRoutesByTo {
   '/admin/pedidos': typeof AuthenticatedAdminPedidosRoute
   '/admin/produtos': typeof AuthenticatedAdminProdutosRoute
   '/admin/usuarios': typeof AuthenticatedAdminUsuariosRoute
-  '/admin/vendedores': typeof AuthenticatedAdminVendedoresRoute
   '/c/$slug/$distribuidora': typeof CSlugDistribuidoraRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/c/$slug': typeof CSlugIndexRoute
@@ -131,7 +122,6 @@ export interface FileRoutesById {
   '/_authenticated/admin/pedidos': typeof AuthenticatedAdminPedidosRoute
   '/_authenticated/admin/produtos': typeof AuthenticatedAdminProdutosRoute
   '/_authenticated/admin/usuarios': typeof AuthenticatedAdminUsuariosRoute
-  '/_authenticated/admin/vendedores': typeof AuthenticatedAdminVendedoresRoute
   '/c/$slug/$distribuidora': typeof CSlugDistribuidoraRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/c/$slug/': typeof CSlugIndexRoute
@@ -147,7 +137,6 @@ export interface FileRouteTypes {
     | '/admin/pedidos'
     | '/admin/produtos'
     | '/admin/usuarios'
-    | '/admin/vendedores'
     | '/c/$slug/$distribuidora'
     | '/admin/'
     | '/c/$slug/'
@@ -160,7 +149,6 @@ export interface FileRouteTypes {
     | '/admin/pedidos'
     | '/admin/produtos'
     | '/admin/usuarios'
-    | '/admin/vendedores'
     | '/c/$slug/$distribuidora'
     | '/admin'
     | '/c/$slug'
@@ -175,7 +163,6 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/pedidos'
     | '/_authenticated/admin/produtos'
     | '/_authenticated/admin/usuarios'
-    | '/_authenticated/admin/vendedores'
     | '/c/$slug/$distribuidora'
     | '/_authenticated/admin/'
     | '/c/$slug/'
@@ -261,13 +248,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminUsuariosRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
-    '/_authenticated/admin/vendedores': {
-      id: '/_authenticated/admin/vendedores'
-      path: '/vendedores'
-      fullPath: '/admin/vendedores'
-      preLoaderRoute: typeof AuthenticatedAdminVendedoresRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
     '/c/$slug/': {
       id: '/c/$slug/'
       path: '/c/$slug'
@@ -290,7 +270,6 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminPedidosRoute: typeof AuthenticatedAdminPedidosRoute
   AuthenticatedAdminProdutosRoute: typeof AuthenticatedAdminProdutosRoute
   AuthenticatedAdminUsuariosRoute: typeof AuthenticatedAdminUsuariosRoute
-  AuthenticatedAdminVendedoresRoute: typeof AuthenticatedAdminVendedoresRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
 
@@ -299,7 +278,6 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminPedidosRoute: AuthenticatedAdminPedidosRoute,
   AuthenticatedAdminProdutosRoute: AuthenticatedAdminProdutosRoute,
   AuthenticatedAdminUsuariosRoute: AuthenticatedAdminUsuariosRoute,
-  AuthenticatedAdminVendedoresRoute: AuthenticatedAdminVendedoresRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }
 

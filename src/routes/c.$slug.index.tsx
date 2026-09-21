@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
+import { LOGOS } from "@/lib/logos";
 
 export const Route = createFileRoute("/c/$slug/")({
   head: () => ({
@@ -46,7 +47,7 @@ function EscolherDistribuidora() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("distribuidoras")
-        .select("id, nome, slug, logo_url, cor")
+        .select("id, nome, slug, cor")
         .eq("ativo", true)
         .order("nome");
       if (error) throw error;
@@ -88,8 +89,8 @@ function EscolherDistribuidora() {
             params={{ slug, distribuidora: d.slug }}
             className="flex h-24 items-center justify-center rounded-2xl border bg-card p-4 transition hover:shadow-md"
           >
-            {d.logo_url ? (
-              <img src={d.logo_url} alt={d.nome} className="max-h-14 w-auto object-contain" />
+            {LOGOS[d.slug] ? (
+              <img src={LOGOS[d.slug]} alt={d.nome} className="max-h-14 w-auto object-contain" />
             ) : (
               <span className="text-lg font-extrabold" style={{ color: d.cor }}>
                 {d.nome}

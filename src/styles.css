@@ -52,13 +52,14 @@
   --chart-4: #a5701f;
   --chart-5: #9f1f2f;
 
-  --sidebar: #f1efec;
-  --sidebar-foreground: #101820;
+  /* ponytail: sidebar sempre escura nos dois temas, como na referencia */
+  --sidebar: #12161c;
+  --sidebar-foreground: #c9ccd1;
   --sidebar-primary: #b73d25;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #fbeae5;
-  --sidebar-accent-foreground: #b73d25;
-  --sidebar-border: #e4e0da;
+  --sidebar-accent: #1e242c;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #232a33;
   --sidebar-ring: #b73d25;
 }
 

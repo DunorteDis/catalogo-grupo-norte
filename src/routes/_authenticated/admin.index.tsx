@@ -28,7 +28,7 @@ function AdminHome() {
   const cards = [
     { label: "Produtos", valor: data?.produtos, to: "/admin/produtos" },
     { label: "Distribuidoras", valor: data?.distribuidoras, to: "/admin/distribuidoras" },
-    { label: "Vendedores", valor: data?.vendedores, to: "/admin/vendedores" },
+    { label: "Vendedores", valor: data?.vendedores, to: "/admin/usuarios" },
     { label: "Pedidos", valor: data?.pedidos, to: "/admin/pedidos" },
   ] as const;
 

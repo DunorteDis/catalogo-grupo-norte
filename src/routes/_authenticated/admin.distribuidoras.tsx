@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { mensagemErro } from "@/lib/erros";
 import { Switch } from "@/components/ui/switch";
+import { LOGOS } from "@/lib/logos";
 
 export const Route = createFileRoute("/_authenticated/admin/distribuidoras")({
   component: DistribuidorasPage,
@@ -18,7 +19,7 @@ function DistribuidorasPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("distribuidoras")
-        .select("id, nome, slug, logo_url, cor, ativo")
+        .select("id, nome, slug, cor, ativo")
         .order("nome");
       if (error) throw error;
       return data;
@@ -41,8 +42,12 @@ function DistribuidorasPage() {
         {(data ?? []).map((d) => (
           <div key={d.id} className="rounded-2xl border bg-card p-4">
             <div className="flex h-16 items-center">
-              {d.logo_url ? (
-                <img src={d.logo_url} alt={d.nome} className="h-full w-auto max-w-[160px] object-contain" />
+              {LOGOS[d.slug] ? (
+                <img
+                  src={LOGOS[d.slug]}
+                  alt={d.nome}
+                  className="h-full w-auto max-w-[160px] object-contain"
+                />
               ) : (
                 <span className="font-extrabold">{d.nome}</span>
               )}
