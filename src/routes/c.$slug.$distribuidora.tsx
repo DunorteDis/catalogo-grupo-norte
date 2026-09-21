@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { fotoUrl, montarMensagem, whatsappNumero, type ItemCarrinho } from "@/lib/catalogo";
 
-export const Route = createFileRoute("/c/$slug")({
+export const Route = createFileRoute("/c/$slug/$distribuidora")({
   head: () => ({
     meta: [
       { title: "Catálogo de produtos — faça seu pedido" },
@@ -36,7 +36,7 @@ const PAGE = 24;
 type Produto = { id: string; codigo: string; nome: string; arquivo: string | null };
 
 function CatalogoPage() {
-  const { slug } = Route.useParams();
+  const { slug, distribuidora: distribuidoraSlug } = Route.useParams();
   const [busca, setBusca] = useState("");
   const [termo, setTermo] = useState("");
   const [carrinho, setCarrinho] = useState<Record<string, ItemCarrinho>>({});
@@ -55,7 +55,7 @@ function CatalogoPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vendedores")
-        .select("id, nome, whatsapp, distribuidora_id, distribuidoras(id, nome, logo_url, cor)")
+        .select("id, nome, whatsapp")
         .eq("slug", slug)
         .eq("ativo", true)
         .maybeSingle();
@@ -64,16 +64,28 @@ function CatalogoPage() {
     },
   });
 
-  const vendedor = vendedorQuery.data;
-  const distribuidora = vendedor?.distribuidoras as
-    | { id: string; nome: string; logo_url: string | null; cor: string }
-    | undefined;
+  const distribuidoraQuery = useQuery({
+    queryKey: ["distribuidora", distribuidoraSlug],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("distribuidoras")
+        .select("id, nome, logo_url, cor")
+        .eq("slug", distribuidoraSlug)
+        .eq("ativo", true)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
 
-  const storageKey = `pedido:${slug}`;
+  const vendedor = vendedorQuery.data;
+  const distribuidora = distribuidoraQuery.data;
+
+  const storageKey = `pedido:${slug}:${distribuidoraSlug}`;
   useEffect(() => {
     try {
       const raw = localStorage.getItem(storageKey);
-      if (raw) setCarrinho(JSON.parse(raw));
+      setCarrinho(raw ? JSON.parse(raw) : {});
     } catch {
       /* ignora */
     }
@@ -108,10 +120,7 @@ function CatalogoPage() {
     getNextPageParam: (last, pages) => (last.length === PAGE ? pages.length : undefined),
   });
 
-  const produtos = useMemo(
-    () => produtosQuery.data?.pages.flat() ?? [],
-    [produtosQuery.data],
-  );
+  const produtos = useMemo(() => produtosQuery.data?.pages.flat() ?? [], [produtosQuery.data]);
   const itens = Object.values(carrinho);
   const totalItens = itens.reduce((s, i) => s + i.quantidade, 0);
   const cor = distribuidora?.cor || "#b73d25";
@@ -171,7 +180,7 @@ function CatalogoPage() {
     }
   }
 
-  if (vendedorQuery.isLoading) {
+  if (vendedorQuery.isLoading || distribuidoraQuery.isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -183,9 +192,7 @@ function CatalogoPage() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 px-6 text-center">
         <h1 className="text-2xl font-extrabold">Link não encontrado</h1>
-        <p className="text-sm text-muted-foreground">
-          Peça um novo link para o seu vendedor.
-        </p>
+        <p className="text-sm text-muted-foreground">Peça um novo link para o seu vendedor.</p>
         <Link to="/" className="text-sm font-semibold underline">
           Ir para o início
         </Link>
@@ -241,10 +248,7 @@ function CatalogoPage() {
               const qtd = carrinho[p.id]?.quantidade ?? 0;
               const foto = fotoUrl(p.arquivo);
               return (
-                <div
-                  key={p.id}
-                  className="flex flex-col overflow-hidden rounded-2xl border bg-card"
-                >
+                <div key={p.id} className="flex flex-col overflow-hidden rounded-2xl border bg-card">
                   <div className="flex aspect-square items-center justify-center bg-muted/40 p-3">
                     {foto ? (
                       <img
@@ -336,12 +340,7 @@ function CatalogoPage() {
         <div className="fixed inset-0 z-40 flex flex-col bg-background">
           <div className="flex items-center gap-3 border-b px-4 py-3">
             <h2 className="text-lg font-extrabold">Seu pedido</h2>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="ml-auto"
-              onClick={() => setAberto(false)}
-            >
+            <Button size="icon" variant="ghost" className="ml-auto" onClick={() => setAberto(false)}>
               <X className="h-5 w-5" />
             </Button>
           </div>
@@ -374,12 +373,7 @@ function CatalogoPage() {
                         className="h-8 w-8"
                         onClick={() =>
                           setQtd(
-                            {
-                              id: i.produto_id,
-                              codigo: i.codigo,
-                              nome: i.nome,
-                              arquivo: i.arquivo,
-                            },
+                            { id: i.produto_id, codigo: i.codigo, nome: i.nome, arquivo: i.arquivo },
                             i.quantidade - 1,
                           )
                         }
@@ -393,12 +387,7 @@ function CatalogoPage() {
                         className="h-8 w-8"
                         onClick={() =>
                           setQtd(
-                            {
-                              id: i.produto_id,
-                              codigo: i.codigo,
-                              nome: i.nome,
-                              arquivo: i.arquivo,
-                            },
+                            { id: i.produto_id, codigo: i.codigo, nome: i.nome, arquivo: i.arquivo },
                             i.quantidade + 1,
                           )
                         }
@@ -411,12 +400,7 @@ function CatalogoPage() {
                         className="h-8 w-8 text-destructive"
                         onClick={() =>
                           setQtd(
-                            {
-                              id: i.produto_id,
-                              codigo: i.codigo,
-                              nome: i.nome,
-                              arquivo: i.arquivo,
-                            },
+                            { id: i.produto_id, codigo: i.codigo, nome: i.nome, arquivo: i.arquivo },
                             0,
                           )
                         }

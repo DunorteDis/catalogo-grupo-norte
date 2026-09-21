@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { Copy, Trash2 } from "lucide-react";
+import { Copy, KeyRound, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -9,7 +10,11 @@ import { mensagemErro } from "@/lib/erros";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { slugify, somenteDigitos } from "@/lib/catalogo";
+import {
+  alterarSenhaVendedor,
+  criarVendedor,
+  excluirVendedor,
+} from "@/lib/vendedores.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/vendedores")({
   component: VendedoresPage,
@@ -19,14 +24,20 @@ function VendedoresPage() {
   const qc = useQueryClient();
   const [nome, setNome] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
-  const [distribuidoraId, setDistribuidoraId] = useState("");
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+
+  const criarFn = useServerFn(criarVendedor);
+  const excluirFn = useServerFn(excluirVendedor);
+  const senhaFn = useServerFn(alterarSenhaVendedor);
 
   const { data: distribuidoras } = useQuery({
     queryKey: ["admin-distribuidoras"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("distribuidoras")
-        .select("id, nome")
+        .select("id, nome, slug")
+        .eq("ativo", true)
         .order("nome");
       if (error) throw error;
       return data;
@@ -38,7 +49,7 @@ function VendedoresPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vendedores")
-        .select("id, nome, slug, whatsapp, ativo, distribuidoras(nome)")
+        .select("id, nome, slug, whatsapp, ativo")
         .order("nome");
       if (error) throw error;
       return data;
@@ -46,50 +57,47 @@ function VendedoresPage() {
   });
 
   const criar = useMutation({
-    mutationFn: async () => {
-      const base = slugify(nome);
-      const slug = `${base}-${Math.random().toString(36).slice(2, 6)}`;
-      const { error } = await supabase.from("vendedores").insert({
-        nome: nome.trim(),
-        slug,
-        whatsapp: somenteDigitos(whatsapp),
-        distribuidora_id: distribuidoraId,
-      });
-      if (error) throw error;
-    },
+    mutationFn: async () =>
+      criarFn({ data: { nome, whatsapp, email: email.trim(), senha } }),
     onSuccess: () => {
       setNome("");
       setWhatsapp("");
+      setEmail("");
+      setSenha("");
       qc.invalidateQueries({ queryKey: ["admin-vendedores"] });
-      toast.success("Vendedor cadastrado.");
+      toast.success("Vendedor cadastrado com acesso ao sistema.");
     },
     onError: (e: Error) => toast.error(mensagemErro(e)),
   });
 
   const remover = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("vendedores").delete().eq("id", id);
-      if (error) throw error;
-    },
+    mutationFn: async (id: string) => excluirFn({ data: { id } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-vendedores"] }),
     onError: (e: Error) => toast.error(mensagemErro(e)),
   });
 
-  function copiarLink(slug: string) {
-    const url = `${window.location.origin}/c/${slug}`;
+  const trocarSenha = useMutation({
+    mutationFn: async (vars: { id: string; senha: string }) => senhaFn({ data: vars }),
+    onSuccess: () => toast.success("Senha alterada."),
+    onError: (e: Error) => toast.error(mensagemErro(e)),
+  });
+
+  function copiarLink(slug: string, distribuidoraSlug: string, nomeDist: string) {
+    const url = `${window.location.origin}/c/${slug}/${distribuidoraSlug}`;
     navigator.clipboard.writeText(url);
-    toast.success("Link copiado!");
+    toast.success(`Link do catálogo ${nomeDist} copiado!`);
   }
 
   return (
     <div>
       <h1 className="text-2xl font-extrabold">Vendedores</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Cada vendedor tem um link próprio. O pedido do cliente vai para o WhatsApp cadastrado aqui.
+        Cada vendedor tem acesso próprio ao sistema e pode copiar o link do catálogo de qualquer
+        distribuidora. O pedido do cliente vai para o WhatsApp cadastrado aqui.
       </p>
 
       <form
-        className="mt-6 grid gap-3 rounded-2xl border bg-card p-4 sm:grid-cols-4"
+        className="mt-6 grid gap-3 rounded-2xl border bg-card p-4 sm:grid-cols-5"
         onSubmit={(e) => {
           e.preventDefault();
           criar.mutate();
@@ -110,20 +118,25 @@ function VendedoresPage() {
           />
         </div>
         <div className="space-y-1.5">
-          <Label>Distribuidora</Label>
-          <select
-            value={distribuidoraId}
-            onChange={(e) => setDistribuidoraId(e.target.value)}
+          <Label>E-mail de acesso</Label>
+          <Input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             required
-            className="h-11 w-full rounded-xl border bg-background px-3 text-sm"
-          >
-            <option value="">Selecione</option>
-            {(distribuidoras ?? []).map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.nome}
-              </option>
-            ))}
-          </select>
+            className="h-11 rounded-xl"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Senha</Label>
+          <Input
+            type="password"
+            value={senha}
+            onChange={(e) => setSenha(e.target.value)}
+            required
+            minLength={8}
+            className="h-11 rounded-xl"
+          />
         </div>
         <div className="flex items-end">
           <Button type="submit" disabled={criar.isPending} className="h-11 w-full rounded-xl font-bold">
@@ -134,25 +147,50 @@ function VendedoresPage() {
 
       <div className="mt-6 space-y-3">
         {(vendedores ?? []).map((v) => (
-          <div key={v.id} className="flex flex-wrap items-center gap-3 rounded-2xl border bg-card p-4">
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold">{v.nome}</p>
-              <p className="text-xs text-muted-foreground">
-                {(v.distribuidoras as { nome: string } | null)?.nome} · {v.whatsapp} · /c/{v.slug}
-              </p>
+          <div key={v.id} className="rounded-2xl border bg-card p-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold">{v.nome}</p>
+                <p className="text-xs text-muted-foreground">
+                  {v.whatsapp} · /c/{v.slug}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-xl"
+                onClick={() => {
+                  const nova = window.prompt("Nova senha (mínimo 8 caracteres)");
+                  if (nova) trocarSenha.mutate({ id: v.id, senha: nova });
+                }}
+              >
+                <KeyRound className="mr-2 h-4 w-4" />
+                Senha
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="text-destructive"
+                onClick={() => remover.mutate(v.id)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
-            <Button size="sm" variant="outline" className="rounded-xl" onClick={() => copiarLink(v.slug)}>
-              <Copy className="mr-2 h-4 w-4" />
-              Copiar link
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="text-destructive"
-              onClick={() => remover.mutate(v.id)}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+
+            <div className="mt-3 flex flex-wrap gap-2 border-t pt-3">
+              {(distribuidoras ?? []).map((d) => (
+                <Button
+                  key={d.id}
+                  size="sm"
+                  variant="secondary"
+                  className="rounded-xl"
+                  onClick={() => copiarLink(v.slug, d.slug, d.nome)}
+                >
+                  <Copy className="mr-2 h-3.5 w-3.5" />
+                  {d.nome}
+                </Button>
+              ))}
+            </div>
           </div>
         ))}
         {vendedores?.length === 0 && (

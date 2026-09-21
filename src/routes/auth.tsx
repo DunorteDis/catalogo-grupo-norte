@@ -29,19 +29,31 @@ function AuthPage() {
   const [senha, setSenha] = useState("");
   const [carregando, setCarregando] = useState(false);
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/admin", replace: true });
+  async function irParaArea(userId: string) {
+    const { data: admin } = await supabase.rpc("has_role", {
+      _user_id: userId,
+      _role: "admin",
     });
+    navigate({ to: admin ? "/admin" : "/vendedor", replace: true });
+  }
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) void irParaArea(data.user.id);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate]);
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
     setCarregando(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password: senha,
+      });
       if (error) throw error;
-      navigate({ to: "/admin", replace: true });
+      await irParaArea(data.user.id);
     } catch (err) {
       toast.error(mensagemErro(err, "Não foi possível entrar. Tente novamente."));
     } finally {
