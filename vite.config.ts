@@ -16,10 +16,10 @@ export default defineConfig(({ command }) => ({
       // aponta para src/server.ts, nosso wrapper de erro de SSR
       server: { entry: "server" },
     }),
-    // Alvo do deploy, só no build: fixar o preset no dev liga a emulação do
-    // Cloudflare, que exige o wrangler instalado. Trocar aqui muda para bun,
-    // node, vercel e afins.
-    nitro(command === "build" ? { preset: "cloudflare-module" } : {}),
+    // Alvo do deploy, só no build: fixar o preset no dev ligaria a emulação do
+    // provedor, que no caso da Cloudflare ainda exigia o wrangler instalado.
+    // O build sai em .vercel/output (Build Output API v3), que a Vercel lê sozinha.
+    nitro(command === "build" ? { preset: "vercel" } : {}),
     viteReact(),
     tailwindcss(),
   ],

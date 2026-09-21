@@ -270,6 +270,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      vendedor_por_slug: {
+        Args: {
+          p_slug: string
+        }
+        Returns: {
+          id: string
+          nome: string
+          whatsapp: string
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "vendedor"

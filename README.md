@@ -13,7 +13,7 @@ TanStack Start (React 19) · Vite · Tailwind v4 · shadcn/ui · Supabase (Postg
 bun install
 bun run dev      # http://localhost:8080
 bun test         # testes dos helpers de acesso
-bun run build    # gera .output (preset cloudflare-module)
+bun run build    # gera .vercel/output (preset vercel)
 ```
 
 ## Variáveis de ambiente

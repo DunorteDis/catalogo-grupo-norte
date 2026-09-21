@@ -117,3 +117,38 @@ export const CHAVE_SENHA_PROVISORIA = "senha_provisoria";
 export function senhaEhProvisoria(metadata: unknown) {
   return (metadata as Record<string, unknown> | null)?.[CHAVE_SENHA_PROVISORIA] === true;
 }
+
+/**
+ * Sem rate limit no login do Supabase, senha previsível é o furo de verdade:
+ * "12345678" cai numa lista de mil palpites, não em 31^8. Aqui barra o óbvio —
+ * não é medidor de entropia, é o filtro que impede o pior caso.
+ */
+export const SENHA_MINIMO = 8;
+
+const SENHAS_OBVIAS = [
+  "12345678", "123456789", "1234567890", "senha123", "password", "qwerty123",
+  "abcd1234", "11111111", "gruponorte", "catalogo", "vendedor", "administrador",
+];
+
+export function senhaFraca(senha: string, usuario?: string): string | null {
+  const s = senha.trim();
+  if (s.length < SENHA_MINIMO) return `A senha precisa de ao menos ${SENHA_MINIMO} caracteres.`;
+
+  const sl = s.toLowerCase();
+  if (SENHAS_OBVIAS.some((o) => sl === o || sl.includes(o)))
+    return "Essa senha é fácil demais de adivinhar. Escolha outra.";
+
+  if (new Set(sl).size < 4) return "Use mais variedade de caracteres.";
+
+  // sequência corrida, pra frente ou pra trás: 123456, abcdef, 654321
+  const codigos = [...sl].map((c) => c.charCodeAt(0));
+  const corrida = codigos.every((c, i) => i === 0 || c - codigos[i - 1]! === 1);
+  const regressiva = codigos.every((c, i) => i === 0 || c - codigos[i - 1]! === -1);
+  if (corrida || regressiva) return "Sequências como 12345678 são as primeiras a serem testadas.";
+
+  const login = usuario?.trim().toLowerCase();
+  if (login && login.length >= 3 && sl.includes(login))
+    return "A senha não pode conter o seu nome de usuário.";
+
+  return null;
+}

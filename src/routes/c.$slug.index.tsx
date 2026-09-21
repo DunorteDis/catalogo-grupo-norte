@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
+import { useVendedorPublico } from "@/hooks/use-vendedor-publico";
 import { LOGOS } from "@/lib/logos";
 
 export const Route = createFileRoute("/c/$slug/")({
@@ -28,19 +29,7 @@ export const Route = createFileRoute("/c/$slug/")({
 function EscolherDistribuidora() {
   const { slug } = Route.useParams();
 
-  const vendedorQuery = useQuery({
-    queryKey: ["vendedor", slug],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("vendedores")
-        .select("id, nome")
-        .eq("slug", slug)
-        .eq("ativo", true)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-  });
+  const vendedorQuery = useVendedorPublico(slug);
 
   const distribuidorasQuery = useQuery({
     queryKey: ["distribuidoras-publicas"],

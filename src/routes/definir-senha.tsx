@@ -5,13 +5,17 @@ import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { mensagemErro } from "@/lib/erros";
-import { CHAVE_SENHA_PROVISORIA, senhaEhProvisoria, usuarioDeEmail } from "@/lib/acessos";
+import {
+  CHAVE_SENHA_PROVISORIA,
+  SENHA_MINIMO,
+  senhaEhProvisoria,
+  senhaFraca,
+  usuarioDeEmail,
+} from "@/lib/acessos";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import logoBranco from "@/assets/gruponorte-branco.png";
-
-const MINIMO = 8;
 
 export const Route = createFileRoute("/definir-senha")({
   ssr: false,
@@ -36,9 +40,12 @@ function DefinirSenhaPage() {
   const [confirma, setConfirma] = useState("");
   const [salvando, setSalvando] = useState(false);
 
-  const curta = senha.length > 0 && senha.length < MINIMO;
+  const usuario = usuarioDeEmail(user.email ?? "");
+  // O Supabase não tem freio de tentativa no login, então a única defesa contra
+  // força bruta é a senha não ser adivinhável. A recusa é aqui, não no servidor.
+  const problema = senha.length > 0 ? senhaFraca(senha, usuario) : null;
   const diferentes = confirma.length > 0 && senha !== confirma;
-  const podeEnviar = senha.length >= MINIMO && senha === confirma;
+  const podeEnviar = senha.length > 0 && !senhaFraca(senha, usuario) && senha === confirma;
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
@@ -74,9 +81,7 @@ function DefinirSenhaPage() {
           A senha que você recebeu é provisória e passou por WhatsApp. Escolha uma que só você saiba
           para continuar.
         </p>
-        <p className="mt-3 font-mono text-xs text-muted-foreground">
-          {usuarioDeEmail(user.email ?? "")}
-        </p>
+        <p className="mt-3 font-mono text-xs text-muted-foreground">{usuario}</p>
 
         <form onSubmit={enviar} className="mt-6 space-y-4">
           <div className="space-y-1.5">
@@ -89,11 +94,11 @@ function DefinirSenhaPage() {
               required
               value={senha}
               onChange={(e) => setSenha(e.target.value)}
-              aria-invalid={curta}
+              aria-invalid={Boolean(problema)}
               className="h-11 rounded-xl"
             />
-            <p className={curta ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
-              Mínimo de {MINIMO} caracteres.
+            <p className={problema ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
+              {problema ?? `Mínimo de ${SENHA_MINIMO} caracteres.`}
             </p>
           </div>
 

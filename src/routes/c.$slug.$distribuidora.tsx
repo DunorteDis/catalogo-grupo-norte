@@ -5,6 +5,7 @@ import { Loader2, Minus, Plus, Search, ShoppingCart, Trash2, X } from "lucide-re
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
+import { useVendedorPublico } from "@/hooks/use-vendedor-publico";
 import { LOGOS } from "@/lib/logos";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,19 +52,7 @@ function CatalogoPage() {
     return () => clearTimeout(t);
   }, [busca]);
 
-  const vendedorQuery = useQuery({
-    queryKey: ["vendedor", slug],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("vendedores")
-        .select("id, nome, whatsapp")
-        .eq("slug", slug)
-        .eq("ativo", true)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-  });
+  const vendedorQuery = useVendedorPublico(slug);
 
   const distribuidoraQuery = useQuery({
     queryKey: ["distribuidora", distribuidoraSlug],
@@ -172,7 +161,8 @@ function CatalogoPage() {
       });
       const url = `https://wa.me/${whatsappNumero(vendedor.whatsapp)}?text=${encodeURIComponent(texto)}`;
       setCarrinho({});
-      window.open(url, "_blank");
+      // noopener: sem isso a aba do WhatsApp recebe window.opener e pode trocar esta pagina
+      window.open(url, "_blank", "noopener");
     } catch (e) {
       console.error(e);
       toast.error("Não foi possível enviar o pedido. Tente novamente.");

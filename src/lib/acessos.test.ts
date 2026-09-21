@@ -13,6 +13,7 @@ import {
   usuarioDeEmail,
   usuarioDeNome,
   validarUsuario,
+  senhaFraca,
 } from "./acessos";
 
 test("usuário sai como primeiro.ultimo, sem acento e sem nome do meio", () => {
@@ -99,4 +100,22 @@ test("mensagem do WhatsApp leva usuário, senha e link", () => {
   expect(texto).toContain("Usuário: ana.paula");
   expect(texto).toContain("Senha: 7k4m9p");
   expect(texto).toContain("https://catalogo.exemplo/auth");
+});
+
+test("senhaFraca barra o que um ataque testa primeiro", () => {
+  // curta demais
+  expect(senhaFraca("abc123")).toMatch(/ao menos 8/);
+  // clássicos da lista
+  expect(senhaFraca("12345678")).toBeTruthy();
+  expect(senhaFraca("Senha123")).toBeTruthy();
+  expect(senhaFraca("gruponorte1")).toBeTruthy();
+  // pouca variedade e sequências
+  expect(senhaFraca("aaaaaaaa")).toBeTruthy();
+  expect(senhaFraca("abcdefgh")).toBeTruthy();
+  expect(senhaFraca("87654321")).toBeTruthy();
+  // o próprio usuário dentro da senha
+  expect(senhaFraca("ana.paula2026", "ana.paula")).toMatch(/nome de usuário/);
+  // senha comum e razoável passa
+  expect(senhaFraca("Jacare#Roxo7", "ana.paula")).toBeNull();
+  expect(senhaFraca("mudei2026aq", "ana.paula")).toBeNull();
 });
