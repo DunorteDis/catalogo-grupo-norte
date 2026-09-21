@@ -8,6 +8,7 @@ import {
   Contact,
   Copy,
   KeyRound,
+  Pencil,
   Plus,
   RotateCcw,
   Trash2,
@@ -34,6 +35,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
+  atualizarAcesso,
   criarAcesso,
   criarAcessoVendedor,
   excluirAcesso,
@@ -83,6 +85,16 @@ function Campo({ id, rotulo, children }: { id: string; rotulo: string; children:
 
 type Credenciais = { nome: string; usuario: string; senha: string };
 
+type EmEdicao = {
+  usuarioId?: string;
+  vendedorId?: string;
+  usuario: string;
+  ehVendedor: boolean;
+  nome: string;
+  email: string;
+  whatsapp: string;
+};
+
 function UsuariosPage() {
   const qc = useQueryClient();
   const recarregar = () => qc.invalidateQueries({ queryKey: CHAVE });
@@ -92,9 +104,11 @@ function UsuariosPage() {
   const darAcessoFn = useServerFn(criarAcessoVendedor);
   const resetarFn = useServerFn(resetarSenha);
   const excluirFn = useServerFn(excluirAcesso);
+  const atualizarFn = useServerFn(atualizarAcesso);
 
   const [novoAberto, setNovoAberto] = useState(false);
   const [credenciais, setCredenciais] = useState<Credenciais | null>(null);
+  const [editando, setEditando] = useState<EmEdicao | null>(null);
   const [copiado, setCopiado] = useState(false);
 
   const [tipo, setTipo] = useState<"vendedor" | "admin">("vendedor");
@@ -166,6 +180,25 @@ function UsuariosPage() {
     mutationFn: async (usuarioId: string) => resetarFn({ data: { usuarioId } }),
     onSuccess: mostrarCredenciais,
     onError: (e: Error) => toast.error(mensagemErro(e)),
+  });
+
+  const salvarEdicao = useMutation({
+    mutationFn: async (e: EmEdicao) =>
+      atualizarFn({
+        data: {
+          ...(e.usuarioId ? { usuarioId: e.usuarioId } : {}),
+          ...(e.vendedorId ? { vendedorId: e.vendedorId } : {}),
+          nome: e.nome,
+          email: e.email.trim(),
+          whatsapp: e.whatsapp,
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Dados atualizados.");
+      setEditando(null);
+      recarregar();
+    },
+    onError: (err: Error) => toast.error(mensagemErro(err)),
   });
 
   const remover = useMutation({
@@ -266,6 +299,26 @@ function UsuariosPage() {
                 <Badge variant={semAcesso ? "destructive" : l.admin ? "default" : "secondary"}>
                   {semAcesso ? "Sem acesso" : l.admin ? "Administrador" : "Vendedor"}
                 </Badge>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-xl"
+                  onClick={() =>
+                    setEditando({
+                      ...(l.usuarioId ? { usuarioId: l.usuarioId } : {}),
+                      ...(v ? { vendedorId: v.id } : {}),
+                      usuario: l.usuario,
+                      ehVendedor: !!v,
+                      nome: l.nome,
+                      email: l.emailContato,
+                      whatsapp: v?.whatsapp ?? "",
+                    })
+                  }
+                >
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Editar
+                </Button>
 
                 {semAcesso && v ? (
                   <Button
@@ -454,6 +507,83 @@ function UsuariosPage() {
               disabled={criar.isPending || !!erroUsuario}
             >
               {criar.isPending ? "Criando..." : "Criar acesso"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Editar — o usuário fica visível mas travado: é o login */}
+      <Dialog open={!!editando} onOpenChange={(a) => !a && setEditando(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar {editando?.nome}</DialogTitle>
+            <DialogDescription>
+              O usuário não muda — é com ele que a pessoa entra no sistema.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form
+            id="form-editar"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (editando) salvarEdicao.mutate(editando);
+            }}
+          >
+            <Secao icone={UserRound} titulo="Identificação">
+              <div className="grid gap-3">
+                <Campo id="edit-usuario" rotulo="Usuário (não editável)">
+                  <Input
+                    id="edit-usuario"
+                    value={editando?.usuario ?? ""}
+                    placeholder="ainda sem acesso"
+                    readOnly
+                    disabled
+                    className="h-11 rounded-xl font-mono"
+                  />
+                </Campo>
+                <Campo id="edit-nome" rotulo="Nome">
+                  <Input
+                    id="edit-nome"
+                    value={editando?.nome ?? ""}
+                    onChange={(e) => setEditando((v) => (v ? { ...v, nome: e.target.value } : v))}
+                    required
+                    minLength={2}
+                    className="h-11 rounded-xl"
+                  />
+                </Campo>
+                <Campo id="edit-email" rotulo="E-mail (opcional)">
+                  <Input
+                    id="edit-email"
+                    type="email"
+                    value={editando?.email ?? ""}
+                    onChange={(e) => setEditando((v) => (v ? { ...v, email: e.target.value } : v))}
+                    placeholder="Só para contato"
+                    className="h-11 rounded-xl"
+                  />
+                </Campo>
+                {editando?.ehVendedor && (
+                  <Campo id="edit-whatsapp" rotulo="WhatsApp (com DDD)">
+                    <Input
+                      id="edit-whatsapp"
+                      value={editando.whatsapp}
+                      onChange={(e) =>
+                        setEditando((v) => (v ? { ...v, whatsapp: e.target.value } : v))
+                      }
+                      required
+                      className="h-11 rounded-xl"
+                    />
+                  </Campo>
+                )}
+              </div>
+            </Secao>
+          </form>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setEditando(null)}>
+              Cancelar
+            </Button>
+            <Button type="submit" form="form-editar" disabled={salvarEdicao.isPending}>
+              {salvarEdicao.isPending ? "Salvando..." : "Salvar"}
             </Button>
           </DialogFooter>
         </DialogContent>

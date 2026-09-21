@@ -107,3 +107,13 @@ export function mensagemAcesso(opts: {
     opts.url,
   ].join("\n");
 }
+
+/**
+ * Marca no user_metadata que a senha atual foi gerada pelo sistema e trafegou por
+ * WhatsApp. Enquanto estiver ligada, o app exige a troca antes de liberar as telas.
+ */
+export const CHAVE_SENHA_PROVISORIA = "senha_provisoria";
+
+export function senhaEhProvisoria(metadata: unknown) {
+  return (metadata as Record<string, unknown> | null)?.[CHAVE_SENHA_PROVISORIA] === true;
+}

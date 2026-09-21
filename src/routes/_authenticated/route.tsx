@@ -9,6 +9,7 @@ import {
 import { useIsFetching, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import {
+  BookOpen,
   Boxes,
   LayoutDashboard,
   Link2,
@@ -23,6 +24,7 @@ import {
 
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { senhaEhProvisoria } from "@/lib/acessos";
 import logoBranco from "@/assets/gruponorte-branco.png";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -52,6 +54,9 @@ export const Route = createFileRoute("/_authenticated")({
     const { data } = await supabase.auth.getSession();
     const user = data.session?.user;
     if (!user) throw redirect({ to: "/auth" });
+
+    // Senha gerada pelo sistema trafegou por WhatsApp: nenhuma tela abre antes da troca.
+    if (senhaEhProvisoria(user.user_metadata)) throw redirect({ to: "/definir-senha" });
 
     // Papel nao muda no meio da sessao. Cacheado no queryClient, que o logout ja
     // limpa. Se um admin for rebaixado, a UI so acompanha no proximo login — a
@@ -83,6 +88,7 @@ const MENU_ADMIN: Grupo[] = [
       { to: "/admin", label: "Visão geral", icon: LayoutDashboard, exact: true },
       { to: "/admin/distribuidoras", label: "Distribuidoras", icon: Boxes },
       { to: "/admin/produtos", label: "Produtos", icon: Package },
+      { to: "/admin/catalogo", label: "Catálogos", icon: BookOpen },
     ],
   },
   { titulo: "Operação", itens: [{ to: "/admin/pedidos", label: "Pedidos", icon: ScrollText }] },
@@ -90,7 +96,13 @@ const MENU_ADMIN: Grupo[] = [
 ];
 
 const MENU_VENDEDOR: Grupo[] = [
-  { titulo: "Vendas", itens: [{ to: "/vendedor", label: "Meus links", icon: Link2 }] },
+  {
+    titulo: "Vendas",
+    itens: [
+      { to: "/vendedor", label: "Meus links", icon: Link2 },
+      { to: "/meus-pedidos", label: "Pedidos", icon: ScrollText },
+    ],
+  },
 ];
 
 function useTemaEscuro() {

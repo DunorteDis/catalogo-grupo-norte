@@ -1,28 +1,44 @@
-# Seu Catálogo Fácil
+# Catálogo Grupo Norte
 
-Preciso de um sistema que será um catalogo de produtos , esse catalogo será acessado pelo cliente e ele podera buscar / selecionar os produtos desejados e a quantidade desejada formando um lista de pedidos ao concluir ele devera poder clicar em concluir pedido aonde ele eviara para um whatsapp a lista com os produtos desejados.
+Catálogo de produtos por distribuidora. O vendedor envia ao cliente um link próprio;
+o cliente escolhe os itens e conclui o pedido, que chega pronto no WhatsApp do vendedor.
 
-regras: o catalogo deverar ser dinamico por distribuidora. ou seja o vendedor ira enviar o link via whatsapp para o cliente já com os produtos da distribuidora que ele quer que apareça. e ao concluir o envio por whatsapp deve retornar para o numero desse vendedor que enviou o link.
+## Stack
 
-This project was built with [Lovable](https://lovable.dev).
+TanStack Start (React 19) · Vite · Tailwind v4 · shadcn/ui · Supabase (Postgres + Auth)
 
-**Live app**: https://shop-share-whatapp.lovable.app
-
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/9afd2abf-6415-4732-bace-db16ef8a4379).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+## Desenvolvimento
 
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+bun install
+bun run dev      # http://localhost:8080
+bun test         # testes dos helpers de acesso
+bun run build    # gera .output (preset cloudflare-module)
 ```
+
+## Variáveis de ambiente
+
+Crie um `.env` na raiz — ele **não** vai para o Git:
+
+```
+VITE_SUPABASE_URL=https://<projeto>.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=<chave publicavel>
+SUPABASE_URL=https://<projeto>.supabase.co
+SUPABASE_PUBLISHABLE_KEY=<chave publicavel>
+SUPABASE_SERVICE_ROLE_KEY=<chave service_role>
+```
+
+A `SUPABASE_SERVICE_ROLE_KEY` ignora todo o RLS e é usada só nas server functions
+(`src/lib/*.functions.ts`). Nunca a exponha no cliente nem a versione.
+
+## Banco
+
+O schema vive em `supabase/migrations/`. Aplique com o Supabase CLI:
+
+```sh
+supabase link --project-ref <ref>
+supabase db push
+```
+
+Depois, no painel do projeto, confirme: cadastro aberto desativado e tamanho
+mínimo de senha em 6.

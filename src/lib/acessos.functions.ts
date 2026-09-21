@@ -55,6 +55,8 @@ async function criarConta(
       user_metadata: {
         nome: opts.nome.trim(),
         usuario,
+        // a senha foi ditada/colada no WhatsApp: vale só ate o primeiro acesso
+        senha_provisoria: true,
         ...(opts.emailContato ? { email_contato: opts.emailContato } : {}),
       },
     });
@@ -232,6 +234,8 @@ export const resetarSenha = createServerFn({ method: "POST" })
     const senha = gerarSenha();
     const { error } = await supabaseAdmin.auth.admin.updateUserById(data.usuarioId, {
       password: senha,
+      // volta a ser provisoria: o admin viu essa senha e ela passou pelo WhatsApp
+      user_metadata: { senha_provisoria: true },
     });
     if (error) throw new Error("Não foi possível resetar a senha.");
 
@@ -278,5 +282,57 @@ export const excluirAcesso = createServerFn({ method: "POST" })
     if (!data.usuarioId) throw new Error("Nada para excluir.");
     const { error } = await supabaseAdmin.auth.admin.deleteUser(data.usuarioId);
     if (error) throw new Error("Não foi possível excluir o usuário.");
+    return { ok: true };
+  });
+
+/**
+ * Edita nome, e-mail de contato e WhatsApp. O `usuario` fica de fora de propósito:
+ * é o login, e trocá-lo derrubaria o acesso de quem já recebeu a senha. O `slug`
+ * do vendedor também não muda — ele está em links de catálogo já enviados a clientes.
+ */
+export const atualizarAcesso = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        usuarioId: z.string().uuid().optional(),
+        vendedorId: z.string().uuid().optional(),
+        nome: z.string().min(2, "Informe o nome."),
+        email: z.string().email("E-mail inválido.").optional().or(z.literal("")),
+        whatsapp: z.string().optional().or(z.literal("")),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await garantirAdmin(context as any);
+    if (!data.usuarioId && !data.vendedorId) throw new Error("Nada para editar.");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const nome = data.nome.trim();
+
+    if (data.usuarioId) {
+      // O servidor faz MERGE do user_metadata, não substituição. Duas consequências,
+      // ambas verificadas contra a API: `usuario` sobrevive sem precisar ser reenviado,
+      // e omitir uma chave NÃO a apaga — só mandar `null` apaga. Por isso o e-mail
+      // vazio vira null em vez de ser deixado de fora.
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(data.usuarioId, {
+        user_metadata: { nome, email_contato: data.email ? data.email.trim() : null },
+      });
+      if (error) throw new Error("Não foi possível salvar o usuário.");
+    }
+
+    if (data.vendedorId) {
+      const patch: { nome: string; whatsapp?: string } = { nome };
+      const tel = somenteDigitos(data.whatsapp ?? "");
+      if (tel) {
+        if (tel.length < 10) throw new Error("Informe o WhatsApp com DDD.");
+        patch.whatsapp = tel;
+      }
+      const { error } = await supabaseAdmin
+        .from("vendedores")
+        .update(patch)
+        .eq("id", data.vendedorId);
+      if (error) throw new Error("Não foi possível salvar o vendedor.");
+    }
+
     return { ok: true };
   });

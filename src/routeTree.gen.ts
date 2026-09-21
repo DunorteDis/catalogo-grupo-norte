@@ -12,9 +12,12 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as DefinirSenhaRouteImport } from './routes/definir-senha'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as AuthenticatedMeusPedidosRouteImport } from './routes/_authenticated/meus-pedidos'
 import { Route as AuthenticatedVendedorRouteImport } from './routes/_authenticated/vendedor'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
+import { Route as AuthenticatedAdminCatalogoRouteImport } from './routes/_authenticated/admin.catalogo'
 import { Route as AuthenticatedAdminDistribuidorasRouteImport } from './routes/_authenticated/admin.distribuidoras'
 import { Route as AuthenticatedAdminPedidosRouteImport } from './routes/_authenticated/admin.pedidos'
 import { Route as AuthenticatedAdminProdutosRouteImport } from './routes/_authenticated/admin.produtos'
@@ -36,11 +39,22 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DefinirSenhaRoute = DefinirSenhaRouteImport.update({
+  id: '/definir-senha',
+  path: '/definir-senha',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedMeusPedidosRoute =
+  AuthenticatedMeusPedidosRouteImport.update({
+    id: '/meus-pedidos',
+    path: '/meus-pedidos',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedVendedorRoute = AuthenticatedVendedorRouteImport.update({
   id: '/vendedor',
   path: '/vendedor',
@@ -51,6 +65,12 @@ const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
+const AuthenticatedAdminCatalogoRoute =
+  AuthenticatedAdminCatalogoRouteImport.update({
+    id: '/catalogo',
+    path: '/catalogo',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminDistribuidorasRoute =
   AuthenticatedAdminDistribuidorasRouteImport.update({
     id: '/distribuidoras',
@@ -89,8 +109,11 @@ const CSlugDistribuidoraRoute = CSlugDistribuidoraRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/definir-senha': typeof DefinirSenhaRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
+  '/meus-pedidos': typeof AuthenticatedMeusPedidosRoute
   '/vendedor': typeof AuthenticatedVendedorRoute
+  '/admin/catalogo': typeof AuthenticatedAdminCatalogoRoute
   '/admin/distribuidoras': typeof AuthenticatedAdminDistribuidorasRoute
   '/admin/pedidos': typeof AuthenticatedAdminPedidosRoute
   '/admin/produtos': typeof AuthenticatedAdminProdutosRoute
@@ -102,7 +125,10 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/definir-senha': typeof DefinirSenhaRoute
+  '/meus-pedidos': typeof AuthenticatedMeusPedidosRoute
   '/vendedor': typeof AuthenticatedVendedorRoute
+  '/admin/catalogo': typeof AuthenticatedAdminCatalogoRoute
   '/admin/distribuidoras': typeof AuthenticatedAdminDistribuidorasRoute
   '/admin/pedidos': typeof AuthenticatedAdminPedidosRoute
   '/admin/produtos': typeof AuthenticatedAdminProdutosRoute
@@ -116,8 +142,11 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/definir-senha': typeof DefinirSenhaRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
+  '/_authenticated/meus-pedidos': typeof AuthenticatedMeusPedidosRoute
   '/_authenticated/vendedor': typeof AuthenticatedVendedorRoute
+  '/_authenticated/admin/catalogo': typeof AuthenticatedAdminCatalogoRoute
   '/_authenticated/admin/distribuidoras': typeof AuthenticatedAdminDistribuidorasRoute
   '/_authenticated/admin/pedidos': typeof AuthenticatedAdminPedidosRoute
   '/_authenticated/admin/produtos': typeof AuthenticatedAdminProdutosRoute
@@ -131,8 +160,11 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/definir-senha'
     | '/admin'
+    | '/meus-pedidos'
     | '/vendedor'
+    | '/admin/catalogo'
     | '/admin/distribuidoras'
     | '/admin/pedidos'
     | '/admin/produtos'
@@ -144,7 +176,10 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/definir-senha'
+    | '/meus-pedidos'
     | '/vendedor'
+    | '/admin/catalogo'
     | '/admin/distribuidoras'
     | '/admin/pedidos'
     | '/admin/produtos'
@@ -157,8 +192,11 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/definir-senha'
     | '/_authenticated/admin'
+    | '/_authenticated/meus-pedidos'
     | '/_authenticated/vendedor'
+    | '/_authenticated/admin/catalogo'
     | '/_authenticated/admin/distribuidoras'
     | '/_authenticated/admin/pedidos'
     | '/_authenticated/admin/produtos'
@@ -172,6 +210,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  DefinirSenhaRoute: typeof DefinirSenhaRoute
   CSlugDistribuidoraRoute: typeof CSlugDistribuidoraRoute
   CSlugIndexRoute: typeof CSlugIndexRoute
 }
@@ -199,11 +238,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/definir-senha': {
+      id: '/definir-senha'
+      path: '/definir-senha'
+      fullPath: '/definir-senha'
+      preLoaderRoute: typeof DefinirSenhaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/admin': {
       id: '/_authenticated/admin'
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/meus-pedidos': {
+      id: '/_authenticated/meus-pedidos'
+      path: '/meus-pedidos'
+      fullPath: '/meus-pedidos'
+      preLoaderRoute: typeof AuthenticatedMeusPedidosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/vendedor': {
@@ -218,6 +271,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/admin/'
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/catalogo': {
+      id: '/_authenticated/admin/catalogo'
+      path: '/catalogo'
+      fullPath: '/admin/catalogo'
+      preLoaderRoute: typeof AuthenticatedAdminCatalogoRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/distribuidoras': {
@@ -266,6 +326,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedAdminRouteChildren {
+  AuthenticatedAdminCatalogoRoute: typeof AuthenticatedAdminCatalogoRoute
   AuthenticatedAdminDistribuidorasRoute: typeof AuthenticatedAdminDistribuidorasRoute
   AuthenticatedAdminPedidosRoute: typeof AuthenticatedAdminPedidosRoute
   AuthenticatedAdminProdutosRoute: typeof AuthenticatedAdminProdutosRoute
@@ -274,6 +335,7 @@ interface AuthenticatedAdminRouteChildren {
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
+  AuthenticatedAdminCatalogoRoute: AuthenticatedAdminCatalogoRoute,
   AuthenticatedAdminDistribuidorasRoute: AuthenticatedAdminDistribuidorasRoute,
   AuthenticatedAdminPedidosRoute: AuthenticatedAdminPedidosRoute,
   AuthenticatedAdminProdutosRoute: AuthenticatedAdminProdutosRoute,
@@ -286,11 +348,13 @@ const AuthenticatedAdminRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
+  AuthenticatedMeusPedidosRoute: typeof AuthenticatedMeusPedidosRoute
   AuthenticatedVendedorRoute: typeof AuthenticatedVendedorRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
+  AuthenticatedMeusPedidosRoute: AuthenticatedMeusPedidosRoute,
   AuthenticatedVendedorRoute: AuthenticatedVendedorRoute,
 }
 
@@ -301,6 +365,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  DefinirSenhaRoute: DefinirSenhaRoute,
   CSlugDistribuidoraRoute: CSlugDistribuidoraRoute,
   CSlugIndexRoute: CSlugIndexRoute,
 }

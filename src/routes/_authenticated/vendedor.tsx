@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { LOGOS } from "@/lib/logos";
+import { useMeuVendedor } from "@/hooks/use-meu-vendedor";
 
 export const Route = createFileRoute("/_authenticated/vendedor")({
   component: PainelVendedor,
@@ -16,18 +17,7 @@ function PainelVendedor() {
   // ida a rede so para descobrir o id que o shell ja tinha.
   const { user } = Route.useRouteContext();
 
-  const vendedorQuery = useQuery({
-    queryKey: ["meu-vendedor", user.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("vendedores")
-        .select("id, nome, slug, whatsapp")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-  });
+  const vendedorQuery = useMeuVendedor(user.id);
 
   const distribuidorasQuery = useQuery({
     queryKey: ["distribuidoras-publicas"],
