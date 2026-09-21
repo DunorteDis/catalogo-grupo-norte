@@ -218,31 +218,34 @@ export type Database = {
         Row: {
           ativo: boolean
           created_at: string
-          distribuidora_id: string
+          distribuidora_id: string | null
           id: string
           nome: string
           slug: string
           updated_at: string
+          user_id: string | null
           whatsapp: string
         }
         Insert: {
           ativo?: boolean
           created_at?: string
-          distribuidora_id: string
+          distribuidora_id?: string | null
           id?: string
           nome: string
           slug: string
           updated_at?: string
+          user_id?: string | null
           whatsapp: string
         }
         Update: {
           ativo?: boolean
           created_at?: string
-          distribuidora_id?: string
+          distribuidora_id?: string | null
           id?: string
           nome?: string
           slug?: string
           updated_at?: string
+          user_id?: string | null
           whatsapp?: string
         }
         Relationships: [
@@ -269,7 +272,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin"
+      app_role: "admin" | "vendedor"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -397,7 +400,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin"],
+      app_role: ["admin", "vendedor"],
     },
   },
 } as const
