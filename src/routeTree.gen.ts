@@ -20,6 +20,7 @@ import { Route as AuthenticatedAdminPedidosRouteImport } from './routes/_authent
 import { Route as AuthenticatedAdminProdutosRouteImport } from './routes/_authenticated/admin.produtos'
 import { Route as AuthenticatedAdminUsuariosRouteImport } from './routes/_authenticated/admin.usuarios'
 import { Route as AuthenticatedAdminVendedoresRouteImport } from './routes/_authenticated/admin.vendedores'
+import { Route as CSlugDistribuidoraRouteImport } from './routes/c.$slug.$distribuidora'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -80,28 +81,35 @@ const AuthenticatedAdminVendedoresRoute =
     path: '/vendedores',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const CSlugDistribuidoraRoute = CSlugDistribuidoraRouteImport.update({
+  id: '/$distribuidora',
+  path: '/$distribuidora',
+  getParentRoute: () => CSlugRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
-  '/c/$slug': typeof CSlugRoute
+  '/c/$slug': typeof CSlugRouteWithChildren
   '/admin/distribuidoras': typeof AuthenticatedAdminDistribuidorasRoute
   '/admin/pedidos': typeof AuthenticatedAdminPedidosRoute
   '/admin/produtos': typeof AuthenticatedAdminProdutosRoute
   '/admin/usuarios': typeof AuthenticatedAdminUsuariosRoute
   '/admin/vendedores': typeof AuthenticatedAdminVendedoresRoute
+  '/c/$slug/$distribuidora': typeof CSlugDistribuidoraRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/c/$slug': typeof CSlugRoute
+  '/c/$slug': typeof CSlugRouteWithChildren
   '/admin/distribuidoras': typeof AuthenticatedAdminDistribuidorasRoute
   '/admin/pedidos': typeof AuthenticatedAdminPedidosRoute
   '/admin/produtos': typeof AuthenticatedAdminProdutosRoute
   '/admin/usuarios': typeof AuthenticatedAdminUsuariosRoute
   '/admin/vendedores': typeof AuthenticatedAdminVendedoresRoute
+  '/c/$slug/$distribuidora': typeof CSlugDistribuidoraRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesById {
@@ -110,12 +118,13 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
-  '/c/$slug': typeof CSlugRoute
+  '/c/$slug': typeof CSlugRouteWithChildren
   '/_authenticated/admin/distribuidoras': typeof AuthenticatedAdminDistribuidorasRoute
   '/_authenticated/admin/pedidos': typeof AuthenticatedAdminPedidosRoute
   '/_authenticated/admin/produtos': typeof AuthenticatedAdminProdutosRoute
   '/_authenticated/admin/usuarios': typeof AuthenticatedAdminUsuariosRoute
   '/_authenticated/admin/vendedores': typeof AuthenticatedAdminVendedoresRoute
+  '/c/$slug/$distribuidora': typeof CSlugDistribuidoraRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -130,6 +139,7 @@ export interface FileRouteTypes {
     | '/admin/produtos'
     | '/admin/usuarios'
     | '/admin/vendedores'
+    | '/c/$slug/$distribuidora'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -141,6 +151,7 @@ export interface FileRouteTypes {
     | '/admin/produtos'
     | '/admin/usuarios'
     | '/admin/vendedores'
+    | '/c/$slug/$distribuidora'
     | '/admin'
   id:
     | '__root__'
@@ -154,6 +165,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/produtos'
     | '/_authenticated/admin/usuarios'
     | '/_authenticated/admin/vendedores'
+    | '/c/$slug/$distribuidora'
     | '/_authenticated/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -161,7 +173,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
-  CSlugRoute: typeof CSlugRoute
+  CSlugRoute: typeof CSlugRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -243,6 +255,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminVendedoresRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/c/$slug/$distribuidora': {
+      id: '/c/$slug/$distribuidora'
+      path: '/$distribuidora'
+      fullPath: '/c/$slug/$distribuidora'
+      preLoaderRoute: typeof CSlugDistribuidoraRouteImport
+      parentRoute: typeof CSlugRoute
+    }
   }
 }
 
@@ -278,11 +297,21 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface CSlugRouteChildren {
+  CSlugDistribuidoraRoute: typeof CSlugDistribuidoraRoute
+}
+
+const CSlugRouteChildren: CSlugRouteChildren = {
+  CSlugDistribuidoraRoute: CSlugDistribuidoraRoute,
+}
+
+const CSlugRouteWithChildren = CSlugRoute._addFileChildren(CSlugRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
-  CSlugRoute: CSlugRoute,
+  CSlugRoute: CSlugRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
