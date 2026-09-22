@@ -455,21 +455,35 @@ function CatalogoPage() {
           `Cole no máximo ${MAX_CODIGOS_COLADOS} códigos por vez — vieram ${codigos.length}.`,
         );
       const achados = new Map<string, string>();
+      let repetidos = 0;
       for (let i = 0; i < codigos.length; i += LOTE_BUSCA) {
         const { data, error } = await supabase
           .from("produtos")
-          .select("id, codigo")
-          .in("codigo", codigos.slice(i, i + LOTE_BUSCA));
+          .select("id, codigo, created_at")
+          .in("codigo", codigos.slice(i, i + LOTE_BUSCA))
+          .order("created_at");
         if (error) throw error;
-        (data ?? []).forEach((p) => achados.set(p.codigo, p.id));
+        // O cadastro espelha o ERP linha a linha, então o mesmo código pode ter
+        // mais de um registro. Colar 100 códigos tem que dar 100 produtos: fica
+        // o cadastro mais antigo, que é o que o ERP tem como versão atual.
+        (data ?? []).forEach((p) => {
+          if (achados.has(p.codigo)) repetidos++;
+          else achados.set(p.codigo, p.id);
+        });
       }
       await vincular(catalogoId, [...achados.values()], secaoId || null);
-      return { total: achados.size, faltando: codigos.filter((c) => !achados.has(c)) };
+      return {
+        total: achados.size,
+        repetidos,
+        faltando: codigos.filter((c) => !achados.has(c)),
+      };
     },
-    onSuccess: ({ total, faltando }) => {
+    onSuccess: ({ total, repetidos, faltando }) => {
       toast.success(
         `${total} ${total === 1 ? "produto vinculado" : "produtos vinculados"}` +
-          (faltando.length ? ` · ${faltando.length} sem cadastro.` : "."),
+          (faltando.length ? ` · ${faltando.length} sem cadastro` : "") +
+          (repetidos ? ` · ${repetidos} cadastro(s) repetido(s) ignorado(s)` : "") +
+          ".",
       );
       setNaoEncontrados(faltando);
       setTextoCodigos("");

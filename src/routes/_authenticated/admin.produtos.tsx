@@ -42,6 +42,7 @@ type Produto = {
   nome: string;
   arquivo: string | null;
   ativo: boolean;
+  cod_empresa: number | null;
 };
 
 function ProdutosPage() {
@@ -71,7 +72,7 @@ function ProdutosPage() {
     queryFn: async () => {
       let q = supabase
         .from("produtos")
-        .select("id, codigo, nome, arquivo, ativo", { count: "exact" })
+        .select("id, codigo, nome, arquivo, ativo, cod_empresa", { count: "exact" })
         .order("nome")
         .range(pagina * PAGE, pagina * PAGE + PAGE - 1);
       for (const filtro of filtrosBusca(termo)) q = q.or(filtro);
@@ -173,7 +174,12 @@ function ProdutosPage() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold">{p.nome}</p>
-              <p className="text-xs text-muted-foreground">Cód. {p.codigo}</p>
+              <p className="text-xs text-muted-foreground">
+                Cód. {p.codigo}
+                {/* O cadastro espelha o ERP, onde o mesmo código aparece mais de
+                    uma vez: a empresa é o que separa boa parte das repetições. */}
+                {p.cod_empresa != null && ` · Empresa ${p.cod_empresa}`}
+              </p>
             </div>
             <Switch
               checked={!!p.ativo}

@@ -12,3 +12,4 @@
 - [x] Catálogo personalizado: seleção sem distribuidora, montada por busca, códigos colados ou cópia de outro catálogo, publicada como link extra do vendedor
 - [x] Seções dentro do catálogo: abas que o admin cria, ordena e usa como destino do que adicionar; o cliente troca de aba na barra grudenta do catálogo
 - [x] Cadastro de produto pelo painel (código, nome, foto por arquivo ou link, com prévia) e exclusão com aviso de que sai de todos os catálogos
+- [x] Cadastro de produtos espelha o export do ERP linha a linha (7.248 linhas, sem UNIQUE em codigo, com cod_empresa); colar códigos vincula um cadastro por EAN

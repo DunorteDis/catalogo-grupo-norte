@@ -215,6 +215,7 @@ export type Database = {
         Row: {
           arquivo: string | null
           ativo: boolean
+          cod_empresa: number | null
           codigo: string
           created_at: string
           id: string
@@ -224,6 +225,7 @@ export type Database = {
         Insert: {
           arquivo?: string | null
           ativo?: boolean
+          cod_empresa?: number | null
           codigo: string
           created_at?: string
           id?: string
@@ -233,6 +235,7 @@ export type Database = {
         Update: {
           arquivo?: string | null
           ativo?: boolean
+          cod_empresa?: number | null
           codigo?: string
           created_at?: string
           id?: string
