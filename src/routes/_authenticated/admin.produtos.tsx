@@ -74,7 +74,10 @@ function ProdutosPage() {
       let q = supabase
         .from("produtos")
         .select("id, codigo, nome, arquivo, ativo, cod_empresa", { count: "exact" })
+        // O ERP repete nome: sem desempate a mesma linha aparece em duas páginas,
+        // e excluir a "duplicada" apaga a única que existe.
         .order("nome")
+        .order("id")
         .range(pagina * PAGE, pagina * PAGE + PAGE - 1);
       for (const filtro of filtrosBusca(termo)) q = q.or(filtro);
       const { data, error, count } = await q;

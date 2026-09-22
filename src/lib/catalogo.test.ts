@@ -1,7 +1,7 @@
 // Roda com: bun test
 import { expect, test } from "bun:test";
 
-import { filtrosBusca, fotoUrl, parseCodigos, slugify } from "./catalogo";
+import { filtrosBusca, fotoUrl, parseCodigos, slugify, umCadastroPorCodigo } from "./catalogo";
 
 test("fotoUrl completa o nome de arquivo do ERP e respeita link colado", () => {
   expect(fotoUrl("7891234567890.jpeg")).toBe(
@@ -67,6 +67,24 @@ test("filtrosBusca ignora repetição, espaço sobrando e excesso de palavras", 
   expect(filtrosBusca("a b c d e f g h")).toHaveLength(6);
   expect(filtrosBusca("")).toEqual([]);
   expect(filtrosBusca("   ")).toEqual([]);
+});
+
+test("umCadastroPorCodigo prefere a linha que já está no catálogo, senão a primeira", () => {
+  // Mesmo EAN em duas linhas do ERP: a que já está no catálogo ganha mesmo vindo
+  // depois — colar de novo não pode pôr um segundo card do mesmo produto.
+  const { achados, repetidos } = umCadastroPorCodigo([
+    { id: "antiga", codigo: "789", noCatalogo: false },
+    { id: "ligada", codigo: "789", noCatalogo: true },
+    { id: "unica", codigo: "123", noCatalogo: false },
+    { id: "primeira", codigo: "456", noCatalogo: false },
+    { id: "segunda", codigo: "456", noCatalogo: false },
+  ]);
+  expect(Object.fromEntries(achados)).toEqual({
+    "789": "ligada",
+    "123": "unica",
+    "456": "primeira",
+  });
+  expect(repetidos).toBe(2);
 });
 
 test("slugify gera o pedaço do link do catálogo", () => {

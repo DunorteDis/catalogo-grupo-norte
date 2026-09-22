@@ -17,7 +17,14 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { mensagemErro } from "@/lib/erros";
-import { filtrosBusca, fotoUrl, MAX_CODIGOS_COLADOS, parseCodigos, slugify } from "@/lib/catalogo";
+import {
+  filtrosBusca,
+  fotoUrl,
+  MAX_CODIGOS_COLADOS,
+  parseCodigos,
+  slugify,
+  umCadastroPorCodigo,
+} from "@/lib/catalogo";
 import { MarcaCatalogo } from "@/components/marca-catalogo";
 import {
   AlertDialog,
@@ -235,7 +242,10 @@ function CatalogoPage() {
         .from("distribuidora_produtos")
         .select("secao_id, produtos!inner(id, codigo, nome, arquivo)", { count: "exact" })
         .eq("distribuidora_id", catalogoId)
-        .order("nome", { referencedTable: "produtos" })
+        // `referencedTable` só ordenaria dentro do embed, e a lista vinha na ordem
+        // física. O id desempata nome repetido, senão a paginação repete e perde item.
+        .order("produtos(nome)")
+        .order("id")
         .range(pagina * PAGINA, pagina * PAGINA + PAGINA - 1);
       if (secaoId) q = q.eq("secao_id", secaoId);
       for (const condicao of filtrosBusca(termo)) {
@@ -261,7 +271,9 @@ function CatalogoPage() {
       let q = supabase
         .from("produtos")
         .select("id, codigo, nome, arquivo", { count: "exact" })
+        // O ERP repete nome: sem desempate a mesma linha aparece em duas páginas.
         .order("nome")
+        .order("id")
         .range(paginaAdd * PAGINA, paginaAdd * PAGINA + PAGINA - 1);
       for (const condicao of filtrosBusca(termoAdd)) {
         q = q.or(condicao);
@@ -272,32 +284,25 @@ function CatalogoPage() {
     },
   });
 
-  const codigosVisiveisNoModal = (cadastroQuery.data?.linhas ?? []).map((p) => p.codigo);
+  const idsVisiveisNoModal = (cadastroQuery.data?.linhas ?? []).map((p) => p.id);
 
   /**
-   * O que o catálogo já tem, olhando por CÓDIGO e não por cadastro. O cadastro
-   * espelha o ERP, onde o mesmo EAN aparece em mais de uma linha; somar as duas
-   * poria dois cards iguais na frente do cliente. Guarda também qual cadastro
-   * está ligado, para "Mover para cá" mexer nesse vínculo em vez de criar outro.
+   * Em que seção cada linha do cadastro já está, para o modal saber se oferece
+   * "Adicionar", "Mover para cá" ou só avisar que ela já está nesta seção. Vai
+   * pelo id da linha, nunca pelo EAN: o ERP repete código, e olhar por ele
+   * amarrava as linhas — adicionar uma marcava as duas, remover soltava as duas.
    */
   const jaNoCatalogoQuery = useQuery({
-    queryKey: ["catalogo-ja-tem", catalogoId, codigosVisiveisNoModal],
-    enabled: adicionarAberto && !!catalogoId && codigosVisiveisNoModal.length > 0,
+    queryKey: ["catalogo-ja-tem", catalogoId, idsVisiveisNoModal],
+    enabled: adicionarAberto && !!catalogoId && idsVisiveisNoModal.length > 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("distribuidora_produtos")
-        .select("produto_id, secao_id, produtos!inner(codigo)")
+        .select("produto_id, secao_id")
         .eq("distribuidora_id", catalogoId)
-        .in("produtos.codigo", codigosVisiveisNoModal);
+        .in("produto_id", idsVisiveisNoModal);
       if (error) throw error;
-      const porCodigo = new Map<string, { produtoId: string; secaoId: string | null }>();
-      for (const v of data ?? []) {
-        const codigo = (v.produtos as unknown as { codigo: string }).codigo;
-        if (!porCodigo.has(codigo)) {
-          porCodigo.set(codigo, { produtoId: v.produto_id, secaoId: v.secao_id });
-        }
-      }
-      return porCodigo;
+      return new Map((data ?? []).map((v) => [v.produto_id, v.secao_id]));
     },
   });
 
@@ -344,11 +349,8 @@ function CatalogoPage() {
    */
   async function todosOsIds(dentroDoCatalogo: boolean, filtro: string) {
     const ids: string[] = [];
-    // Um EAN tem mais de um cadastro (o banco espelha o ERP); fica o primeiro,
-    // senão "Adicionar os N" enche o catálogo de card repetido.
-    const codigosJaPegos = new Set<string>();
     for (let de = 0; ; de += 1000) {
-      let lote: Array<{ produto_id?: string; id?: string; codigo?: string }>;
+      let lote: Array<{ produto_id?: string; id?: string }>;
       if (dentroDoCatalogo) {
         let q = supabase
           .from("distribuidora_produtos")
@@ -366,8 +368,10 @@ function CatalogoPage() {
       } else {
         let q = supabase
           .from("produtos")
-          .select("id, codigo")
-          .order("created_at")
+          .select("id")
+          // Ordem total: com empate a mesma linha cai em dois lotes, e o upsert
+          // recusa o lote que tenta gravar o mesmo vínculo duas vezes.
+          .order("id")
           .range(de, de + 999);
         for (const condicao of filtrosBusca(filtro)) {
           q = q.or(condicao);
@@ -376,15 +380,7 @@ function CatalogoPage() {
         if (error) throw error;
         lote = data ?? [];
       }
-      for (const x of lote) {
-        if (dentroDoCatalogo) {
-          ids.push(x.produto_id!);
-          continue;
-        }
-        if (codigosJaPegos.has(x.codigo!)) continue;
-        codigosJaPegos.add(x.codigo!);
-        ids.push(x.id!);
-      }
+      ids.push(...lote.map((x) => (dentroDoCatalogo ? x.produto_id! : x.id!)));
       if (lote.length < 1000) break;
     }
     return ids;
@@ -476,23 +472,26 @@ function CatalogoPage() {
         throw new Error(
           `Cole no máximo ${MAX_CODIGOS_COLADOS} códigos por vez — vieram ${codigos.length}.`,
         );
-      const achados = new Map<string, string>();
-      let repetidos = 0;
+      const linhas: Array<{ id: string; codigo: string; noCatalogo: boolean }> = [];
       for (let i = 0; i < codigos.length; i += LOTE_BUSCA) {
+        // O embed vem filtrado para este catálogo: vazio quando a linha não está nele.
         const { data, error } = await supabase
           .from("produtos")
-          .select("id, codigo, created_at")
+          .select("id, codigo, distribuidora_produtos(distribuidora_id)")
           .in("codigo", codigos.slice(i, i + LOTE_BUSCA))
+          .eq("distribuidora_produtos.distribuidora_id", catalogoId)
           .order("created_at");
         if (error) throw error;
-        // O cadastro espelha o ERP linha a linha, então o mesmo código pode ter
-        // mais de um registro. Colar 100 códigos tem que dar 100 produtos: fica
-        // o cadastro mais antigo, que é o que o ERP tem como versão atual.
-        (data ?? []).forEach((p) => {
-          if (achados.has(p.codigo)) repetidos++;
-          else achados.set(p.codigo, p.id);
-        });
+        for (const p of data ?? []) {
+          linhas.push({
+            id: p.id,
+            codigo: p.codigo,
+            noCatalogo: p.distribuidora_produtos.length > 0,
+          });
+        }
       }
+      // Colar 100 códigos tem que dar 100 produtos, mesmo com EAN repetido no ERP.
+      const { achados, repetidos } = umCadastroPorCodigo(linhas);
       await vincular(catalogoId, [...achados.values()], secaoId || null);
       return {
         total: achados.size,
@@ -1213,11 +1212,11 @@ function CatalogoPage() {
 
           <ul className="max-h-[50vh] divide-y overflow-y-auto rounded-xl border">
             {(cadastroQuery.data?.linhas ?? []).map((p) => {
-              const ligado = jaNoCatalogoQuery.data?.get(p.codigo);
-              const jaTem = !!ligado;
+              const jaTem = jaNoCatalogoQuery.data?.has(p.id) ?? false;
+              const secaoDele = jaNoCatalogoQuery.data?.get(p.id) ?? null;
               // Sem seção aberta, produto que já está no catálogo não tem ação:
               // adicionar de novo só serviria para tirá-lo da seção sem querer.
-              const parado = jaTem && (!secaoId || ligado.secaoId === secaoId);
+              const parado = jaTem && (!secaoId || secaoDele === secaoId);
               return (
                 <LinhaProduto
                   key={p.id}
@@ -1234,9 +1233,7 @@ function CatalogoPage() {
                         variant="outline"
                         className="rounded-xl"
                         disabled={ocupado || jaNoCatalogoQuery.isLoading}
-                        // Mover mexe no vínculo que já existe; adicionar o outro
-                        // cadastro do mesmo EAN criaria um card repetido.
-                        onClick={() => adicionar.mutate([ligado?.produtoId ?? p.id])}
+                        onClick={() => adicionar.mutate([p.id])}
                       >
                         <Plus className="mr-1.5 h-3.5 w-3.5" />
                         {jaTem ? "Mover para cá" : "Adicionar"}

@@ -190,6 +190,8 @@ function CatalogoPage() {
         .eq("distribuidora_produtos.distribuidora_id", distribuidora!.id)
         .eq("ativo", true)
         .order("nome", { ascending: true })
+        // O ERP repete nome: sem desempate a rolagem repete um card e perde outro.
+        .order("id")
         .range(pageParam * PAGE, pageParam * PAGE + PAGE - 1);
       if (secaoId) {
         q = q.eq("distribuidora_produtos.secao_id", secaoId);

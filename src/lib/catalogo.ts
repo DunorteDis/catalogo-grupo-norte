@@ -68,6 +68,23 @@ export function parseCodigos(texto: string) {
   return [...vistos];
 }
 
+/**
+ * Uma linha do cadastro por código colado. O banco espelha o ERP linha a linha,
+ * então o mesmo EAN pode ter mais de uma: fica a que já está no catálogo — senão
+ * colar de novo, para mudar de seção, poria um segundo card do mesmo produto —
+ * e, na falta dela, a primeira que veio (o chamador manda da mais antiga).
+ */
+export function umCadastroPorCodigo(
+  linhas: Array<{ id: string; codigo: string; noCatalogo: boolean }>,
+) {
+  const achados = new Map<string, string>();
+  // ponytail: sort é estável, então quem está no catálogo sobe e o resto mantém a ordem.
+  for (const l of [...linhas].sort((a, b) => Number(b.noCatalogo) - Number(a.noCatalogo))) {
+    if (!achados.has(l.codigo)) achados.set(l.codigo, l.id);
+  }
+  return { achados, repetidos: linhas.length - achados.size };
+}
+
 export type ItemCarrinho = {
   produto_id: string;
   codigo: string;
