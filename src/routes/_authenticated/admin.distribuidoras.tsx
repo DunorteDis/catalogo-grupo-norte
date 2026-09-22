@@ -19,7 +19,10 @@ function DistribuidorasPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("distribuidoras")
+        // Catálogo personalizado mora nesta mesma tabela, mas quem liga, desliga
+        // e exclui ele é a tela de Catálogos — aqui só distribuidora de verdade.
         .select("id, nome, slug, cor, ativo")
+        .eq("personalizado", false)
         .order("nome");
       if (error) throw error;
       return data;

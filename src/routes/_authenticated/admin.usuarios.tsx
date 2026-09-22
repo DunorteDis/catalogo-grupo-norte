@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { supabase } from "@/integrations/supabase/client";
+import { useCatalogosPublicos } from "@/hooks/use-catalogos-publicos";
 import { mensagemErro } from "@/lib/erros";
 import { mensagemAcesso, normalizarUsuario, usuarioDeNome, validarUsuario } from "@/lib/acessos";
 import { cn } from "@/lib/utils";
@@ -146,18 +146,9 @@ function UsuariosPage() {
     error: erroLista,
   } = useQuery({ queryKey: CHAVE, queryFn: () => listar() });
 
-  const { data: distribuidoras } = useQuery({
-    queryKey: ["admin-distribuidoras"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("distribuidoras")
-        .select("id, nome, slug")
-        .eq("ativo", true)
-        .order("nome");
-      if (error) throw error;
-      return data;
-    },
-  });
+  // Mesma lista (e mesmo cache) do painel do vendedor: distribuidoras e
+  // catálogos personalizados, para o admin copiar qualquer link.
+  const { data: catalogos } = useCatalogosPublicos();
 
   const criar = useMutation({
     mutationFn: async () =>
@@ -364,18 +355,18 @@ function UsuariosPage() {
                 </Button>
               </div>
 
-              {v && (distribuidoras ?? []).length > 0 && (
+              {v && (catalogos ?? []).length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2 border-t pt-3">
-                  {(distribuidoras ?? []).map((d) => (
+                  {(catalogos ?? []).map((c) => (
                     <Button
-                      key={d.id}
+                      key={c.id}
                       size="sm"
                       variant="secondary"
                       className="rounded-xl"
-                      onClick={() => copiarLink(v.slug, d.slug, d.nome)}
+                      onClick={() => copiarLink(v.slug, c.slug, c.nome)}
                     >
                       <Copy className="mr-2 h-3.5 w-3.5" />
-                      {d.nome}
+                      {c.emoji ? `${c.emoji} ${c.nome}` : c.nome}
                     </Button>
                   ))}
                 </div>

@@ -6,11 +6,18 @@ import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useVendedorPublico } from "@/hooks/use-vendedor-publico";
-import { LOGOS } from "@/lib/logos";
+import { MarcaCatalogo } from "@/components/marca-catalogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { fotoUrl, montarMensagem, whatsappNumero, type ItemCarrinho } from "@/lib/catalogo";
+import {
+  filtrosBusca,
+  fotoUrl,
+  montarMensagem,
+  whatsappNumero,
+  type ItemCarrinho,
+} from "@/lib/catalogo";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/c/$slug/$distribuidora")({
   head: () => ({
@@ -37,6 +44,65 @@ const PAGE = 24;
 
 type Produto = { id: string; codigo: string; nome: string; arquivo: string | null };
 
+/**
+ * Quantidade do item: dá para usar os botões − e + ou digitar direto. Quem pede
+ * 30 unidades não vai clicar trinta vezes.
+ */
+function InputQtd({ qtd, onQtd }: { qtd: number; onQtd: (n: number) => void }) {
+  const [texto, setTexto] = useState(String(qtd));
+
+  // Mantém o campo em dia quando a quantidade muda por fora (botões, carrinho).
+  useEffect(() => setTexto(String(qtd)), [qtd]);
+
+  return (
+    <input
+      value={texto}
+      inputMode="numeric"
+      aria-label="Quantidade"
+      className="w-12 border-0 bg-transparent p-0 text-center text-sm font-bold outline-none"
+      onFocus={(e) => e.currentTarget.select()}
+      onChange={(e) => {
+        const digitos = e.target.value.replace(/\D/g, "").slice(0, 4);
+        setTexto(digitos);
+        // Campo vazio ou zerado não tira o item na hora: senão ele some do meio
+        // da digitação. Quem confirma o zero é o blur, logo abaixo.
+        if (Number(digitos) > 0) onQtd(Number(digitos));
+      }}
+      onBlur={() => {
+        if (Number(texto) > 0) return;
+        onQtd(0);
+      }}
+    />
+  );
+}
+
+/** Aba de seção: pílula na cor do catálogo quando aberta. */
+function Aba({
+  ativa,
+  cor,
+  onClick,
+  children,
+}: {
+  ativa: boolean;
+  cor: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "shrink-0 rounded-full border px-4 py-1.5 text-sm font-bold transition",
+        ativa ? "text-white" : "bg-card text-muted-foreground hover:bg-muted",
+      )}
+      style={ativa ? { backgroundColor: cor, borderColor: cor } : undefined}
+    >
+      {children}
+    </button>
+  );
+}
+
 function CatalogoPage() {
   const { slug, distribuidora: distribuidoraSlug } = Route.useParams();
   const [busca, setBusca] = useState("");
@@ -46,11 +112,18 @@ function CatalogoPage() {
   const [cliente, setCliente] = useState("");
   const [observacao, setObservacao] = useState("");
   const [enviando, setEnviando] = useState(false);
+  // "" = aba Todos.
+  const [secaoId, setSecaoId] = useState("");
 
   useEffect(() => {
     const t = setTimeout(() => setTermo(busca.trim()), 350);
     return () => clearTimeout(t);
   }, [busca]);
+
+  // Quem busca quer achar: a busca varre o catálogo inteiro, não só a aba aberta.
+  useEffect(() => {
+    if (termo) setSecaoId("");
+  }, [termo]);
 
   const vendedorQuery = useVendedorPublico(slug);
 
@@ -59,7 +132,7 @@ function CatalogoPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("distribuidoras")
-        .select("id, nome, cor")
+        .select("id, nome, cor, emoji")
         .eq("slug", distribuidoraSlug)
         .eq("ativo", true)
         .maybeSingle();
@@ -70,6 +143,24 @@ function CatalogoPage() {
 
   const vendedor = vendedorQuery.data;
   const distribuidora = distribuidoraQuery.data;
+
+  // As abas do catálogo. Catálogo sem seção nenhuma não mostra barra de abas.
+  const secoesQuery = useQuery({
+    queryKey: ["catalogo-secoes-publicas", distribuidora?.id],
+    enabled: !!distribuidora?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("catalogo_secoes")
+        .select("id, nome")
+        .eq("distribuidora_id", distribuidora!.id)
+        .order("ordem")
+        .order("nome");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const secoes = secoesQuery.data ?? [];
 
   const storageKey = `pedido:${slug}:${distribuidoraSlug}`;
   useEffect(() => {
@@ -89,7 +180,7 @@ function CatalogoPage() {
   }, [carrinho, storageKey]);
 
   const produtosQuery = useInfiniteQuery({
-    queryKey: ["catalogo", distribuidora?.id, termo],
+    queryKey: ["catalogo", distribuidora?.id, secaoId, termo],
     enabled: !!distribuidora?.id,
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
@@ -100,8 +191,11 @@ function CatalogoPage() {
         .eq("ativo", true)
         .order("nome", { ascending: true })
         .range(pageParam * PAGE, pageParam * PAGE + PAGE - 1);
-      if (termo) {
-        q = q.or(`nome.ilike.%${termo}%,codigo.ilike.%${termo}%`);
+      if (secaoId) {
+        q = q.eq("distribuidora_produtos.secao_id", secaoId);
+      }
+      for (const filtro of filtrosBusca(termo)) {
+        q = q.or(filtro);
       }
       const { data, error } = await q;
       if (error) throw error;
@@ -195,17 +289,16 @@ function CatalogoPage() {
     <div className="min-h-screen bg-background pb-28">
       <header className="sticky top-0 z-20 border-b bg-card/95 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
-          {LOGOS[distribuidoraSlug] ? (
-            <img
-              src={LOGOS[distribuidoraSlug]}
-              alt={distribuidora.nome}
-              className="h-10 w-auto max-w-[150px] object-contain"
-            />
-          ) : (
-            <span className="text-lg font-extrabold" style={{ color: cor }}>
-              {distribuidora.nome}
-            </span>
-          )}
+          <MarcaCatalogo
+            marca={{
+              slug: distribuidoraSlug,
+              nome: distribuidora.nome,
+              cor,
+              emoji: distribuidora.emoji,
+            }}
+            logoClassName="h-10 max-w-[150px]"
+            className="text-lg"
+          />
           <div className="ml-auto text-right">
             <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Vendedor</p>
             <p className="text-sm font-semibold leading-tight">{vendedor.nome}</p>
@@ -222,6 +315,21 @@ function CatalogoPage() {
             />
           </div>
         </div>
+
+        {secoes.length > 0 && (
+          <div className="mx-auto max-w-5xl overflow-x-auto px-4 pb-3">
+            <div className="flex w-max gap-2">
+              <Aba ativa={!secaoId} cor={cor} onClick={() => setSecaoId("")}>
+                Todos
+              </Aba>
+              {secoes.map((s) => (
+                <Aba key={s.id} ativa={secaoId === s.id} cor={cor} onClick={() => setSecaoId(s.id)}>
+                  {s.nome}
+                </Aba>
+              ))}
+            </div>
+          </div>
+        )}
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-4">
@@ -239,7 +347,10 @@ function CatalogoPage() {
               const qtd = carrinho[p.id]?.quantidade ?? 0;
               const foto = fotoUrl(p.arquivo);
               return (
-                <div key={p.id} className="flex flex-col overflow-hidden rounded-2xl border bg-card">
+                <div
+                  key={p.id}
+                  className="flex flex-col overflow-hidden rounded-2xl border bg-card"
+                >
                   <div className="flex aspect-square items-center justify-center bg-muted/40 p-3">
                     {foto ? (
                       <img
@@ -280,7 +391,7 @@ function CatalogoPage() {
                           >
                             <Minus className="h-4 w-4" />
                           </Button>
-                          <span className="text-sm font-bold">{qtd}</span>
+                          <InputQtd qtd={qtd} onQtd={(n) => setQtd(p, n)} />
                           <Button
                             size="icon"
                             variant="ghost"
@@ -331,7 +442,12 @@ function CatalogoPage() {
         <div className="fixed inset-0 z-40 flex flex-col bg-background">
           <div className="flex items-center gap-3 border-b px-4 py-3">
             <h2 className="text-lg font-extrabold">Seu pedido</h2>
-            <Button size="icon" variant="ghost" className="ml-auto" onClick={() => setAberto(false)}>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="ml-auto"
+              onClick={() => setAberto(false)}
+            >
               <X className="h-5 w-5" />
             </Button>
           </div>
@@ -364,21 +480,44 @@ function CatalogoPage() {
                         className="h-8 w-8"
                         onClick={() =>
                           setQtd(
-                            { id: i.produto_id, codigo: i.codigo, nome: i.nome, arquivo: i.arquivo },
+                            {
+                              id: i.produto_id,
+                              codigo: i.codigo,
+                              nome: i.nome,
+                              arquivo: i.arquivo,
+                            },
                             i.quantidade - 1,
                           )
                         }
                       >
                         <Minus className="h-4 w-4" />
                       </Button>
-                      <span className="w-6 text-center text-sm font-bold">{i.quantidade}</span>
+                      <InputQtd
+                        qtd={i.quantidade}
+                        onQtd={(n) =>
+                          setQtd(
+                            {
+                              id: i.produto_id,
+                              codigo: i.codigo,
+                              nome: i.nome,
+                              arquivo: i.arquivo,
+                            },
+                            n,
+                          )
+                        }
+                      />
                       <Button
                         size="icon"
                         variant="ghost"
                         className="h-8 w-8"
                         onClick={() =>
                           setQtd(
-                            { id: i.produto_id, codigo: i.codigo, nome: i.nome, arquivo: i.arquivo },
+                            {
+                              id: i.produto_id,
+                              codigo: i.codigo,
+                              nome: i.nome,
+                              arquivo: i.arquivo,
+                            },
                             i.quantidade + 1,
                           )
                         }
@@ -391,7 +530,12 @@ function CatalogoPage() {
                         className="h-8 w-8 text-destructive"
                         onClick={() =>
                           setQtd(
-                            { id: i.produto_id, codigo: i.codigo, nome: i.nome, arquivo: i.arquivo },
+                            {
+                              id: i.produto_id,
+                              codigo: i.codigo,
+                              nome: i.nome,
+                              arquivo: i.arquivo,
+                            },
                             0,
                           )
                         }

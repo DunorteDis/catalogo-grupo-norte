@@ -1,48 +1,58 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 
-import { supabase } from "@/integrations/supabase/client";
+import { MarcaCatalogo } from "@/components/marca-catalogo";
+import { useCatalogosPublicos, type CatalogoPublico } from "@/hooks/use-catalogos-publicos";
 import { useVendedorPublico } from "@/hooks/use-vendedor-publico";
-import { LOGOS } from "@/lib/logos";
 
 export const Route = createFileRoute("/c/$slug/")({
   head: () => ({
     meta: [
-      { title: "Escolha a distribuidora — faça seu pedido" },
+      { title: "Escolha o catálogo — faça seu pedido" },
       {
         name: "description",
-        content: "Escolha a distribuidora para ver o catálogo e montar seu pedido pelo WhatsApp.",
+        content: "Escolha o catálogo para ver os produtos e montar seu pedido pelo WhatsApp.",
       },
-      { property: "og:title", content: "Escolha a distribuidora — faça seu pedido" },
+      { property: "og:title", content: "Escolha o catálogo — faça seu pedido" },
       {
         property: "og:description",
-        content: "Escolha a distribuidora para ver o catálogo e montar seu pedido.",
+        content: "Escolha o catálogo para ver os produtos e montar seu pedido.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  component: EscolherDistribuidora,
+  component: EscolherCatalogo,
 });
 
-function EscolherDistribuidora() {
+function CartaoCatalogo({ catalogo, slug }: { catalogo: CatalogoPublico; slug: string }) {
+  return (
+    <Link
+      to="/c/$slug/$distribuidora"
+      params={{ slug, distribuidora: catalogo.slug }}
+      className="flex h-24 items-center justify-center rounded-2xl border bg-card p-4 transition hover:shadow-md"
+      // Catálogo personalizado não tem logo: quem dá identidade ao cartão é a
+      // cor escolhida no painel, aplicada de leve no fundo e na borda.
+      style={
+        catalogo.personalizado
+          ? { backgroundColor: `${catalogo.cor}14`, borderColor: `${catalogo.cor}55` }
+          : undefined
+      }
+    >
+      <MarcaCatalogo marca={catalogo} logoClassName="max-h-14" className="text-lg" />
+    </Link>
+  );
+}
+
+function EscolherCatalogo() {
   const { slug } = Route.useParams();
 
   const vendedorQuery = useVendedorPublico(slug);
+  const catalogosQuery = useCatalogosPublicos();
 
-  const distribuidorasQuery = useQuery({
-    queryKey: ["distribuidoras-publicas"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("distribuidoras")
-        .select("id, nome, slug, cor")
-        .eq("ativo", true)
-        .order("nome");
-      if (error) throw error;
-      return data;
-    },
-  });
+  const catalogos = catalogosQuery.data ?? [];
+  const distribuidoras = catalogos.filter((c) => !c.personalizado);
+  const extras = catalogos.filter((c) => c.personalizado);
 
   if (vendedorQuery.isLoading) {
     return (
@@ -69,25 +79,26 @@ function EscolherDistribuidora() {
       <p className="text-xs uppercase tracking-wide text-muted-foreground">
         Vendedor {vendedorQuery.data.nome}
       </p>
-      <h1 className="mt-1 text-2xl font-extrabold">Escolha a distribuidora</h1>
+      <h1 className="mt-1 text-2xl font-extrabold">Escolha o catálogo</h1>
+
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
-        {(distribuidorasQuery.data ?? []).map((d) => (
-          <Link
-            key={d.id}
-            to="/c/$slug/$distribuidora"
-            params={{ slug, distribuidora: d.slug }}
-            className="flex h-24 items-center justify-center rounded-2xl border bg-card p-4 transition hover:shadow-md"
-          >
-            {LOGOS[d.slug] ? (
-              <img src={LOGOS[d.slug]} alt={d.nome} className="max-h-14 w-auto object-contain" />
-            ) : (
-              <span className="text-lg font-extrabold" style={{ color: d.cor }}>
-                {d.nome}
-              </span>
-            )}
-          </Link>
+        {distribuidoras.map((c) => (
+          <CartaoCatalogo key={c.id} catalogo={c} slug={slug} />
         ))}
       </div>
+
+      {extras.length > 0 && (
+        <>
+          <h2 className="mt-8 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Seleções especiais
+          </h2>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {extras.map((c) => (
+              <CartaoCatalogo key={c.id} catalogo={c} slug={slug} />
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

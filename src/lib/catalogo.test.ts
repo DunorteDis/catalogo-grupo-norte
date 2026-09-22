@@ -1,0 +1,75 @@
+// Roda com: bun test
+import { expect, test } from "bun:test";
+
+import { filtrosBusca, fotoUrl, parseCodigos, slugify } from "./catalogo";
+
+test("fotoUrl completa o nome de arquivo do ERP e respeita link colado", () => {
+  expect(fotoUrl("7891234567890.jpeg")).toBe(
+    "https://api.vmaissistemas.com.br/foto_produtos/7891234567890.jpeg",
+  );
+  expect(fotoUrl("https://cdn.exemplo.com/foto.png")).toBe("https://cdn.exemplo.com/foto.png");
+  expect(fotoUrl("  http://exemplo.com/a.jpg  ")).toBe("http://exemplo.com/a.jpg");
+  expect(fotoUrl(null)).toBeNull();
+  expect(fotoUrl("   ")).toBeNull();
+});
+
+test("parseCodigos aceita qualquer separador de planilha ou lista", () => {
+  expect(parseCodigos("7891234567890\n7891234567891")).toEqual(["7891234567890", "7891234567891"]);
+  expect(parseCodigos("7891234567890; 7891234567891,7891234567892")).toEqual([
+    "7891234567890",
+    "7891234567891",
+    "7891234567892",
+  ]);
+  // Copiar e colar de planilha vem com tab e aspas grudadas no código
+  expect(parseCodigos('"7891234567890"\t"7891234567891"')).toEqual([
+    "7891234567890",
+    "7891234567891",
+  ]);
+});
+
+test("parseCodigos tira repetidos mantendo a ordem da lista", () => {
+  expect(parseCodigos("A1\nB2\nA1\nC3\nB2")).toEqual(["A1", "B2", "C3"]);
+});
+
+test("parseCodigos preserva código com letra, ponto ou hífen", () => {
+  expect(parseCodigos("ABC-123\n45.678\nx_9")).toEqual(["ABC-123", "45.678", "x_9"]);
+});
+
+test("parseCodigos devolve vazio para texto sem código", () => {
+  expect(parseCodigos("")).toEqual([]);
+  expect(parseCodigos("   \n\n , ; \t ")).toEqual([]);
+});
+
+test("filtrosBusca cobra uma palavra de cada vez, em qualquer ordem", () => {
+  // Sem isso, "gillette carvao" não acha "AP BARB GILLETTE PRESTO3 CARVAO ATV".
+  expect(filtrosBusca("gillette carvao")).toEqual([
+    "nome.ilike.%gillette%,codigo.ilike.%gillette%",
+    "nome.ilike.%carvao%,codigo.ilike.%carvao%",
+  ]);
+});
+
+test("filtrosBusca tira acento, porque o cadastro vem sem", () => {
+  expect(filtrosBusca("carvão")).toEqual(["nome.ilike.%carvao%,codigo.ilike.%carvao%"]);
+});
+
+test("filtrosBusca neutraliza a sintaxe do PostgREST digitada na busca", () => {
+  // Vírgula e parênteses separam filtros; se vazassem, a consulta quebrava.
+  expect(filtrosBusca("gillette, carvao (novo)")).toEqual([
+    "nome.ilike.%gillette%,codigo.ilike.%gillette%",
+    "nome.ilike.%carvao%,codigo.ilike.%carvao%",
+    "nome.ilike.%novo%,codigo.ilike.%novo%",
+  ]);
+  expect(filtrosBusca("100%*")).toEqual(["nome.ilike.%100%,codigo.ilike.%100%"]);
+});
+
+test("filtrosBusca ignora repetição, espaço sobrando e excesso de palavras", () => {
+  expect(filtrosBusca("  sabao   sabao ")).toEqual(["nome.ilike.%sabao%,codigo.ilike.%sabao%"]);
+  expect(filtrosBusca("a b c d e f g h")).toHaveLength(6);
+  expect(filtrosBusca("")).toEqual([]);
+  expect(filtrosBusca("   ")).toEqual([]);
+});
+
+test("slugify gera o pedaço do link do catálogo", () => {
+  expect(slugify("Promoção de Páscoa 2026")).toBe("promocao-de-pascoa-2026");
+  expect(slugify("  Mix da Semana  ")).toBe("mix-da-semana");
+});

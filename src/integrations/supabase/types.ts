@@ -14,26 +14,68 @@ export type Database = {
   }
   public: {
     Tables: {
+      catalogo_secoes: {
+        Row: {
+          created_at: string
+          distribuidora_id: string
+          id: string
+          nome: string
+          ordem: number
+        }
+        Insert: {
+          created_at?: string
+          distribuidora_id: string
+          id?: string
+          nome: string
+          ordem?: number
+        }
+        Update: {
+          created_at?: string
+          distribuidora_id?: string
+          id?: string
+          nome?: string
+          ordem?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalogo_secoes_distribuidora_id_fkey"
+            columns: ["distribuidora_id"]
+            isOneToOne: false
+            referencedRelation: "distribuidoras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       distribuidora_produtos: {
         Row: {
           created_at: string
           distribuidora_id: string
           id: string
           produto_id: string
+          secao_id: string | null
         }
         Insert: {
           created_at?: string
           distribuidora_id: string
           id?: string
           produto_id: string
+          secao_id?: string | null
         }
         Update: {
           created_at?: string
           distribuidora_id?: string
           id?: string
           produto_id?: string
+          secao_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "distribuidora_produtos_secao_id_fkey"
+            columns: ["secao_id"]
+            isOneToOne: false
+            referencedRelation: "catalogo_secoes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "distribuidora_produtos_distribuidora_id_fkey"
             columns: ["distribuidora_id"]
@@ -55,9 +97,11 @@ export type Database = {
           ativo: boolean
           cor: string
           created_at: string
+          emoji: string | null
           id: string
           logo_url: string | null
           nome: string
+          personalizado: boolean
           slug: string
           updated_at: string
         }
@@ -65,9 +109,11 @@ export type Database = {
           ativo?: boolean
           cor?: string
           created_at?: string
+          emoji?: string | null
           id?: string
           logo_url?: string | null
           nome: string
+          personalizado?: boolean
           slug: string
           updated_at?: string
         }
@@ -75,9 +121,11 @@ export type Database = {
           ativo?: boolean
           cor?: string
           created_at?: string
+          emoji?: string | null
           id?: string
           logo_url?: string | null
           nome?: string
+          personalizado?: boolean
           slug?: string
           updated_at?: string
         }

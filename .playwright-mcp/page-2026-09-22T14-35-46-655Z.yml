@@ -1,0 +1,35 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - img "Grupo Norte Distribuição" [ref=e4]
+      - generic [ref=e5]:
+        - paragraph [ref=e6]: Catálogo digital
+        - heading "Pedidos direto no WhatsApp" [level=1] [ref=e7]: Pedidos diretono WhatsApp
+        - paragraph [ref=e8]: Cada vendedor tem um link próprio com os produtos da sua distribuidora. O cliente escolhe, conclui e o pedido chega pronto — sem planilha, sem retrabalho.
+        - generic [ref=e9]:
+          - generic [ref=e10]:
+            - term [ref=e11]: "01"
+            - definition [ref=e12]: link por vendedor e distribuidora
+          - generic [ref=e13]:
+            - term [ref=e14]: "00"
+            - definition [ref=e15]: aplicativos para o cliente instalar
+          - generic [ref=e16]:
+            - term [ref=e17]: 24/7
+            - definition [ref=e18]: catálogo no ar para receber pedidos
+      - paragraph [ref=e19]: © 2026 Grupo Norte Distribuição · Uso interno
+    - main [ref=e20]:
+      - generic [ref=e21]:
+        - heading "Entrar na plataforma" [level=2] [ref=e22]
+        - paragraph [ref=e23]: Use o usuário e a senha que o administrador enviou.
+        - generic [ref=e24]:
+          - generic [ref=e25]:
+            - generic [ref=e26]:
+              - text: Usuário
+              - textbox "Usuário" [ref=e27]:
+                - /placeholder: primeiro.ultimo
+            - generic [ref=e28]:
+              - text: Senha
+              - textbox "Senha" [ref=e29]
+          - button "Entrar" [ref=e30] [cursor=pointer]
+        - paragraph [ref=e31]: Novos acessos são criados pelo administrador dentro do sistema.
+  - region "Notifications alt+T"

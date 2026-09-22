@@ -1,5 +1,6 @@
 import dunorte from "@/assets/logos/dunorte.png";
 import elonorte from "@/assets/logos/elonorte.png";
+import gruponorte from "@/assets/logos/gruponorte.png";
 import metanorte from "@/assets/logos/metanorte.png";
 import mixnorte from "@/assets/logos/mixnorte.png";
 import rotanorte from "@/assets/logos/rotanorte.png";
@@ -12,6 +13,7 @@ import supergiro from "@/assets/logos/supergiro.png";
 export const LOGOS: Record<string, string | undefined> = {
   dunorte,
   elonorte,
+  gruponorte,
   metanorte,
   mixnorte,
   rotanorte,
