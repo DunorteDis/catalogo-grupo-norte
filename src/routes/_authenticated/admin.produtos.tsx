@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { ImageOff, Plus, Trash2 } from "lucide-react";
+import { ImageOff, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -51,7 +51,8 @@ function ProdutosPage() {
   const [termo, setTermo] = useState("");
   const [pagina, setPagina] = useState(0);
 
-  const [novoAberto, setNovoAberto] = useState(false);
+  // null = diálogo fechado; string vazia = produto novo; id = editando aquele.
+  const [editandoId, setEditandoId] = useState<string | null>(null);
   const [codigo, setCodigo] = useState("");
   const [nome, setNome] = useState("");
   const [arquivo, setArquivo] = useState("");
@@ -91,19 +92,24 @@ function ProdutosPage() {
     onError: (e: Error) => toast.error(mensagemErro(e)),
   });
 
-  const criar = useMutation({
+  const salvarProduto = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("produtos").insert({
+      const valores = {
         codigo: codigo.trim(),
         nome: nome.trim(),
         arquivo: arquivo.trim() || null,
-      });
+      };
+      const { error } = editandoId
+        ? await supabase.from("produtos").update(valores).eq("id", editandoId)
+        : await supabase.from("produtos").insert(valores);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success(`${nome.trim()} cadastrado.`);
-      setNovoAberto(false);
+      toast.success(editandoId ? "Produto atualizado." : `${nome.trim()} cadastrado.`);
+      setEditandoId(null);
       qc.invalidateQueries({ queryKey: ["admin-produtos"] });
+      // O catálogo do cliente mostra nome e foto deste cadastro.
+      qc.invalidateQueries({ queryKey: ["catalogo"] });
     },
     onError: (e: Error) => toast.error(mensagemErro(e)),
   });
@@ -126,15 +132,23 @@ function ProdutosPage() {
     setNome("");
     setArquivo("");
     setFotoQuebrada(false);
-    setNovoAberto(true);
+    setEditandoId("");
+  }
+
+  function abrirEdicao(p: Produto) {
+    setCodigo(p.codigo);
+    setNome(p.nome);
+    setArquivo(p.arquivo ?? "");
+    setFotoQuebrada(false);
+    setEditandoId(p.id);
   }
 
   const previa = fotoUrl(arquivo);
-  const podeSalvar = codigo.trim() !== "" && nome.trim() !== "" && !criar.isPending;
+  const podeSalvar = codigo.trim() !== "" && nome.trim() !== "" && !salvarProduto.isPending;
 
   function salvar(e: React.FormEvent) {
     e.preventDefault();
-    if (podeSalvar) criar.mutate();
+    if (podeSalvar) salvarProduto.mutate();
   }
 
   return (
@@ -188,6 +202,14 @@ function ProdutosPage() {
             <Button
               size="icon"
               variant="ghost"
+              title="Editar produto"
+              onClick={() => abrirEdicao(p)}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
               className="text-destructive"
               title="Excluir do cadastro"
               onClick={() => setAExcluir(p)}
@@ -216,14 +238,15 @@ function ProdutosPage() {
         </Button>
       </div>
 
-      <Dialog open={novoAberto} onOpenChange={setNovoAberto}>
+      <Dialog open={editandoId !== null} onOpenChange={(v) => !v && setEditandoId(null)}>
         <DialogContent className="sm:max-w-lg">
           <form onSubmit={salvar} className="space-y-4">
             <DialogHeader>
-              <DialogTitle>Novo produto</DialogTitle>
+              <DialogTitle>{editandoId ? "Editar produto" : "Novo produto"}</DialogTitle>
               <DialogDescription>
-                Entra no cadastro geral. Para ele aparecer para o cliente, adicione depois a um
-                catálogo em Catálogos.
+                {editandoId
+                  ? "Nome e foto valem em todos os catálogos onde este produto está. Pedidos já enviados não mudam."
+                  : "Entra no cadastro geral. Para ele aparecer para o cliente, adicione depois a um catálogo em Catálogos."}
               </DialogDescription>
             </DialogHeader>
 
@@ -286,11 +309,15 @@ function ProdutosPage() {
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setNovoAberto(false)}>
+              <Button type="button" variant="outline" onClick={() => setEditandoId(null)}>
                 Cancelar
               </Button>
               <Button type="submit" className="rounded-xl font-bold" disabled={!podeSalvar}>
-                {criar.isPending ? "Salvando..." : "Cadastrar produto"}
+                {salvarProduto.isPending
+                  ? "Salvando..."
+                  : editandoId
+                    ? "Salvar alterações"
+                    : "Cadastrar produto"}
               </Button>
             </DialogFooter>
           </form>

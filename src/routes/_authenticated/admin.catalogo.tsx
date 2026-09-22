@@ -272,21 +272,32 @@ function CatalogoPage() {
     },
   });
 
-  const idsVisiveisNoModal = (cadastroQuery.data?.linhas ?? []).map((p) => p.id);
+  const codigosVisiveisNoModal = (cadastroQuery.data?.linhas ?? []).map((p) => p.codigo);
 
-  // Guarda em que seção cada produto já está, para o modal saber se oferece
-  // "Adicionar", "Mover para cá" ou só avisar que ele já está nesta seção.
+  /**
+   * O que o catálogo já tem, olhando por CÓDIGO e não por cadastro. O cadastro
+   * espelha o ERP, onde o mesmo EAN aparece em mais de uma linha; somar as duas
+   * poria dois cards iguais na frente do cliente. Guarda também qual cadastro
+   * está ligado, para "Mover para cá" mexer nesse vínculo em vez de criar outro.
+   */
   const jaNoCatalogoQuery = useQuery({
-    queryKey: ["catalogo-ja-tem", catalogoId, idsVisiveisNoModal],
-    enabled: adicionarAberto && !!catalogoId && idsVisiveisNoModal.length > 0,
+    queryKey: ["catalogo-ja-tem", catalogoId, codigosVisiveisNoModal],
+    enabled: adicionarAberto && !!catalogoId && codigosVisiveisNoModal.length > 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("distribuidora_produtos")
-        .select("produto_id, secao_id")
+        .select("produto_id, secao_id, produtos!inner(codigo)")
         .eq("distribuidora_id", catalogoId)
-        .in("produto_id", idsVisiveisNoModal);
+        .in("produtos.codigo", codigosVisiveisNoModal);
       if (error) throw error;
-      return new Map((data ?? []).map((v) => [v.produto_id, v.secao_id]));
+      const porCodigo = new Map<string, { produtoId: string; secaoId: string | null }>();
+      for (const v of data ?? []) {
+        const codigo = (v.produtos as unknown as { codigo: string }).codigo;
+        if (!porCodigo.has(codigo)) {
+          porCodigo.set(codigo, { produtoId: v.produto_id, secaoId: v.secao_id });
+        }
+      }
+      return porCodigo;
     },
   });
 
@@ -333,8 +344,11 @@ function CatalogoPage() {
    */
   async function todosOsIds(dentroDoCatalogo: boolean, filtro: string) {
     const ids: string[] = [];
+    // Um EAN tem mais de um cadastro (o banco espelha o ERP); fica o primeiro,
+    // senão "Adicionar os N" enche o catálogo de card repetido.
+    const codigosJaPegos = new Set<string>();
     for (let de = 0; ; de += 1000) {
-      let lote: Array<{ produto_id?: string; id?: string }>;
+      let lote: Array<{ produto_id?: string; id?: string; codigo?: string }>;
       if (dentroDoCatalogo) {
         let q = supabase
           .from("distribuidora_produtos")
@@ -352,8 +366,8 @@ function CatalogoPage() {
       } else {
         let q = supabase
           .from("produtos")
-          .select("id")
-          .order("nome")
+          .select("id, codigo")
+          .order("created_at")
           .range(de, de + 999);
         for (const condicao of filtrosBusca(filtro)) {
           q = q.or(condicao);
@@ -362,7 +376,15 @@ function CatalogoPage() {
         if (error) throw error;
         lote = data ?? [];
       }
-      ids.push(...lote.map((x) => (dentroDoCatalogo ? x.produto_id! : x.id!)));
+      for (const x of lote) {
+        if (dentroDoCatalogo) {
+          ids.push(x.produto_id!);
+          continue;
+        }
+        if (codigosJaPegos.has(x.codigo!)) continue;
+        codigosJaPegos.add(x.codigo!);
+        ids.push(x.id!);
+      }
       if (lote.length < 1000) break;
     }
     return ids;
@@ -1191,11 +1213,11 @@ function CatalogoPage() {
 
           <ul className="max-h-[50vh] divide-y overflow-y-auto rounded-xl border">
             {(cadastroQuery.data?.linhas ?? []).map((p) => {
-              const jaTem = jaNoCatalogoQuery.data?.has(p.id) ?? false;
-              const secaoDele = jaNoCatalogoQuery.data?.get(p.id) ?? null;
+              const ligado = jaNoCatalogoQuery.data?.get(p.codigo);
+              const jaTem = !!ligado;
               // Sem seção aberta, produto que já está no catálogo não tem ação:
               // adicionar de novo só serviria para tirá-lo da seção sem querer.
-              const parado = jaTem && (!secaoId || secaoDele === secaoId);
+              const parado = jaTem && (!secaoId || ligado.secaoId === secaoId);
               return (
                 <LinhaProduto
                   key={p.id}
@@ -1212,7 +1234,9 @@ function CatalogoPage() {
                         variant="outline"
                         className="rounded-xl"
                         disabled={ocupado || jaNoCatalogoQuery.isLoading}
-                        onClick={() => adicionar.mutate([p.id])}
+                        // Mover mexe no vínculo que já existe; adicionar o outro
+                        // cadastro do mesmo EAN criaria um card repetido.
+                        onClick={() => adicionar.mutate([ligado?.produtoId ?? p.id])}
                       >
                         <Plus className="mr-1.5 h-3.5 w-3.5" />
                         {jaTem ? "Mover para cá" : "Adicionar"}
