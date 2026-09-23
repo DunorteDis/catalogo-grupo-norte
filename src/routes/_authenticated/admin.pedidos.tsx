@@ -25,7 +25,7 @@ function PedidosPage() {
       const { data, error } = await supabase
         .from("pedidos")
         .select(
-          "id, cliente_nome, observacao, total_itens, created_at, vendedores(nome), distribuidoras(nome), pedido_itens(codigo, nome, quantidade)",
+          "id, cliente_nome, observacao, total_itens, created_at, vendedores(nome), distribuidoras(nome), pedido_itens(codigo, nome, quantidade, unidade)",
         )
         .gte("created_at", inicio)
         .lte("created_at", fim)

@@ -85,13 +85,43 @@ export function umCadastroPorCodigo(
   return { achados, repetidos: linhas.length - achados.size };
 }
 
+/** Unidades que o cliente escolhe ao lado da quantidade. `valor` é o que vai para o banco. */
+export const UNIDADES = [
+  { valor: "UN", nome: "Unidade", plural: "unidades" },
+  { valor: "CX", nome: "Caixa", plural: "caixas" },
+] as const;
+
+export type Unidade = (typeof UNIDADES)[number]["valor"];
+
+/** "1 caixa", "12 unidades". Unidade desconhecida sai crua em vez de sumir do pedido. */
+export function qtdComUnidade(quantidade: number, unidade: string) {
+  const u = UNIDADES.find((x) => x.valor === unidade);
+  if (!u) return `${quantidade} ${unidade}`;
+  return `${quantidade} ${quantidade === 1 ? u.nome.toLowerCase() : u.plural}`;
+}
+
 export type ItemCarrinho = {
   produto_id: string;
   codigo: string;
   nome: string;
   arquivo: string | null;
   quantidade: number;
+  unidade: Unidade;
 };
+
+/**
+ * "3 unidades e 7 caixas". Somar caixa com unidade não diz nada a ninguém, então
+ * o total do pedido sai separado por unidade — na barra do carrinho e no WhatsApp.
+ */
+export function totalPorUnidade(itens: Pick<ItemCarrinho, "quantidade" | "unidade">[]) {
+  return UNIDADES.map((u) => ({
+    valor: u.valor,
+    qtd: itens.filter((i) => i.unidade === u.valor).reduce((s, i) => s + i.quantidade, 0),
+  }))
+    .filter((t) => t.qtd > 0)
+    .map((t) => qtdComUnidade(t.qtd, t.valor))
+    .join(" e ");
+}
 
 export function montarMensagem(opts: {
   distribuidora: string;
@@ -105,10 +135,10 @@ export function montarMensagem(opts: {
   linhas.push("");
   opts.itens.forEach((item, i) => {
     linhas.push(`${i + 1}. ${item.nome}`);
-    linhas.push(`   Cód: ${item.codigo} — Qtd: ${item.quantidade}`);
+    linhas.push(`   Cód: ${item.codigo} — Qtd: ${qtdComUnidade(item.quantidade, item.unidade)}`);
   });
   linhas.push("");
-  linhas.push(`Total de itens: ${opts.itens.reduce((s, i) => s + i.quantidade, 0)}`);
+  linhas.push(`Total: ${totalPorUnidade(opts.itens)}`);
   if (opts.observacao?.trim()) {
     linhas.push("");
     linhas.push(`Observação: ${opts.observacao.trim()}`);

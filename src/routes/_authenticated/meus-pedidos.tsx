@@ -32,7 +32,7 @@ function MeusPedidosPage() {
       const { data, error } = await supabase
         .from("pedidos")
         .select(
-          "id, cliente_nome, observacao, total_itens, created_at, distribuidoras(nome), pedido_itens(codigo, nome, quantidade)",
+          "id, cliente_nome, observacao, total_itens, created_at, distribuidoras(nome), pedido_itens(codigo, nome, quantidade, unidade)",
         )
         .eq("vendedor_id", vendedorQuery.data!.id)
         .gte("created_at", inicio)

@@ -99,6 +99,7 @@ export type Database = {
           created_at: string
           emoji: string | null
           id: string
+          imagem_url: string | null
           logo_url: string | null
           nome: string
           personalizado: boolean
@@ -111,6 +112,7 @@ export type Database = {
           created_at?: string
           emoji?: string | null
           id?: string
+          imagem_url?: string | null
           logo_url?: string | null
           nome: string
           personalizado?: boolean
@@ -123,6 +125,7 @@ export type Database = {
           created_at?: string
           emoji?: string | null
           id?: string
+          imagem_url?: string | null
           logo_url?: string | null
           nome?: string
           personalizado?: boolean
@@ -139,6 +142,7 @@ export type Database = {
           nome: string
           pedido_id: string
           quantidade: number
+          unidade: string
         }
         Insert: {
           codigo: string
@@ -147,6 +151,7 @@ export type Database = {
           nome: string
           pedido_id: string
           quantidade?: number
+          unidade?: string
         }
         Update: {
           codigo?: string
@@ -155,6 +160,7 @@ export type Database = {
           nome?: string
           pedido_id?: string
           quantidade?: number
+          unidade?: string
         }
         Relationships: [
           {

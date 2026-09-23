@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
-import { fotoUrl } from "@/lib/catalogo";
+import { fotoUrl, qtdComUnidade } from "@/lib/catalogo";
 import { formatarData } from "@/lib/periodo";
 import { cn } from "@/lib/utils";
 import {
@@ -19,7 +19,7 @@ export type PedidoDaLista = {
   created_at: string;
   distribuidoras: { nome: string } | null;
   vendedores?: { nome: string } | null;
-  pedido_itens: { codigo: string; nome: string; quantidade: number }[];
+  pedido_itens: { codigo: string; nome: string; quantidade: number; unidade: string }[];
 };
 
 function Kpi({ rotulo, valor }: { rotulo: string; valor: number }) {
@@ -143,7 +143,7 @@ export function ListaPedidos({
                           </p>
                         </div>
                         <span className="shrink-0 rounded-lg bg-muted px-2.5 py-1 text-sm font-bold">
-                          {item.quantidade}x
+                          {qtdComUnidade(item.quantidade, item.unidade)}
                         </span>
                       </li>
                     );

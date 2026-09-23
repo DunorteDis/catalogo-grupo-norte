@@ -13,3 +13,5 @@
 - [x] Seções dentro do catálogo: abas que o admin cria, ordena e usa como destino do que adicionar; o cliente troca de aba na barra grudenta do catálogo
 - [x] Cadastro de produto pelo painel (código, nome, foto por arquivo ou link, com prévia) e exclusão com aviso de que sai de todos os catálogos
 - [x] Cadastro de produtos espelha o export do ERP linha a linha (7.248 linhas, sem UNIQUE em codigo, com cod_empresa); colar códigos vincula um cadastro por EAN
+- [x] Pedido no estilo app de delivery: tocar no produto abre painel com foto, unidade (Unidade/Caixa) e quantidade; unidade gravada em pedido_itens, no WhatsApp e no painel, total do pedido separado por unidade
+- [x] Catálogo personalizado com imagem (upload para o Storage, bucket catalogos) ou emoji de uma lista por tema; personalizado existente pode ser editado (nome, ícone, cor) sem mudar o link

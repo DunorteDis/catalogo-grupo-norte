@@ -1,7 +1,15 @@
 // Roda com: bun test
 import { expect, test } from "bun:test";
 
-import { filtrosBusca, fotoUrl, parseCodigos, slugify, umCadastroPorCodigo } from "./catalogo";
+import {
+  filtrosBusca,
+  fotoUrl,
+  montarMensagem,
+  parseCodigos,
+  qtdComUnidade,
+  slugify,
+  umCadastroPorCodigo,
+} from "./catalogo";
 
 test("fotoUrl completa o nome de arquivo do ERP e respeita link colado", () => {
   expect(fotoUrl("7891234567890.jpeg")).toBe(
@@ -90,4 +98,27 @@ test("umCadastroPorCodigo prefere a linha que já está no catálogo, senão a p
 test("slugify gera o pedaço do link do catálogo", () => {
   expect(slugify("Promoção de Páscoa 2026")).toBe("promocao-de-pascoa-2026");
   expect(slugify("  Mix da Semana  ")).toBe("mix-da-semana");
+});
+
+test("qtdComUnidade concorda o plural e não esconde unidade desconhecida", () => {
+  expect(qtdComUnidade(1, "CX")).toBe("1 caixa");
+  expect(qtdComUnidade(12, "CX")).toBe("12 caixas");
+  expect(qtdComUnidade(1, "UN")).toBe("1 unidade");
+  expect(qtdComUnidade(3, "KG")).toBe("3 KG");
+});
+
+test("montarMensagem leva a unidade de cada item e totaliza por unidade", () => {
+  const item = { produto_id: "p", arquivo: null };
+  const texto = montarMensagem({
+    distribuidora: "Dunorte",
+    itens: [
+      { ...item, codigo: "789", nome: "SABAO EM PO", quantidade: 5, unidade: "CX" },
+      { ...item, codigo: "123", nome: "DETERGENTE", quantidade: 3, unidade: "UN" },
+      { ...item, codigo: "456", nome: "AMACIANTE", quantidade: 2, unidade: "CX" },
+    ],
+  });
+  expect(texto).toContain("Cód: 789 — Qtd: 5 caixas");
+  expect(texto).toContain("Cód: 123 — Qtd: 3 unidades");
+  // Caixa não se soma com unidade: 3 unidades e 7 caixas, nunca "10 itens".
+  expect(texto).toContain("Total: 3 unidades e 7 caixas");
 });

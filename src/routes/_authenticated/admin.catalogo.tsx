@@ -1,14 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
   ChevronLeft,
   ChevronRight,
   ClipboardPaste,
+  ImageIcon,
+  ImagePlus,
   Loader2,
   Pencil,
   Plus,
+  Smile,
   Sparkles,
   Trash2,
 } from "lucide-react";
@@ -49,6 +52,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Select,
   SelectContent,
@@ -69,7 +73,45 @@ const LOTE = 500;
 // estourar o limite de tamanho da requisição.
 const LOTE_BUSCA = 200;
 const COR_PADRAO = "#b73d25";
-const EMOJIS = ["🔥", "⭐", "🎁", "🛒", "💥", "🏷️", "🧴", "☀️", "🎄", "🥤"];
+const COLUNAS_CATALOGO = "id, nome, slug, cor, emoji, imagem_url, personalizado, ativo";
+
+/**
+ * Emojis por assunto, pensados para o que uma distribuidora vende e comemora.
+ * Não é a lista completa: o campo do formulário aceita qualquer emoji colado.
+ * ponytail: lista curada em vez de biblioteca de emoji — trocar se pedirem busca.
+ */
+const GRUPOS_EMOJI: Array<[grupo: string, emojis: string]> = [
+  ["Promoção", "🔥 ⭐ 🌟 ✨ 💥 ⚡ 🏷️ 💰 💸 🤑 🎯 🚀 🆕 💯 👑 🏆 🥇 🎉 📣 💎 🛒 🛍️ 📦 🚚 ⏰ ✅ ❤️"],
+  [
+    "Comida",
+    "🍕 🍔 🌭 🍟 🥪 🌮 🍝 🍜 🍲 🍚 🥩 🍗 🥓 🍖 🐟 🦐 🧀 🥚 🍳 🍞 🥐 🥖 🧈 🥞 🍰 🎂 🧁 🍫 🍬 🍭 🍪 🍩 🍦 🍿 🥫 🧂 🍯 🥜",
+  ],
+  ["Hortifrúti", "🍎 🍐 🍌 🍇 🍉 🍓 🍒 🍍 🥭 🥥 🍋 🍊 🥑 🥕 🌽 🥔 🍅 🥒 🥬 🥦 🧅 🧄 🌶️ 🍄"],
+  ["Bebidas", "🥤 🧃 🧋 ☕ 🍵 🥛 🍼 💧 🧊 🍺 🍻 🍷 🍾 🥂 🍹 🍸 🥃"],
+  ["Limpeza e casa", "🧴 🧼 🧽 🧹 🧺 🪣 🧻 🧤 🪥 🗑️ 🏠 🛋️ 🛏️ 🍽️ 🔌 💡 🔋 🕯️"],
+  ["Higiene e beleza", "🪒 💄 💅 💋 🧖 💆 🌸 🌺 👶 🧷 💊 🩹 😷"],
+  ["Pets", "🐶 🐱 🐾 🦴 🐦 🐠"],
+  ["Datas e estações", "🎄 🎅 ⛄ 🎆 🎊 🎁 🎈 🐰 🎃 👻 💝 💐 👔 🎓 🏖️ ☀️ 🌧️ ❄️ 🍂 🌙 ⚽"],
+];
+
+// Mesma lista e limite do bucket (migration catalogo_imagem): avisar aqui evita o erro cru do Storage.
+const TIPOS_IMAGEM = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+const MAX_IMAGEM = 2 * 1024 * 1024;
+
+/** Sobe a imagem do catálogo e devolve a URL pública que vai para `imagem_url`. */
+async function enviarImagem(arquivo: File) {
+  // Nome novo a cada envio: a URL antiga fica em cache no celular do cliente.
+  // ponytail: a imagem trocada fica no bucket; limpar quando o espaço pesar.
+  const extensao = arquivo.name.split(".").pop()?.toLowerCase() || "png";
+  const caminho = `${crypto.randomUUID()}.${extensao}`;
+  const bucket = supabase.storage.from("catalogos");
+  const { error } = await bucket.upload(caminho, arquivo, {
+    cacheControl: "31536000",
+    contentType: arquivo.type,
+  });
+  if (error) throw error;
+  return bucket.getPublicUrl(caminho).data.publicUrl;
+}
 
 type Produto = { id: string; codigo: string; nome: string; arquivo: string | null };
 type Secao = { id: string; nome: string; ordem: number };
@@ -80,6 +122,7 @@ type Catalogo = {
   slug: string;
   cor: string;
   emoji: string | null;
+  imagem_url: string | null;
   personalizado: boolean;
   ativo: boolean;
 };
@@ -174,11 +217,22 @@ function CatalogoPage() {
   const [paginaAdd, setPaginaAdd] = useState(0);
   const termoAdd = useDebounce(buscaAdd);
 
-  const [criarAberto, setCriarAberto] = useState(false);
+  // Um formulário só para criar e editar personalizado; `editando` null = criando.
+  const [formAberto, setFormAberto] = useState(false);
+  const [editando, setEditando] = useState<Catalogo | null>(null);
   const [nome, setNome] = useState("");
+  const [icone, setIcone] = useState<"emoji" | "imagem">("emoji");
   const [emoji, setEmoji] = useState("🔥");
+  const [imagemUrl, setImagemUrl] = useState<string | null>(null);
+  const [imagemNova, setImagemNova] = useState<File | null>(null);
   const [cor, setCor] = useState(COR_PADRAO);
   const [copiarDe, setCopiarDe] = useState("");
+  const inputImagem = useRef<HTMLInputElement>(null);
+  // ponytail: o blob da prévia não é revogado — é uma imagem por vez, num diálogo do admin.
+  const previaImagem = useMemo(
+    () => (imagemNova ? URL.createObjectURL(imagemNova) : imagemUrl),
+    [imagemNova, imagemUrl],
+  );
 
   const [colarAberto, setColarAberto] = useState(false);
   const [textoCodigos, setTextoCodigos] = useState("");
@@ -201,7 +255,7 @@ function CatalogoPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("distribuidoras")
-        .select("id, nome, slug, cor, emoji, personalizado, ativo")
+        .select(COLUNAS_CATALOGO)
         .order("nome");
       if (error) throw error;
       return (data ?? []) as Catalogo[];
@@ -432,33 +486,76 @@ function CatalogoPage() {
 
   const novoSlug = slugify(nome);
 
-  const criar = useMutation({
+  function abrirFormCatalogo(c?: Catalogo) {
+    setEditando(c ?? null);
+    setNome(c?.nome ?? "");
+    setIcone(c?.imagem_url ? "imagem" : "emoji");
+    setEmoji(c?.emoji ?? "🔥");
+    setImagemUrl(c?.imagem_url ?? null);
+    setImagemNova(null);
+    setCor(c?.cor ?? COR_PADRAO);
+    setCopiarDe(c ? "" : catalogoId);
+    setFormAberto(true);
+  }
+
+  function escolherImagem(e: React.ChangeEvent<HTMLInputElement>) {
+    const arquivo = e.target.files?.[0];
+    // Limpa para que escolher o mesmo arquivo de novo ainda dispare o change.
+    e.target.value = "";
+    if (!arquivo) return;
+    if (!TIPOS_IMAGEM.includes(arquivo.type)) {
+      toast.error("Use uma imagem PNG, JPG, WEBP ou GIF.");
+      return;
+    }
+    if (arquivo.size > MAX_IMAGEM) {
+      toast.error("A imagem passa de 2 MB. Diminua o tamanho e tente de novo.");
+      return;
+    }
+    setImagemNova(arquivo);
+  }
+
+  const salvarCatalogo = useMutation({
     mutationFn: async () => {
       const limpo = nome.trim();
       if (!limpo || !novoSlug) throw new Error("Dê um nome ao catálogo.");
+      let imagem: string | null = null;
+      if (icone === "imagem") {
+        imagem = imagemNova ? await enviarImagem(imagemNova) : imagemUrl;
+        if (!imagem) throw new Error("Escolha uma imagem para o catálogo.");
+      }
+      // Emoji e imagem se excluem: o que não foi escolhido vai nulo.
+      const campos = {
+        nome: limpo,
+        cor,
+        emoji: icone === "emoji" ? emoji.trim() || null : null,
+        imagem_url: imagem,
+      };
+      if (editando) {
+        // O slug não muda ao renomear: é ele que está nos links já enviados aos clientes.
+        const { data, error } = await supabase
+          .from("distribuidoras")
+          .update(campos)
+          .eq("id", editando.id)
+          .select(COLUNAS_CATALOGO)
+          .single();
+        if (error) throw error;
+        return data as Catalogo;
+      }
       const { data, error } = await supabase
         .from("distribuidoras")
-        .insert({
-          nome: limpo,
-          slug: novoSlug,
-          cor,
-          emoji: emoji.trim() || null,
-          personalizado: true,
-        })
-        .select("id, nome, slug, cor, emoji, personalizado, ativo")
+        .insert({ ...campos, slug: novoSlug, personalizado: true })
+        .select(COLUNAS_CATALOGO)
         .single();
       if (error) throw error;
       if (copiarDe) await copiarCatalogo(copiarDe, data.id);
       return data as Catalogo;
     },
-    onSuccess: (novo) => {
-      toast.success(`Catálogo ${novo.nome} criado.`);
-      setCriarAberto(false);
-      setNome("");
-      setCopiarDe("");
-      setCor(COR_PADRAO);
+    onSuccess: (salvo) => {
+      toast.success(`Catálogo ${salvo.nome} ${editando ? "atualizado" : "criado"}.`);
+      setFormAberto(false);
       qc.invalidateQueries({ queryKey: ["catalogos"] });
-      setCatalogoId(novo.id);
+      qc.invalidateQueries({ queryKey: ["catalogos-publicos"] });
+      setCatalogoId(salvo.id);
       recarregar();
     },
     onError: (e: Error) => toast.error(mensagemErro(e)),
@@ -663,13 +760,7 @@ function CatalogoPage() {
         <Button
           variant="outline"
           className="h-11 rounded-xl font-bold"
-          onClick={() => {
-            setNome("");
-            setEmoji("🔥");
-            setCor(COR_PADRAO);
-            setCopiarDe(catalogoId);
-            setCriarAberto(true);
-          }}
+          onClick={() => abrirFormCatalogo()}
         >
           <Sparkles className="mr-2 h-4 w-4" />
           Novo personalizado
@@ -737,6 +828,16 @@ function CatalogoPage() {
                 disabled={alternarAtivo.isPending}
               />
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-xl"
+              disabled={ocupado}
+              onClick={() => abrirFormCatalogo(catalogo)}
+            >
+              <Pencil className="mr-2 h-4 w-4" />
+              Editar
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -1017,17 +1118,20 @@ function CatalogoPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={criarAberto} onOpenChange={setCriarAberto}>
-        <DialogContent className="sm:max-w-lg">
+      <Dialog open={formAberto} onOpenChange={setFormAberto}>
+        <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Novo catálogo personalizado</DialogTitle>
+            <DialogTitle>
+              {editando ? `Editar ${editando.nome}` : "Novo catálogo personalizado"}
+            </DialogTitle>
             <DialogDescription>
-              Uma seleção de produtos que não pertence a nenhuma distribuidora. Assim que existir,
-              vira link extra no painel de todo vendedor.
+              {editando
+                ? "Nome, ícone e cor mudam na hora para o cliente. O link continua o mesmo."
+                : "Uma seleção de produtos que não pertence a nenhuma distribuidora. Assim que existir, vira link extra no painel de todo vendedor."}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div className="space-y-1.5">
               <Label htmlFor="nome-catalogo">Nome</Label>
               <Input
@@ -1038,20 +1142,35 @@ function CatalogoPage() {
                 className="h-11 rounded-xl"
               />
               <p className="font-mono text-xs text-muted-foreground">
-                /c/&lt;vendedor&gt;/{novoSlug || "…"}
+                /c/&lt;vendedor&gt;/{editando?.slug ?? (novoSlug || "…")}
               </p>
             </div>
 
-            <div className="flex flex-wrap items-end gap-4">
+            <div className="flex flex-wrap items-end justify-between gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="emoji-catalogo">Emoji</Label>
-                <Input
-                  id="emoji-catalogo"
-                  value={emoji}
-                  onChange={(e) => setEmoji(e.target.value)}
-                  maxLength={8}
-                  className="h-11 w-16 rounded-xl text-center text-xl"
-                />
+                <Label>Ícone</Label>
+                <ToggleGroup
+                  type="single"
+                  value={icone}
+                  // Radix solta o valor ao clicar de novo no marcado; aqui sempre há um.
+                  onValueChange={(v) => v && setIcone(v as "emoji" | "imagem")}
+                  className="gap-1 rounded-xl bg-muted p-1"
+                >
+                  <ToggleGroupItem
+                    value="emoji"
+                    className="h-9 rounded-lg px-4 font-semibold data-[state=on]:bg-card data-[state=on]:text-foreground data-[state=on]:shadow-sm"
+                  >
+                    <Smile />
+                    Emoji
+                  </ToggleGroupItem>
+                  <ToggleGroupItem
+                    value="imagem"
+                    className="h-9 rounded-lg px-4 font-semibold data-[state=on]:bg-card data-[state=on]:text-foreground data-[state=on]:shadow-sm"
+                  >
+                    <ImageIcon />
+                    Imagem
+                  </ToggleGroupItem>
+                </ToggleGroup>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="cor-catalogo">Cor</Label>
@@ -1060,66 +1179,148 @@ function CatalogoPage() {
                   type="color"
                   value={cor}
                   onChange={(e) => setCor(e.target.value)}
-                  className="h-11 w-16 cursor-pointer rounded-xl border bg-card p-1"
+                  className="block h-11 w-16 cursor-pointer rounded-xl border bg-card p-1"
                 />
               </div>
-              <div className="flex min-w-0 flex-1 flex-wrap gap-1">
-                {EMOJIS.map((e) => (
-                  <button
-                    key={e}
-                    type="button"
-                    onClick={() => setEmoji(e)}
-                    className="size-9 rounded-lg border text-lg transition hover:bg-muted"
-                  >
-                    {e}
-                  </button>
-                ))}
-              </div>
             </div>
+
+            {icone === "emoji" ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <Input
+                    aria-label="Emoji escolhido"
+                    value={emoji}
+                    onChange={(e) => setEmoji(e.target.value)}
+                    maxLength={8}
+                    className="h-11 w-16 shrink-0 rounded-xl text-center text-xl"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Escolha abaixo ou cole qualquer emoji no campo. No Windows, a tecla Windows +
+                    ponto abre todos.
+                  </p>
+                </div>
+                <div className="max-h-56 space-y-3 overflow-y-auto rounded-xl border p-2">
+                  {GRUPOS_EMOJI.map(([grupo, lista]) => (
+                    <div key={grupo}>
+                      <p className="px-1 pb-1 text-xs font-semibold text-muted-foreground">
+                        {grupo}
+                      </p>
+                      <div className="flex flex-wrap gap-0.5">
+                        {lista.split(" ").map((e) => (
+                          <button
+                            key={e}
+                            type="button"
+                            aria-pressed={emoji === e}
+                            onClick={() => setEmoji(e)}
+                            className={cn(
+                              "size-9 rounded-lg text-xl transition hover:bg-muted",
+                              emoji === e && "bg-primary-soft ring-2 ring-primary",
+                            )}
+                          >
+                            {e}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-4">
+                <input
+                  ref={inputImagem}
+                  type="file"
+                  accept={TIPOS_IMAGEM.join(",")}
+                  hidden
+                  onChange={escolherImagem}
+                />
+                <button
+                  type="button"
+                  aria-label={previaImagem ? "Trocar imagem" : "Escolher imagem"}
+                  onClick={() => inputImagem.current?.click()}
+                  className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed bg-muted/40 transition hover:bg-muted"
+                >
+                  {previaImagem ? (
+                    <img src={previaImagem} alt="" className="h-full w-full object-contain p-1.5" />
+                  ) : (
+                    <ImagePlus className="h-6 w-6 text-muted-foreground" />
+                  )}
+                </button>
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-xl"
+                    onClick={() => inputImagem.current?.click()}
+                  >
+                    {previaImagem ? "Trocar imagem" : "Escolher imagem"}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    PNG, JPG, WEBP ou GIF de até 2 MB. Ela aparece inteira, na altura do nome —
+                    logo, ícone ou foto.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {!editando && (
+              <div className="space-y-1.5">
+                <Label>Começar com uma cópia de</Label>
+                <Select
+                  value={copiarDe || "vazio"}
+                  onValueChange={(v) => setCopiarDe(v === "vazio" ? "" : v)}
+                >
+                  <SelectTrigger className="h-11 rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="vazio">Catálogo vazio</SelectItem>
+                    {catalogos.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.emoji ? `${c.emoji} ${c.nome}` : c.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-1.5">
-              <Label>Começar com uma cópia de</Label>
-              <Select
-                value={copiarDe || "vazio"}
-                onValueChange={(v) => setCopiarDe(v === "vazio" ? "" : v)}
+              <Label>Como o cliente vê</Label>
+              <div
+                className="flex h-20 items-center justify-center rounded-2xl border"
+                style={{ backgroundColor: `${cor}14`, borderColor: `${cor}55` }}
               >
-                <SelectTrigger className="h-11 rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="vazio">Catálogo vazio</SelectItem>
-                  {catalogos.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.emoji ? `${c.emoji} ${c.nome}` : c.nome}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex h-20 items-center justify-center rounded-2xl border bg-card">
-              <MarcaCatalogo
-                marca={{
-                  slug: novoSlug || "novo",
-                  nome: nome.trim() || "Seu catálogo",
-                  cor,
-                  emoji,
-                }}
-                className="text-lg"
-              />
+                <MarcaCatalogo
+                  marca={{
+                    slug: editando?.slug ?? (novoSlug || "novo"),
+                    nome: nome.trim() || "Seu catálogo",
+                    cor,
+                    emoji: icone === "emoji" ? emoji : null,
+                    imagem_url: icone === "imagem" ? previaImagem : null,
+                  }}
+                  className="text-lg"
+                />
+              </div>
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCriarAberto(false)}>
+            <Button variant="outline" onClick={() => setFormAberto(false)}>
               Cancelar
             </Button>
             <Button
               className="rounded-xl font-bold"
-              disabled={!novoSlug || criar.isPending}
-              onClick={() => criar.mutate()}
+              disabled={
+                !novoSlug || salvarCatalogo.isPending || (icone === "imagem" && !previaImagem)
+              }
+              onClick={() => salvarCatalogo.mutate()}
             >
-              {criar.isPending ? "Criando..." : "Criar catálogo"}
+              {salvarCatalogo.isPending
+                ? "Salvando..."
+                : editando
+                  ? "Salvar alterações"
+                  : "Criar catálogo"}
             </Button>
           </DialogFooter>
         </DialogContent>

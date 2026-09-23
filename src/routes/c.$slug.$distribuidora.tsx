@@ -1,21 +1,33 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Minus, Plus, Search, ShoppingCart, Trash2, X } from "lucide-react";
+import { Check, Loader2, Minus, Plus, Search, ShoppingCart, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useVendedorPublico } from "@/hooks/use-vendedor-publico";
 import { MarcaCatalogo } from "@/components/marca-catalogo";
 import { Button } from "@/components/ui/button";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   filtrosBusca,
   fotoUrl,
   montarMensagem,
+  qtdComUnidade,
+  totalPorUnidade,
+  UNIDADES,
   whatsappNumero,
   type ItemCarrinho,
+  type Unidade,
 } from "@/lib/catalogo";
 import { cn } from "@/lib/utils";
 
@@ -71,8 +83,139 @@ function InputQtd({ qtd, onQtd }: { qtd: number; onQtd: (n: number) => void }) {
       onBlur={() => {
         if (Number(texto) > 0) return;
         onQtd(0);
+        // Quem não aceita zero (o painel do produto) ignora o 0 e o campo volta ao valor de antes.
+        setTexto(String(qtd));
       }}
     />
+  );
+}
+
+/**
+ * Unidade do item, grudada na quantidade. As duas opções ficam à vista e a
+ * escolhida pinta na cor do catálogo: 10 caixas no lugar de 10 unidades é o erro
+ * de pedido mais caro que dá para cometer aqui, então não pode passar batido.
+ */
+function UnidadeToggle({
+  valor,
+  cor,
+  onValor,
+  grande,
+  className,
+}: {
+  valor: Unidade;
+  cor: string;
+  onValor: (u: Unidade) => void;
+  /** No painel do produto a escolha é a atração principal, não um detalhe da linha. */
+  grande?: boolean;
+  className?: string;
+}) {
+  return (
+    <ToggleGroup
+      type="single"
+      value={valor}
+      // Radix solta o valor ao tocar de novo na opção marcada; aqui sempre há uma.
+      onValueChange={(v) => v && onValor(v as Unidade)}
+      aria-label="Unidade de medida"
+      className={cn("gap-0.5 rounded-lg bg-muted p-0.5", grande && "rounded-xl p-1", className)}
+      style={{ "--cor": cor } as React.CSSProperties}
+    >
+      {UNIDADES.map((u) => (
+        <ToggleGroupItem
+          key={u.valor}
+          value={u.valor}
+          className={cn(
+            "h-7 min-w-0 flex-1 rounded-md px-2 text-xs font-bold text-muted-foreground hover:bg-card hover:text-foreground data-[state=on]:bg-(--cor) data-[state=on]:text-white data-[state=on]:shadow-sm",
+            grande && "h-11 rounded-lg text-sm",
+          )}
+        >
+          {u.nome}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+  );
+}
+
+/**
+ * Painel do produto, no jeito dos apps de delivery: tocar no card abre foto
+ * grande, unidade e quantidade, e só o botão de baixo mexe no pedido. Rolar a
+ * grade com o dedo não põe mais item no carrinho sem querer.
+ */
+function DetalheProduto({
+  produto,
+  item,
+  cor,
+  onSalvar,
+  onRemover,
+}: {
+  produto: Produto;
+  /** O que já está no carrinho para este produto, se estiver. */
+  item: ItemCarrinho | undefined;
+  cor: string;
+  onSalvar: (qtd: number, unidade: Unidade) => void;
+  onRemover: () => void;
+}) {
+  const [qtd, setQtd] = useState(item?.quantidade ?? 1);
+  const [unidade, setUnidade] = useState<Unidade>(item?.unidade ?? "UN");
+  const foto = fotoUrl(produto.arquivo);
+
+  return (
+    <>
+      <div className="mx-4 mt-3 flex h-56 items-center justify-center rounded-2xl bg-muted/40 p-4">
+        {foto ? (
+          <img src={foto} alt={produto.nome} className="h-full w-full object-contain" />
+        ) : (
+          <span className="text-sm text-muted-foreground">Sem foto</span>
+        )}
+      </div>
+      <div className="px-4 pt-4">
+        <DrawerTitle className="text-base font-extrabold leading-snug">{produto.nome}</DrawerTitle>
+        <DrawerDescription className="mt-1 text-xs">Cód. {produto.codigo}</DrawerDescription>
+      </div>
+      <div className="px-4 pt-5">
+        <p className="mb-2 text-sm font-bold">Comprar por</p>
+        <UnidadeToggle grande valor={unidade} cor={cor} onValor={setUnidade} className="w-full" />
+      </div>
+      <DrawerFooter className="pt-6">
+        <div className="flex items-center gap-3">
+          <div className="flex h-14 shrink-0 items-center rounded-xl border px-1">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-10 w-10"
+              aria-label="Diminuir"
+              disabled={qtd <= 1}
+              onClick={() => setQtd(qtd - 1)}
+            >
+              <Minus className="h-4 w-4" />
+            </Button>
+            <InputQtd qtd={qtd} onQtd={(n) => n > 0 && setQtd(n)} />
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-10 w-10"
+              aria-label="Aumentar"
+              onClick={() => setQtd(qtd + 1)}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          <Button
+            className="h-14 min-w-0 flex-1 justify-between rounded-xl px-4 text-base font-bold text-white hover:opacity-90"
+            style={{ backgroundColor: cor }}
+            onClick={() => onSalvar(qtd, unidade)}
+          >
+            <span>{item ? "Atualizar" : "Adicionar"}</span>
+            <span className="truncate font-semibold opacity-90">{qtdComUnidade(qtd, unidade)}</span>
+          </Button>
+        </div>
+        {item && (
+          <Button variant="ghost" className="text-destructive" onClick={onRemover}>
+            <Trash2 className="mr-1.5 h-4 w-4" />
+            Remover do pedido
+          </Button>
+        )}
+      </DrawerFooter>
+    </>
   );
 }
 
@@ -114,6 +257,9 @@ function CatalogoPage() {
   const [enviando, setEnviando] = useState(false);
   // "" = aba Todos.
   const [secaoId, setSecaoId] = useState("");
+  // O produto fica guardado depois de fechar: senão o painel desce já vazio.
+  const [detalhe, setDetalhe] = useState<Produto | null>(null);
+  const [detalheAberto, setDetalheAberto] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setTermo(busca.trim()), 350);
@@ -132,7 +278,7 @@ function CatalogoPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("distribuidoras")
-        .select("id, nome, cor, emoji")
+        .select("id, nome, cor, emoji, imagem_url")
         .eq("slug", distribuidoraSlug)
         .eq("ativo", true)
         .maybeSingle();
@@ -166,7 +312,10 @@ function CatalogoPage() {
   useEffect(() => {
     try {
       const raw = localStorage.getItem(storageKey);
-      setCarrinho(raw ? JSON.parse(raw) : {});
+      const salvo: Record<string, ItemCarrinho> = raw ? JSON.parse(raw) : {};
+      // Carrinho salvo antes de existir unidade: tudo nele era unidade.
+      for (const item of Object.values(salvo)) item.unidade ??= "UN";
+      setCarrinho(salvo);
     } catch {
       /* ignora */
     }
@@ -211,7 +360,7 @@ function CatalogoPage() {
   const totalItens = itens.reduce((s, i) => s + i.quantidade, 0);
   const cor = distribuidora?.cor || "#b73d25";
 
-  function setQtd(p: Produto, qtd: number) {
+  function setQtd(p: Produto, qtd: number, unidade?: Unidade) {
     setCarrinho((atual) => {
       const novo = { ...atual };
       if (qtd <= 0) delete novo[p.id];
@@ -222,9 +371,21 @@ function CatalogoPage() {
           nome: p.nome,
           arquivo: p.arquivo,
           quantidade: qtd,
+          unidade: unidade ?? atual[p.id]?.unidade ?? "UN",
         };
       return novo;
     });
+  }
+
+  function abrirDetalhe(p: Produto) {
+    setDetalhe(p);
+    setDetalheAberto(true);
+  }
+
+  function setUnidade(produtoId: string, unidade: Unidade) {
+    setCarrinho((atual) =>
+      atual[produtoId] ? { ...atual, [produtoId]: { ...atual[produtoId], unidade } } : atual,
+    );
   }
 
   async function concluir() {
@@ -247,6 +408,7 @@ function CatalogoPage() {
           codigo: i.codigo,
           nome: i.nome,
           quantidade: i.quantidade,
+          unidade: i.unidade,
         })),
       );
       const texto = montarMensagem({
@@ -297,6 +459,7 @@ function CatalogoPage() {
               nome: distribuidora.nome,
               cor,
               emoji: distribuidora.emoji,
+              imagem_url: distribuidora.imagem_url,
             }}
             logoClassName="h-10 max-w-[150px]"
             className="text-lg"
@@ -346,12 +509,16 @@ function CatalogoPage() {
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {produtos.map((p) => {
-              const qtd = carrinho[p.id]?.quantidade ?? 0;
+              const item = carrinho[p.id];
               const foto = fotoUrl(p.arquivo);
               return (
-                <div
+                <button
                   key={p.id}
-                  className="flex flex-col overflow-hidden rounded-2xl border bg-card"
+                  type="button"
+                  onClick={() => abrirDetalhe(p)}
+                  className="flex flex-col overflow-hidden rounded-2xl border bg-card text-left transition-colors hover:border-foreground/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  // O card na cor do catálogo é o sinal, de longe, do que já está no pedido.
+                  style={item ? { borderColor: cor } : undefined}
                 >
                   <div className="flex aspect-square items-center justify-center bg-muted/40 p-3">
                     {foto ? (
@@ -373,40 +540,27 @@ function CatalogoPage() {
                   <div className="flex flex-1 flex-col gap-2 p-3">
                     <p className="line-clamp-3 text-xs font-semibold leading-snug">{p.nome}</p>
                     <p className="text-[11px] text-muted-foreground">Cód. {p.codigo}</p>
-                    <div className="mt-auto">
-                      {qtd === 0 ? (
-                        <Button
-                          size="sm"
-                          className="w-full rounded-xl text-white hover:opacity-90"
-                          style={{ backgroundColor: cor }}
-                          onClick={() => setQtd(p, 1)}
-                        >
-                          Adicionar
-                        </Button>
-                      ) : (
-                        <div className="flex items-center justify-between rounded-xl border p-1">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8"
-                            onClick={() => setQtd(p, qtd - 1)}
-                          >
-                            <Minus className="h-4 w-4" />
-                          </Button>
-                          <InputQtd qtd={qtd} onQtd={(n) => setQtd(p, n)} />
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8"
-                            onClick={() => setQtd(p, qtd + 1)}
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
+                    {/* span, não button: o card inteiro já é o botão que abre o painel. */}
+                    {item ? (
+                      <span
+                        className="mt-auto flex h-9 items-center justify-center gap-1.5 rounded-xl border-2 text-sm font-bold"
+                        style={{ borderColor: cor, color: cor }}
+                      >
+                        <Check className="h-4 w-4 shrink-0" />
+                        <span className="truncate">
+                          {qtdComUnidade(item.quantidade, item.unidade)}
+                        </span>
+                      </span>
+                    ) : (
+                      <span
+                        className="mt-auto flex h-9 items-center justify-center rounded-xl text-sm font-bold text-white"
+                        style={{ backgroundColor: cor }}
+                      >
+                        Adicionar
+                      </span>
+                    )}
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -429,16 +583,43 @@ function CatalogoPage() {
         <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-card p-3">
           <div className="mx-auto max-w-5xl">
             <Button
-              className="h-14 w-full rounded-xl text-base font-bold text-white hover:opacity-90"
+              className="h-14 w-full justify-between gap-3 rounded-xl px-4 text-base font-bold text-white hover:opacity-90"
               style={{ backgroundColor: cor }}
               onClick={() => setAberto(true)}
             >
-              <ShoppingCart className="mr-2 h-5 w-5" />
-              Ver pedido ({totalItens} {totalItens === 1 ? "item" : "itens"})
+              <span className="flex items-center">
+                <ShoppingCart className="mr-2 h-5 w-5" />
+                Ver pedido
+              </span>
+              <span className="truncate text-sm font-semibold opacity-90">
+                {totalPorUnidade(itens)}
+              </span>
             </Button>
           </div>
         </div>
       )}
+
+      <Drawer open={detalheAberto} onOpenChange={setDetalheAberto} shouldScaleBackground={false}>
+        <DrawerContent className="mx-auto max-h-[92dvh] w-full max-w-lg">
+          {detalhe && (
+            <DetalheProduto
+              // Cada abertura começa do que está no carrinho, não do que ficou no painel da vez anterior.
+              key={`${detalhe.id}:${detalheAberto}`}
+              produto={detalhe}
+              item={carrinho[detalhe.id]}
+              cor={cor}
+              onSalvar={(qtd, unidade) => {
+                setQtd(detalhe, qtd, unidade);
+                setDetalheAberto(false);
+              }}
+              onRemover={() => {
+                setQtd(detalhe, 0);
+                setDetalheAberto(false);
+              }}
+            />
+          )}
+        </DrawerContent>
+      </Drawer>
 
       {aberto && (
         <div className="fixed inset-0 z-40 flex flex-col bg-background">
@@ -460,93 +641,74 @@ function CatalogoPage() {
               </p>
             ) : (
               <ul className="space-y-2">
-                {itens.map((i) => (
-                  <li key={i.produto_id} className="flex items-center gap-3 rounded-xl border p-2">
-                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-muted/40">
-                      {fotoUrl(i.arquivo) && (
-                        <img
-                          src={fotoUrl(i.arquivo)!}
-                          alt={i.nome}
-                          className="h-full w-full object-contain"
-                        />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="line-clamp-2 text-xs font-semibold">{i.nome}</p>
-                      <p className="text-[11px] text-muted-foreground">Cód. {i.codigo}</p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8"
-                        onClick={() =>
-                          setQtd(
-                            {
-                              id: i.produto_id,
-                              codigo: i.codigo,
-                              nome: i.nome,
-                              arquivo: i.arquivo,
-                            },
-                            i.quantidade - 1,
-                          )
-                        }
-                      >
-                        <Minus className="h-4 w-4" />
-                      </Button>
-                      <InputQtd
-                        qtd={i.quantidade}
-                        onQtd={(n) =>
-                          setQtd(
-                            {
-                              id: i.produto_id,
-                              codigo: i.codigo,
-                              nome: i.nome,
-                              arquivo: i.arquivo,
-                            },
-                            n,
-                          )
-                        }
-                      />
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8"
-                        onClick={() =>
-                          setQtd(
-                            {
-                              id: i.produto_id,
-                              codigo: i.codigo,
-                              nome: i.nome,
-                              arquivo: i.arquivo,
-                            },
-                            i.quantidade + 1,
-                          )
-                        }
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-destructive"
-                        onClick={() =>
-                          setQtd(
-                            {
-                              id: i.produto_id,
-                              codigo: i.codigo,
-                              nome: i.nome,
-                              arquivo: i.arquivo,
-                            },
-                            0,
-                          )
-                        }
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </li>
-                ))}
+                {itens.map((i) => {
+                  const p = {
+                    id: i.produto_id,
+                    codigo: i.codigo,
+                    nome: i.nome,
+                    arquivo: i.arquivo,
+                  };
+                  return (
+                    <li key={i.produto_id} className="flex items-start gap-3 rounded-xl border p-2">
+                      <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-muted/40">
+                        {fotoUrl(i.arquivo) && (
+                          <img
+                            src={fotoUrl(i.arquivo)!}
+                            alt={i.nome}
+                            className="h-full w-full object-contain"
+                          />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        {/* A lixeira fica na linha do nome: a de baixo precisa da largura
+                            toda para quantidade e unidade caberem lado a lado no celular. */}
+                        <div className="flex items-start gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="line-clamp-2 text-xs font-semibold">{i.nome}</p>
+                            <p className="text-[11px] text-muted-foreground">Cód. {i.codigo}</p>
+                          </div>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="-mr-1 -mt-1 h-8 w-8 shrink-0 text-destructive"
+                            aria-label="Remover do pedido"
+                            onClick={() => setQtd(p, 0)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          <div className="flex items-center rounded-xl border p-0.5">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8"
+                              aria-label="Diminuir"
+                              onClick={() => setQtd(p, i.quantidade - 1)}
+                            >
+                              <Minus className="h-4 w-4" />
+                            </Button>
+                            <InputQtd qtd={i.quantidade} onQtd={(n) => setQtd(p, n)} />
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8"
+                              aria-label="Aumentar"
+                              onClick={() => setQtd(p, i.quantidade + 1)}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <UnidadeToggle
+                            valor={i.unidade}
+                            cor={cor}
+                            onValor={(u) => setUnidade(i.produto_id, u)}
+                          />
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             )}
 

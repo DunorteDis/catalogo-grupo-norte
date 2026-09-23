@@ -8,6 +8,7 @@ export type CatalogoPublico = {
   slug: string;
   cor: string;
   emoji: string | null;
+  imagem_url: string | null;
   personalizado: boolean;
 };
 
@@ -23,7 +24,7 @@ export function useCatalogosPublicos() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("distribuidoras")
-        .select("id, nome, slug, cor, emoji, personalizado")
+        .select("id, nome, slug, cor, emoji, imagem_url, personalizado")
         .eq("ativo", true)
         .order("nome");
       if (error) throw error;
