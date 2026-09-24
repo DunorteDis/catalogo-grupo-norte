@@ -11,11 +11,11 @@ import supergiro from "@/assets/logos/supergiro.png";
 // app, entao trocar uma logo sempre exigiu deploy de qualquer forma. Se um dia a
 // logo virar conteudo que o admin edita, ai sim volta pro banco + Supabase Storage.
 export const LOGOS: Record<string, string | undefined> = {
-  dunorte,
-  elonorte,
-  gruponorte,
-  metanorte,
-  mixnorte,
-  rotanorte,
-  supergiro,
+  dunorte: dunorte.src,
+  elonorte: elonorte.src,
+  gruponorte: gruponorte.src,
+  metanorte: metanorte.src,
+  mixnorte: mixnorte.src,
+  rotanorte: rotanorte.src,
+  supergiro: supergiro.src,
 };

@@ -1,19 +1,45 @@
 {
-  "include": ["src/**/*.ts", "src/**/*.tsx", "vite.config.ts", "eslint.config.js"],
-  // testes rodam com `bun test`, que traz os proprios tipos (bun:test)
-  "exclude": ["src/**/*.test.ts"],
+  "include": [
+    "next-env.d.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    ".next/types/**/*.ts",
+    "scripts/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    // testes rodam com `bun test`, que traz os proprios tipos (bun:test)
+    "src/**/*.test.ts",
+    // Transição: código ainda em TanStack/Supabase. Sai da lista conforme migra.
+    "src/routes",
+    "src/integrations",
+    "src/lib/acessos.functions.ts",
+    "src/hooks/use-catalogos-publicos.ts",
+    "src/hooks/use-meu-vendedor.ts",
+    "src/hooks/use-vendedor-publico.ts",
+    "src/components/lista-pedidos.tsx"
+  ],
   "compilerOptions": {
     "target": "ES2022",
     "jsx": "react-jsx",
     "module": "ESNext",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["vite/client"],
-
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "moduleResolution": "Bundler",
-    "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": false,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "incremental": true,
     "noEmit": true,
-
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
     "skipLibCheck": true,
     "strict": true,
     "noUnusedLocals": false,
@@ -24,9 +50,11 @@
     "noPropertyAccessFromIndexSignature": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
-    "noUncheckedSideEffectImports": true,
     "paths": {
-      "@/*": ["./src/*"]
-    }
+      "@/*": [
+        "./src/*"
+      ]
+    },
+    "allowJs": true
   }
 }
