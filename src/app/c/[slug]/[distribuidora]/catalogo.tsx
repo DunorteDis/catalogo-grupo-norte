@@ -1,10 +1,15 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+"use client";
+
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Check, Loader2, Minus, Plus, Search, ShoppingCart, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
-import { supabase } from "@/integrations/supabase/client";
+import { chamar } from "@/lib/chamar";
+import { mensagemErro } from "@/lib/erros";
+import { criarPedido, produtosDaVitrine, vitrine } from "@/server/publico";
 import { useVendedorPublico } from "@/hooks/use-vendedor-publico";
 import { MarcaCatalogo } from "@/components/marca-catalogo";
 import { Button } from "@/components/ui/button";
@@ -19,9 +24,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
-  filtrosBusca,
   fotoUrl,
   montarMensagem,
+  PAGINA_VITRINE,
   qtdComUnidade,
   totalPorUnidade,
   UNIDADES,
@@ -30,29 +35,6 @@ import {
   type Unidade,
 } from "@/lib/catalogo";
 import { cn } from "@/lib/utils";
-
-export const Route = createFileRoute("/c/$slug/$distribuidora")({
-  head: () => ({
-    meta: [
-      { title: "Catálogo de produtos — faça seu pedido" },
-      {
-        name: "description",
-        content:
-          "Escolha os produtos e as quantidades desejadas e envie seu pedido direto para o vendedor pelo WhatsApp.",
-      },
-      { property: "og:title", content: "Catálogo de produtos — faça seu pedido" },
-      {
-        property: "og:description",
-        content: "Monte sua lista de produtos e envie o pedido pelo WhatsApp.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-  }),
-  component: CatalogoPage,
-});
-
-const PAGE = 24;
 
 type Produto = { id: string; codigo: string; nome: string; arquivo: string | null };
 
@@ -246,8 +228,11 @@ function Aba({
   );
 }
 
-function CatalogoPage() {
-  const { slug, distribuidora: distribuidoraSlug } = Route.useParams();
+export function Catalogo() {
+  const { slug, distribuidora: distribuidoraSlug } = useParams<{
+    slug: string;
+    distribuidora: string;
+  }>();
   const [busca, setBusca] = useState("");
   const [termo, setTermo] = useState("");
   const [carrinho, setCarrinho] = useState<Record<string, ItemCarrinho>>({});
@@ -275,38 +260,14 @@ function CatalogoPage() {
 
   const distribuidoraQuery = useQuery({
     queryKey: ["distribuidora", distribuidoraSlug],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("distribuidoras")
-        .select("id, nome, cor, emoji, imagem_url")
-        .eq("slug", distribuidoraSlug)
-        .eq("ativo", true)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () => chamar(vitrine(distribuidoraSlug)),
   });
 
   const vendedor = vendedorQuery.data;
   const distribuidora = distribuidoraQuery.data;
 
   // As abas do catálogo. Catálogo sem seção nenhuma não mostra barra de abas.
-  const secoesQuery = useQuery({
-    queryKey: ["catalogo-secoes-publicas", distribuidora?.id],
-    enabled: !!distribuidora?.id,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("catalogo_secoes")
-        .select("id, nome")
-        .eq("distribuidora_id", distribuidora!.id)
-        .order("ordem")
-        .order("nome");
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
-  const secoes = secoesQuery.data ?? [];
+  const secoes = distribuidora?.secoes ?? [];
 
   const storageKey = `pedido:${slug}:${distribuidoraSlug}`;
   useEffect(() => {
@@ -332,27 +293,16 @@ function CatalogoPage() {
     queryKey: ["catalogo", distribuidora?.id, secaoId, termo],
     enabled: !!distribuidora?.id,
     initialPageParam: 0,
-    queryFn: async ({ pageParam }) => {
-      let q = supabase
-        .from("produtos")
-        .select("id, codigo, nome, arquivo, distribuidora_produtos!inner(distribuidora_id)")
-        .eq("distribuidora_produtos.distribuidora_id", distribuidora!.id)
-        .eq("ativo", true)
-        .order("nome", { ascending: true })
-        // O ERP repete nome: sem desempate a rolagem repete um card e perde outro.
-        .order("id")
-        .range(pageParam * PAGE, pageParam * PAGE + PAGE - 1);
-      if (secaoId) {
-        q = q.eq("distribuidora_produtos.secao_id", secaoId);
-      }
-      for (const filtro of filtrosBusca(termo)) {
-        q = q.or(filtro);
-      }
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data ?? []) as unknown as Produto[];
-    },
-    getNextPageParam: (last, pages) => (last.length === PAGE ? pages.length : undefined),
+    queryFn: ({ pageParam }) =>
+      chamar(
+        produtosDaVitrine({
+          distribuidoraId: distribuidora!.id,
+          secaoId,
+          termo,
+          pagina: pageParam,
+        }),
+      ),
+    getNextPageParam: (last, pages) => (last.length === PAGINA_VITRINE ? pages.length : undefined),
   });
 
   const produtos = useMemo(() => produtosQuery.data?.pages.flat() ?? [], [produtosQuery.data]);
@@ -392,24 +342,19 @@ function CatalogoPage() {
     if (!vendedor || !distribuidora || itens.length === 0) return;
     setEnviando(true);
     try {
-      const pedidoId = crypto.randomUUID();
-      const { error } = await supabase.from("pedidos").insert({
-        id: pedidoId,
-        vendedor_id: vendedor.id,
-        distribuidora_id: distribuidora.id,
-        cliente_nome: cliente.trim() || null,
-        observacao: observacao.trim() || null,
-        total_itens: totalItens,
-      });
-      if (error) throw error;
-      await supabase.from("pedido_itens").insert(
-        itens.map((i) => ({
-          pedido_id: pedidoId,
-          codigo: i.codigo,
-          nome: i.nome,
-          quantidade: i.quantidade,
-          unidade: i.unidade,
-        })),
+      await chamar(
+        criarPedido({
+          vendedorId: vendedor.id,
+          distribuidoraId: distribuidora.id,
+          clienteNome: cliente,
+          observacao,
+          itens: itens.map((i) => ({
+            codigo: i.codigo,
+            nome: i.nome,
+            quantidade: i.quantidade,
+            unidade: i.unidade,
+          })),
+        }),
       );
       const texto = montarMensagem({
         distribuidora: distribuidora.nome,
@@ -423,13 +368,13 @@ function CatalogoPage() {
       window.open(url, "_blank", "noopener");
     } catch (e) {
       console.error(e);
-      toast.error("Não foi possível enviar o pedido. Tente novamente.");
+      toast.error(mensagemErro(e, "Não foi possível enviar o pedido. Tente novamente."));
     } finally {
       setEnviando(false);
     }
   }
 
-  if (vendedorQuery.isLoading || distribuidoraQuery.isLoading) {
+  if (vendedorQuery.isPending || distribuidoraQuery.isPending) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -442,7 +387,7 @@ function CatalogoPage() {
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 px-6 text-center">
         <h1 className="text-2xl font-extrabold">Link não encontrado</h1>
         <p className="text-sm text-muted-foreground">Peça um novo link para o seu vendedor.</p>
-        <Link to="/" className="text-sm font-semibold underline">
+        <Link href="/" className="text-sm font-semibold underline">
           Ir para o início
         </Link>
       </div>

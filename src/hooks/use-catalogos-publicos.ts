@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { supabase } from "@/integrations/supabase/client";
+import { chamar } from "@/lib/chamar";
+import { catalogosPublicos } from "@/server/publico";
 
 export type CatalogoPublico = {
   id: string;
@@ -21,14 +22,6 @@ export type CatalogoPublico = {
 export function useCatalogosPublicos() {
   return useQuery({
     queryKey: ["catalogos-publicos"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("distribuidoras")
-        .select("id, nome, slug, cor, emoji, imagem_url, personalizado")
-        .eq("ativo", true)
-        .order("nome");
-      if (error) throw error;
-      return (data ?? []) as CatalogoPublico[];
-    },
+    queryFn: () => chamar(catalogosPublicos()),
   });
 }

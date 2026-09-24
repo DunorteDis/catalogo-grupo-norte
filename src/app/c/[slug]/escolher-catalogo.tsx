@@ -1,35 +1,17 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+"use client";
+
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 import { MarcaCatalogo } from "@/components/marca-catalogo";
 import { useCatalogosPublicos, type CatalogoPublico } from "@/hooks/use-catalogos-publicos";
 import { useVendedorPublico } from "@/hooks/use-vendedor-publico";
 
-export const Route = createFileRoute("/c/$slug/")({
-  head: () => ({
-    meta: [
-      { title: "Escolha o catálogo — faça seu pedido" },
-      {
-        name: "description",
-        content: "Escolha o catálogo para ver os produtos e montar seu pedido pelo WhatsApp.",
-      },
-      { property: "og:title", content: "Escolha o catálogo — faça seu pedido" },
-      {
-        property: "og:description",
-        content: "Escolha o catálogo para ver os produtos e montar seu pedido.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-  }),
-  component: EscolherCatalogo,
-});
-
 function CartaoCatalogo({ catalogo, slug }: { catalogo: CatalogoPublico; slug: string }) {
   return (
     <Link
-      to="/c/$slug/$distribuidora"
-      params={{ slug, distribuidora: catalogo.slug }}
+      href={`/c/${slug}/${catalogo.slug}`}
       className="flex h-24 items-center justify-center rounded-2xl border bg-card p-4 transition hover:shadow-md"
       // Catálogo personalizado não tem logo: quem dá identidade ao cartão é a
       // cor escolhida no painel, aplicada de leve no fundo e na borda.
@@ -44,8 +26,8 @@ function CartaoCatalogo({ catalogo, slug }: { catalogo: CatalogoPublico; slug: s
   );
 }
 
-function EscolherCatalogo() {
-  const { slug } = Route.useParams();
+export function EscolherCatalogo() {
+  const { slug } = useParams<{ slug: string }>();
 
   const vendedorQuery = useVendedorPublico(slug);
   const catalogosQuery = useCatalogosPublicos();
@@ -54,7 +36,9 @@ function EscolherCatalogo() {
   const distribuidoras = catalogos.filter((c) => !c.personalizado);
   const extras = catalogos.filter((c) => c.personalizado);
 
-  if (vendedorQuery.isLoading) {
+  // No servidor a query não roda: isLoading ficaria falso e mostraria "Link não
+  // encontrado" antes de carregar.
+  if (vendedorQuery.isPending) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -67,7 +51,7 @@ function EscolherCatalogo() {
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 px-6 text-center">
         <h1 className="text-2xl font-extrabold">Link não encontrado</h1>
         <p className="text-sm text-muted-foreground">Peça um novo link para o seu vendedor.</p>
-        <Link to="/" className="text-sm font-semibold underline">
+        <Link href="/" className="text-sm font-semibold underline">
           Ir para o início
         </Link>
       </div>

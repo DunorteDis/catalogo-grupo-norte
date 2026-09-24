@@ -15,9 +15,7 @@
     "src/routes",
     "src/integrations",
     "src/lib/acessos.functions.ts",
-    "src/hooks/use-catalogos-publicos.ts",
     "src/hooks/use-meu-vendedor.ts",
-    "src/hooks/use-vendedor-publico.ts",
     "src/components/lista-pedidos.tsx"
   ],
   "compilerOptions": {
