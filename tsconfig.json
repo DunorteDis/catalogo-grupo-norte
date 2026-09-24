@@ -14,9 +14,7 @@
     // Transição: código ainda em TanStack/Supabase. Sai da lista conforme migra.
     "src/routes",
     "src/integrations",
-    "src/lib/acessos.functions.ts",
-    "src/hooks/use-meu-vendedor.ts",
-    "src/components/lista-pedidos.tsx"
+    "src/lib/acessos.functions.ts"
   ],
   "compilerOptions": {
     "target": "ES2022",

@@ -1,13 +1,9 @@
-import {
-  createFileRoute,
-  Link,
-  Outlet,
-  redirect,
-  useNavigate,
-  useRouterState,
-} from "@tanstack/react-router";
+"use client";
+
 import { useIsFetching, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   BookOpen,
   Boxes,
@@ -22,9 +18,8 @@ import {
   Users,
 } from "lucide-react";
 
-import { supabase } from "@/integrations/supabase/client";
+import { chamar } from "@/lib/chamar";
 import { cn } from "@/lib/utils";
-import { senhaEhProvisoria } from "@/lib/acessos";
 import logoBranco from "@/assets/gruponorte-branco.png";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -44,39 +39,7 @@ import {
   SidebarRail,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-
-export const Route = createFileRoute("/_authenticated")({
-  ssr: false,
-  beforeLoad: async ({ context }) => {
-    // beforeLoad reroda a cada navegacao (nao e cache, por design do TanStack).
-    // ponytail: getSession() le do storage local; getUser() ia na rede toda vez
-    // (~600ms). Aqui a checagem e so UX — quem barra de verdade e o RLS no banco.
-    const { data } = await supabase.auth.getSession();
-    const user = data.session?.user;
-    if (!user) throw redirect({ to: "/auth" });
-
-    // Senha gerada pelo sistema trafegou por WhatsApp: nenhuma tela abre antes da troca.
-    if (senhaEhProvisoria(user.user_metadata)) throw redirect({ to: "/definir-senha" });
-
-    // Papel nao muda no meio da sessao. Cacheado no queryClient, que o logout ja
-    // limpa. Se um admin for rebaixado, a UI so acompanha no proximo login — a
-    // escrita continua bloqueada pelo RLS de qualquer forma.
-    const admin = await context.queryClient.ensureQueryData({
-      queryKey: ["has-role", user.id, "admin"],
-      queryFn: async () => {
-        const { data: tem } = await supabase.rpc("has_role", {
-          _user_id: user.id,
-          _role: "admin",
-        });
-        return Boolean(tem);
-      },
-      staleTime: Infinity,
-    });
-
-    return { user, admin };
-  },
-  component: AppShell,
-});
+import { sair as encerrarSessao } from "@/server/auth";
 
 type Item = { to: string; label: string; icon: typeof Users; exact?: boolean };
 type Grupo = { titulo: string; itens: Item[] };
@@ -106,20 +69,35 @@ const MENU_VENDEDOR: Grupo[] = [
 ];
 
 function useTemaEscuro() {
-  const [escuro, setEscuro] = useState(() => localStorage.getItem("tema") === "dark");
+  // null até montar: localStorage não existe no servidor.
+  const [escuro, setEscuro] = useState<boolean | null>(null);
+  useEffect(() => setEscuro(localStorage.getItem("tema") === "dark"), []);
   useEffect(() => {
+    if (escuro === null) return;
     document.documentElement.classList.toggle("dark", escuro);
     localStorage.setItem("tema", escuro ? "dark" : "light");
   }, [escuro]);
-  return [escuro, setEscuro] as const;
+  return [!!escuro, (v: boolean) => setEscuro(v)] as const;
 }
 
-function AppShell() {
-  const { user, admin } = Route.useRouteContext();
-  const navigate = useNavigate();
+export function AppShell({
+  email,
+  admin,
+  children,
+}: {
+  email: string;
+  admin: boolean;
+  children: ReactNode;
+}) {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [escuro, setEscuro] = useTemaEscuro();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const pathname = usePathname();
+  // ponytail: as telas logadas eram ssr:false no TanStack e leem window e
+  // localStorage no render. Montar o conteúdo só no navegador mantém isso; o
+  // shell em volta continua vindo do servidor.
+  const [montado, setMontado] = useState(false);
+  useEffect(() => setMontado(true), []);
   // ponytail: uma barra no shell cobre toda tela que busca dados, em vez de um
   // estado de carregamento por pagina. Nenhuma pagina admin tinha um.
   const buscando = useIsFetching() > 0;
@@ -130,20 +108,11 @@ function AppShell() {
     .filter((i) => pathname === i.to || pathname.startsWith(`${i.to}/`))
     .sort((a, b) => b.to.length - a.to.length)[0];
 
-  // getSession() nao valida no servidor; se a sessao for revogada/expirar, o
-  // supabase-js emite SIGNED_OUT e devolvemos o usuario pro login.
-  useEffect(() => {
-    const { data } = supabase.auth.onAuthStateChange((evento) => {
-      if (evento === "SIGNED_OUT") navigate({ to: "/auth", replace: true });
-    });
-    return () => data.subscription.unsubscribe();
-  }, [navigate]);
-
   async function sair() {
     await queryClient.cancelQueries();
     queryClient.clear();
-    await supabase.auth.signOut();
-    navigate({ to: "/auth", replace: true });
+    await chamar(encerrarSessao());
+    router.replace("/auth");
   }
 
   return (
@@ -151,7 +120,7 @@ function AppShell() {
       <Sidebar collapsible="icon">
         <SidebarHeader className="h-16 justify-center border-b border-sidebar-border px-4">
           <img
-            src={logoBranco}
+            src={logoBranco.src}
             alt="Grupo Norte Distribuição"
             className="h-7 w-auto self-start group-data-[collapsible=icon]:hidden"
           />
@@ -165,23 +134,27 @@ function AppShell() {
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {g.itens.map((i) => (
-                    <SidebarMenuItem key={i.to}>
-                      <SidebarMenuButton asChild tooltip={i.label}>
-                        <Link
-                          to={i.to}
-                          activeOptions={{ exact: i.exact ?? false }}
-                          activeProps={{
-                            className:
-                              "bg-sidebar-primary text-sidebar-primary-foreground font-semibold hover:bg-sidebar-primary hover:text-sidebar-primary-foreground",
-                          }}
-                        >
-                          <i.icon />
-                          <span>{i.label}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
+                  {g.itens.map((i) => {
+                    const ativo = i.exact
+                      ? pathname === i.to
+                      : pathname === i.to || pathname.startsWith(`${i.to}/`);
+                    return (
+                      <SidebarMenuItem key={i.to}>
+                        <SidebarMenuButton asChild tooltip={i.label}>
+                          <Link
+                            href={i.to}
+                            className={cn(
+                              ativo &&
+                                "bg-sidebar-primary text-sidebar-primary-foreground font-semibold hover:bg-sidebar-primary hover:text-sidebar-primary-foreground",
+                            )}
+                          >
+                            <i.icon />
+                            <span>{i.label}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
@@ -191,10 +164,10 @@ function AppShell() {
         <SidebarFooter className="gap-3 border-t border-sidebar-border p-3">
           <div className="flex items-center gap-3 group-data-[collapsible=icon]:hidden">
             <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-sidebar-primary text-xs font-bold uppercase text-sidebar-primary-foreground">
-              {(user.email ?? "?").slice(0, 2)}
+              {email.slice(0, 2)}
             </span>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-sidebar-foreground">{user.email}</p>
+              <p className="truncate text-sm font-semibold text-sidebar-foreground">{email}</p>
               <p className="text-xs text-sidebar-foreground/45">
                 {admin ? "Administrador" : "Vendedor"}
               </p>
@@ -243,9 +216,7 @@ function AppShell() {
             <span className="font-semibold">{atual?.label ?? "Início"}</span>
           </nav>
         </header>
-        <main className="flex-1 p-6">
-          <Outlet />
-        </main>
+        <main className="flex-1 p-6">{montado ? children : null}</main>
       </SidebarInset>
     </SidebarProvider>
   );

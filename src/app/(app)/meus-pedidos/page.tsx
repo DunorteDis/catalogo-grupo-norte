@@ -1,46 +1,30 @@
-import { createFileRoute } from "@tanstack/react-router";
+"use client";
+
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 
-import { supabase } from "@/integrations/supabase/client";
+import { chamar } from "@/lib/chamar";
 import { useMeuVendedor } from "@/hooks/use-meu-vendedor";
 import { fimDoDia, inicioDoDia } from "@/lib/periodo";
 import { FiltroPeriodo, periodoInicial } from "@/components/filtro-periodo";
 import { ListaPedidos, type PedidoDaLista } from "@/components/lista-pedidos";
+import { meusPedidos } from "@/server/pedidos";
 
-export const Route = createFileRoute("/_authenticated/meus-pedidos")({
-  component: MeusPedidosPage,
-});
-
-function MeusPedidosPage() {
-  const { user } = Route.useRouteContext();
-  const vendedorQuery = useMeuVendedor(user.id);
+export default function MeusPedidosPage() {
+  const vendedorQuery = useMeuVendedor();
   const [periodo, setPeriodo] = useState(periodoInicial);
 
   const inicio = inicioDoDia(periodo.de).toISOString();
   const fim = fimDoDia(periodo.ate).toISOString();
 
-  // Depende da policy "vendedor le proprios pedidos": o banco filtra por
-  // vendedores.user_id = auth.uid(), então ninguém enxerga pedido de outro.
+  // O servidor filtra pelo vendedor da sessão, então ninguém enxerga pedido de outro.
   // ponytail: sem paginação — o período já limita o conjunto. Se um vendedor
   // passar a fechar centenas de pedidos por dia, aqui entra paginação.
   const pedidosQuery = useQuery({
-    queryKey: ["meus-pedidos", vendedorQuery.data?.id, inicio, fim],
+    queryKey: ["meus-pedidos", inicio, fim],
     enabled: !!vendedorQuery.data?.id,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("pedidos")
-        .select(
-          "id, cliente_nome, observacao, total_itens, created_at, distribuidoras(nome), pedido_itens(codigo, nome, quantidade, unidade)",
-        )
-        .eq("vendedor_id", vendedorQuery.data!.id)
-        .gte("created_at", inicio)
-        .lte("created_at", fim)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () => chamar(meusPedidos(inicio, fim)),
   });
 
   if (vendedorQuery.isLoading) {
@@ -71,7 +55,7 @@ function MeusPedidosPage() {
       </div>
 
       <ListaPedidos
-        pedidos={(pedidosQuery.data ?? []) as PedidoDaLista[]}
+        pedidos={pedidosQuery.data ?? []}
         carregando={pedidosQuery.isLoading}
         erro={pedidosQuery.error as Error | null}
       />

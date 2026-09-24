@@ -1,18 +1,17 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+"use client";
+
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { ArrowDown, ArrowRight, ArrowUp, TriangleAlert } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, LabelList, XAxis, YAxis } from "recharts";
 
-import { supabase } from "@/integrations/supabase/client";
+import { chamar } from "@/lib/chamar";
 import { fimDoDia, inicioDoDia, paraInput } from "@/lib/periodo";
 import { cn } from "@/lib/utils";
 import { FiltroPeriodo, periodoInicial } from "@/components/filtro-periodo";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-
-export const Route = createFileRoute("/_authenticated/admin/")({
-  component: AdminHome,
-});
+import { resumoPainel, vendedoresAtivos, type PedidoResumo } from "@/server/pedidos";
 
 /** Série única: uma cor só. Ramp por valor em categoria nominal duplicaria o que o tamanho da barra já diz. */
 const COR = "var(--color-primary)";
@@ -82,14 +81,7 @@ function Painel({
   );
 }
 
-type PedidoResumo = {
-  created_at: string;
-  total_itens: number;
-  vendedor_id: string | null;
-  vendedores: { nome: string } | null;
-};
-
-function AdminHome() {
+export default function AdminHome() {
   // Painel abre em 30 dias: um dashboard é sobre tendência, não sobre o dia.
   const [periodo, setPeriodo] = useState(() => periodoInicial("30dias"));
 
@@ -101,29 +93,12 @@ function AdminHome() {
 
   const pedidosQuery = useQuery({
     queryKey: ["painel-pedidos", inicio.toISOString(), fim.toISOString()],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("pedidos")
-        .select("created_at, total_itens, vendedor_id, vendedores(nome)")
-        .gte("created_at", inicioAnterior.toISOString())
-        .lte("created_at", fim.toISOString())
-        .order("created_at");
-      if (error) throw error;
-      return (data ?? []) as unknown as PedidoResumo[];
-    },
+    queryFn: () => chamar(resumoPainel(inicioAnterior.toISOString(), fim.toISOString())),
   });
 
   const vendedoresQuery = useQuery({
     queryKey: ["painel-vendedores"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("vendedores")
-        .select("id, nome, slug")
-        .eq("ativo", true)
-        .order("nome");
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () => chamar(vendedoresAtivos()),
   });
 
   const todos = pedidosQuery.data ?? [];
@@ -319,7 +294,7 @@ function AdminHome() {
       <p className="mt-4 text-xs text-muted-foreground">
         O pedido é gravado quando o cliente conclui no catálogo, antes de abrir o WhatsApp — os
         números contam intenção de compra.{" "}
-        <Link to="/admin/pedidos" className="font-semibold underline underline-offset-2">
+        <Link href="/admin/pedidos" className="font-semibold underline underline-offset-2">
           Ver todos os pedidos
         </Link>
       </p>

@@ -1,4 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
+"use client";
+
 import { Copy, ExternalLink, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -6,10 +7,6 @@ import { Button } from "@/components/ui/button";
 import { MarcaCatalogo } from "@/components/marca-catalogo";
 import { useCatalogosPublicos, type CatalogoPublico } from "@/hooks/use-catalogos-publicos";
 import { useMeuVendedor } from "@/hooks/use-meu-vendedor";
-
-export const Route = createFileRoute("/_authenticated/vendedor")({
-  component: PainelVendedor,
-});
 
 function CartaoLink({
   catalogo,
@@ -38,12 +35,8 @@ function CartaoLink({
   );
 }
 
-function PainelVendedor() {
-  // ponytail: o usuario ja vem do contexto da rota; getUser() aqui era mais uma
-  // ida a rede so para descobrir o id que o shell ja tinha.
-  const { user } = Route.useRouteContext();
-
-  const vendedorQuery = useMeuVendedor(user.id);
+export default function PainelVendedor() {
+  const vendedorQuery = useMeuVendedor();
   const catalogosQuery = useCatalogosPublicos();
 
   const vendedor = vendedorQuery.data;

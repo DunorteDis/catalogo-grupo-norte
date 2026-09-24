@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { supabase } from "@/integrations/supabase/client";
+import { chamar } from "@/lib/chamar";
 import { fotoUrl, qtdComUnidade } from "@/lib/catalogo";
 import { formatarData } from "@/lib/periodo";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { fotosPorCodigo } from "@/server/pedidos";
 
 export type PedidoDaLista = {
   id: string;
@@ -53,14 +54,7 @@ export function ListaPedidos({
   const fotosQuery = useQuery({
     queryKey: ["fotos-de-produtos", codigos],
     enabled: codigos.length > 0,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("produtos")
-        .select("codigo, arquivo")
-        .in("codigo", codigos);
-      if (error) throw error;
-      return Object.fromEntries((data ?? []).map((p) => [p.codigo, p.arquivo]));
-    },
+    queryFn: () => chamar(fotosPorCodigo(codigos)),
   });
 
   const itens = pedidos.reduce((s, p) => s + (p.total_itens ?? 0), 0);
