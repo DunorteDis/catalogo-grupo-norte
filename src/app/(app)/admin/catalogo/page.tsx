@@ -1,4 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
+"use client";
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -17,17 +18,39 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { mensagemErro } from "@/lib/erros";
+import { chamar } from "@/lib/chamar";
 import {
-  filtrosBusca,
   fotoUrl,
-  MAX_CODIGOS_COLADOS,
+  MAX_IMAGEM,
+  PAGINA_CATALOGO as PAGINA,
   parseCodigos,
   slugify,
-  umCadastroPorCodigo,
+  TIPOS_IMAGEM,
 } from "@/lib/catalogo";
+import {
+  ativarCatalogo,
+  cadastroParaAdicionar,
+  colarCodigos,
+  criarSecao as criarSecaoAcao,
+  desvincular,
+  desvincularBusca,
+  enviarImagem,
+  excluirCatalogo,
+  excluirSecao as excluirSecaoAcao,
+  itensDoCatalogo,
+  jaNoCatalogo,
+  listarCatalogos,
+  ordenarSecoes,
+  renomearSecao as renomearSecaoAcao,
+  salvarCatalogo as salvarCatalogoAcao,
+  secoesDoCatalogo,
+  vincular,
+  vincularBusca,
+  type Catalogo,
+  type Secao,
+} from "@/server/catalogos";
 import { MarcaCatalogo } from "@/components/marca-catalogo";
 import {
   AlertDialog,
@@ -63,17 +86,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export const Route = createFileRoute("/_authenticated/admin/catalogo")({
-  component: CatalogoPage,
-});
-
-const PAGINA = 25;
-const LOTE = 500;
-// Busca por código vai na URL (PostgREST usa GET): lote menor para o `in` não
-// estourar o limite de tamanho da requisição.
-const LOTE_BUSCA = 200;
 const COR_PADRAO = "#b73d25";
-const COLUNAS_CATALOGO = "id, nome, slug, cor, emoji, imagem_url, personalizado, ativo";
 
 /**
  * Emojis por assunto, pensados para o que uma distribuidora vende e comemora.
@@ -94,38 +107,15 @@ const GRUPOS_EMOJI: Array<[grupo: string, emojis: string]> = [
   ["Datas e estações", "🎄 🎅 ⛄ 🎆 🎊 🎁 🎈 🐰 🎃 👻 💝 💐 👔 🎓 🏖️ ☀️ 🌧️ ❄️ 🍂 🌙 ⚽"],
 ];
 
-// Mesma lista e limite do bucket (migration catalogo_imagem): avisar aqui evita o erro cru do Storage.
-const TIPOS_IMAGEM = ["image/png", "image/jpeg", "image/webp", "image/gif"];
-const MAX_IMAGEM = 2 * 1024 * 1024;
-
-/** Sobe a imagem do catálogo e devolve a URL pública que vai para `imagem_url`. */
-async function enviarImagem(arquivo: File) {
-  // Nome novo a cada envio: a URL antiga fica em cache no celular do cliente.
-  // ponytail: a imagem trocada fica no bucket; limpar quando o espaço pesar.
-  const extensao = arquivo.name.split(".").pop()?.toLowerCase() || "png";
-  const caminho = `${crypto.randomUUID()}.${extensao}`;
-  const bucket = supabase.storage.from("catalogos");
-  const { error } = await bucket.upload(caminho, arquivo, {
-    cacheControl: "31536000",
-    contentType: arquivo.type,
-  });
-  if (error) throw error;
-  return bucket.getPublicUrl(caminho).data.publicUrl;
+/** Sobe a imagem do catálogo e devolve a URL que vai para `imagem_url`. */
+async function enviarImagemDoCatalogo(arquivo: File) {
+  const dados = new FormData();
+  dados.set("arquivo", arquivo);
+  return chamar(enviarImagem(dados));
 }
 
 type Produto = { id: string; codigo: string; nome: string; arquivo: string | null };
-type Secao = { id: string; nome: string; ordem: number };
 type ItemDoCatalogo = { produto: Produto; secaoId: string | null };
-type Catalogo = {
-  id: string;
-  nome: string;
-  slug: string;
-  cor: string;
-  emoji: string | null;
-  imagem_url: string | null;
-  personalizado: boolean;
-  ativo: boolean;
-};
 
 function useDebounce(valor: string, ms = 350) {
   const [saida, setSaida] = useState(valor);
@@ -134,25 +124,6 @@ function useDebounce(valor: string, ms = 350) {
     return () => clearTimeout(t);
   }, [valor, ms]);
   return saida;
-}
-
-/**
- * Liga produtos a um catálogo, em lotes, sem duplicar o que já está lá. Como o
- * upsert também grava a seção, religar um produto que já estava no catálogo é o
- * que move ele de aba — não precisa remover e adicionar de novo.
- */
-async function vincular(catalogoId: string, ids: string[], secaoId: string | null = null) {
-  for (let i = 0; i < ids.length; i += LOTE) {
-    const { error } = await supabase.from("distribuidora_produtos").upsert(
-      ids.slice(i, i + LOTE).map((produto_id) => ({
-        distribuidora_id: catalogoId,
-        produto_id,
-        secao_id: secaoId,
-      })),
-      { onConflict: "distribuidora_id,produto_id" },
-    );
-    if (error) throw error;
-  }
 }
 
 function LinhaProduto({
@@ -205,7 +176,7 @@ function Aba({
   );
 }
 
-function CatalogoPage() {
+export default function CatalogoPage() {
   const qc = useQueryClient();
   const [catalogoId, setCatalogoId] = useState("");
   const [busca, setBusca] = useState("");
@@ -252,14 +223,7 @@ function CatalogoPage() {
   // (nome, slug, cor, lista de produtos, link público), só muda a marca.
   const catalogosQuery = useQuery({
     queryKey: ["catalogos"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("distribuidoras")
-        .select(COLUNAS_CATALOGO)
-        .order("nome");
-      if (error) throw error;
-      return (data ?? []) as Catalogo[];
-    },
+    queryFn: () => chamar(listarCatalogos()),
   });
 
   const catalogos = catalogosQuery.data ?? [];
@@ -270,72 +234,24 @@ function CatalogoPage() {
   const secoesQuery = useQuery({
     queryKey: ["catalogo-secoes", catalogoId],
     enabled: !!catalogoId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("catalogo_secoes")
-        .select("id, nome, ordem")
-        .eq("distribuidora_id", catalogoId)
-        .order("ordem")
-        .order("nome");
-      if (error) throw error;
-      return (data ?? []) as Secao[];
-    },
+    queryFn: () => chamar(secoesDoCatalogo(catalogoId)),
   });
 
   const secoes = secoesQuery.data ?? [];
   const secao = secoes.find((s) => s.id === secaoId);
   const nomePorSecao = new Map(secoes.map((s) => [s.id, s.nome]));
 
-  // O catálogo em si: parte do vínculo e traz o produto embutido com !inner, para
-  // a busca e a contagem valerem sobre o que está no catálogo, não sobre o cadastro.
   const catalogoQuery = useQuery({
     queryKey: ["catalogo-itens", catalogoId, secaoId, termo, pagina],
     enabled: !!catalogoId,
-    queryFn: async () => {
-      let q = supabase
-        .from("distribuidora_produtos")
-        .select("secao_id, produtos!inner(id, codigo, nome, arquivo)", { count: "exact" })
-        .eq("distribuidora_id", catalogoId)
-        // `referencedTable` só ordenaria dentro do embed, e a lista vinha na ordem
-        // física. O id desempata nome repetido, senão a paginação repete e perde item.
-        .order("produtos(nome)")
-        .order("id")
-        .range(pagina * PAGINA, pagina * PAGINA + PAGINA - 1);
-      if (secaoId) q = q.eq("secao_id", secaoId);
-      for (const condicao of filtrosBusca(termo)) {
-        q = q.or(condicao, { referencedTable: "produtos" });
-      }
-      const { data, error, count } = await q;
-      if (error) throw error;
-      return {
-        linhas: (data ?? []).map((v) => ({
-          produto: v.produtos as unknown as Produto,
-          secaoId: v.secao_id,
-        })) as ItemDoCatalogo[],
-        total: count ?? 0,
-      };
-    },
+    queryFn: () => chamar(itensDoCatalogo({ catalogoId, secaoId, termo, pagina })),
   });
 
   // Cadastro completo, só dentro do modal de adicionar.
   const cadastroQuery = useQuery({
     queryKey: ["catalogo-cadastro", termoAdd, paginaAdd],
     enabled: adicionarAberto,
-    queryFn: async () => {
-      let q = supabase
-        .from("produtos")
-        .select("id, codigo, nome, arquivo", { count: "exact" })
-        // O ERP repete nome: sem desempate a mesma linha aparece em duas páginas.
-        .order("nome")
-        .order("id")
-        .range(paginaAdd * PAGINA, paginaAdd * PAGINA + PAGINA - 1);
-      for (const condicao of filtrosBusca(termoAdd)) {
-        q = q.or(condicao);
-      }
-      const { data, error, count } = await q;
-      if (error) throw error;
-      return { linhas: (data ?? []) as Produto[], total: count ?? 0 };
-    },
+    queryFn: () => chamar(cadastroParaAdicionar(termoAdd, paginaAdd)),
   });
 
   const idsVisiveisNoModal = (cadastroQuery.data?.linhas ?? []).map((p) => p.id);
@@ -349,15 +265,7 @@ function CatalogoPage() {
   const jaNoCatalogoQuery = useQuery({
     queryKey: ["catalogo-ja-tem", catalogoId, idsVisiveisNoModal],
     enabled: adicionarAberto && !!catalogoId && idsVisiveisNoModal.length > 0,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("distribuidora_produtos")
-        .select("produto_id, secao_id")
-        .eq("distribuidora_id", catalogoId)
-        .in("produto_id", idsVisiveisNoModal);
-      if (error) throw error;
-      return new Map((data ?? []).map((v) => [v.produto_id, v.secao_id]));
-    },
+    queryFn: async () => new Map(await chamar(jaNoCatalogo(catalogoId, idsVisiveisNoModal))),
   });
 
   function recarregar() {
@@ -366,10 +274,12 @@ function CatalogoPage() {
   }
 
   const adicionar = useMutation({
-    mutationFn: async (ids: string[]) => {
-      await vincular(catalogoId, ids, secaoId || null);
-      return ids.length;
-    },
+    mutationFn: (alvo: string[] | "busca") =>
+      chamar(
+        alvo === "busca"
+          ? vincularBusca(catalogoId, termoAdd, secaoId || null)
+          : vincular(catalogoId, alvo, secaoId || null),
+      ),
     onSuccess: (n) => {
       const onde = secao ? `à seção ${secao.nome}` : "ao catálogo";
       toast.success(`${n} ${n === 1 ? "produto adicionado" : "produtos adicionados"} ${onde}.`);
@@ -379,110 +289,18 @@ function CatalogoPage() {
   });
 
   const remover = useMutation({
-    mutationFn: async (ids: string[]) => {
-      for (let i = 0; i < ids.length; i += LOTE) {
-        const { error } = await supabase
-          .from("distribuidora_produtos")
-          .delete()
-          .eq("distribuidora_id", catalogoId)
-          .in("produto_id", ids.slice(i, i + LOTE));
-        if (error) throw error;
-      }
-      return ids.length;
-    },
+    mutationFn: (alvo: string[] | "busca") =>
+      chamar(
+        alvo === "busca"
+          ? desvincularBusca(catalogoId, secaoId, termo)
+          : desvincular(catalogoId, alvo),
+      ),
     onSuccess: (n) => {
       toast.success(`${n} ${n === 1 ? "produto removido" : "produtos removidos"} do catálogo.`);
       recarregar();
     },
     onError: (e: Error) => toast.error(mensagemErro(e)),
   });
-
-  /**
-   * Ids de todos os produtos que a busca devolve, em páginas de 1000. Dentro do
-   * catálogo a aba aberta também filtra — "Remover os N" tira o que está à vista.
-   */
-  async function todosOsIds(dentroDoCatalogo: boolean, filtro: string) {
-    const ids: string[] = [];
-    for (let de = 0; ; de += 1000) {
-      let lote: Array<{ produto_id?: string; id?: string }>;
-      if (dentroDoCatalogo) {
-        let q = supabase
-          .from("distribuidora_produtos")
-          .select("produto_id, produtos!inner(nome, codigo)")
-          .eq("distribuidora_id", catalogoId)
-          .order("produto_id")
-          .range(de, de + 999);
-        if (secaoId) q = q.eq("secao_id", secaoId);
-        for (const condicao of filtrosBusca(filtro)) {
-          q = q.or(condicao, { referencedTable: "produtos" });
-        }
-        const { data, error } = await q;
-        if (error) throw error;
-        lote = data ?? [];
-      } else {
-        let q = supabase
-          .from("produtos")
-          .select("id")
-          // Ordem total: com empate a mesma linha cai em dois lotes, e o upsert
-          // recusa o lote que tenta gravar o mesmo vínculo duas vezes.
-          .order("id")
-          .range(de, de + 999);
-        for (const condicao of filtrosBusca(filtro)) {
-          q = q.or(condicao);
-        }
-        const { data, error } = await q;
-        if (error) throw error;
-        lote = data ?? [];
-      }
-      ids.push(...lote.map((x) => (dentroDoCatalogo ? x.produto_id! : x.id!)));
-      if (lote.length < 1000) break;
-    }
-    return ids;
-  }
-
-  /** Duplica catálogo: as seções nascem de novo no destino e os vínculos vão para a seção equivalente. */
-  async function copiarCatalogo(origemId: string, destinoId: string) {
-    const { data: origem, error } = await supabase
-      .from("catalogo_secoes")
-      .select("id, nome, ordem")
-      .eq("distribuidora_id", origemId)
-      .order("ordem");
-    if (error) throw error;
-
-    const equivalente = new Map<string, string>();
-    if (origem?.length) {
-      const { data: criadas, error: erroSecoes } = await supabase
-        .from("catalogo_secoes")
-        .insert(origem.map((s) => ({ distribuidora_id: destinoId, nome: s.nome, ordem: s.ordem })))
-        .select("id, nome");
-      if (erroSecoes) throw erroSecoes;
-      const porNome = new Map((criadas ?? []).map((s) => [s.nome, s.id]));
-      origem.forEach((s) => equivalente.set(s.id, porNome.get(s.nome)!));
-    }
-
-    for (let de = 0; ; de += 1000) {
-      const { data, error: erroVinculos } = await supabase
-        .from("distribuidora_produtos")
-        .select("produto_id, secao_id")
-        .eq("distribuidora_id", origemId)
-        .order("produto_id")
-        .range(de, de + 999);
-      if (erroVinculos) throw erroVinculos;
-      const lote = data ?? [];
-      if (lote.length > 0) {
-        const { error: erroCopia } = await supabase.from("distribuidora_produtos").upsert(
-          lote.map((v) => ({
-            distribuidora_id: destinoId,
-            produto_id: v.produto_id,
-            secao_id: v.secao_id ? (equivalente.get(v.secao_id) ?? null) : null,
-          })),
-          { onConflict: "distribuidora_id,produto_id" },
-        );
-        if (erroCopia) throw erroCopia;
-      }
-      if (lote.length < 1000) break;
-    }
-  }
 
   const novoSlug = slugify(nome);
 
@@ -520,35 +338,18 @@ function CatalogoPage() {
       if (!limpo || !novoSlug) throw new Error("Dê um nome ao catálogo.");
       let imagem: string | null = null;
       if (icone === "imagem") {
-        imagem = imagemNova ? await enviarImagem(imagemNova) : imagemUrl;
+        imagem = imagemNova ? await enviarImagemDoCatalogo(imagemNova) : imagemUrl;
         if (!imagem) throw new Error("Escolha uma imagem para o catálogo.");
       }
-      // Emoji e imagem se excluem: o que não foi escolhido vai nulo.
-      const campos = {
-        nome: limpo,
-        cor,
-        emoji: icone === "emoji" ? emoji.trim() || null : null,
-        imagem_url: imagem,
-      };
-      if (editando) {
-        // O slug não muda ao renomear: é ele que está nos links já enviados aos clientes.
-        const { data, error } = await supabase
-          .from("distribuidoras")
-          .update(campos)
-          .eq("id", editando.id)
-          .select(COLUNAS_CATALOGO)
-          .single();
-        if (error) throw error;
-        return data as Catalogo;
-      }
-      const { data, error } = await supabase
-        .from("distribuidoras")
-        .insert({ ...campos, slug: novoSlug, personalizado: true })
-        .select(COLUNAS_CATALOGO)
-        .single();
-      if (error) throw error;
-      if (copiarDe) await copiarCatalogo(copiarDe, data.id);
-      return data as Catalogo;
+      return chamar(
+        salvarCatalogoAcao(editando?.id ?? null, {
+          nome: limpo,
+          cor,
+          emoji: icone === "emoji" ? emoji.trim() || null : null,
+          imagemUrl: imagem,
+          copiarDe: editando ? "" : copiarDe,
+        }),
+      );
     },
     onSuccess: (salvo) => {
       toast.success(`Catálogo ${salvo.nome} ${editando ? "atualizado" : "criado"}.`);
@@ -562,40 +363,7 @@ function CatalogoPage() {
   });
 
   const colar = useMutation({
-    mutationFn: async () => {
-      const codigos = parseCodigos(textoCodigos);
-      if (codigos.length === 0) throw new Error("Cole ao menos um código.");
-      if (codigos.length > MAX_CODIGOS_COLADOS)
-        throw new Error(
-          `Cole no máximo ${MAX_CODIGOS_COLADOS} códigos por vez — vieram ${codigos.length}.`,
-        );
-      const linhas: Array<{ id: string; codigo: string; noCatalogo: boolean }> = [];
-      for (let i = 0; i < codigos.length; i += LOTE_BUSCA) {
-        // O embed vem filtrado para este catálogo: vazio quando a linha não está nele.
-        const { data, error } = await supabase
-          .from("produtos")
-          .select("id, codigo, distribuidora_produtos(distribuidora_id)")
-          .in("codigo", codigos.slice(i, i + LOTE_BUSCA))
-          .eq("distribuidora_produtos.distribuidora_id", catalogoId)
-          .order("created_at");
-        if (error) throw error;
-        for (const p of data ?? []) {
-          linhas.push({
-            id: p.id,
-            codigo: p.codigo,
-            noCatalogo: p.distribuidora_produtos.length > 0,
-          });
-        }
-      }
-      // Colar 100 códigos tem que dar 100 produtos, mesmo com EAN repetido no ERP.
-      const { achados, repetidos } = umCadastroPorCodigo(linhas);
-      await vincular(catalogoId, [...achados.values()], secaoId || null);
-      return {
-        total: achados.size,
-        repetidos,
-        faltando: codigos.filter((c) => !achados.has(c)),
-      };
-    },
+    mutationFn: () => chamar(colarCodigos(catalogoId, textoCodigos, secaoId || null)),
     onSuccess: ({ total, repetidos, faltando }) => {
       toast.success(
         `${total} ${total === 1 ? "produto vinculado" : "produtos vinculados"}` +
@@ -612,22 +380,13 @@ function CatalogoPage() {
   });
 
   const alternarAtivo = useMutation({
-    mutationFn: async (ativo: boolean) => {
-      const { error } = await supabase
-        .from("distribuidoras")
-        .update({ ativo })
-        .eq("id", catalogoId);
-      if (error) throw error;
-    },
+    mutationFn: (ativo: boolean) => chamar(ativarCatalogo(catalogoId, ativo)),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["catalogos"] }),
     onError: (e: Error) => toast.error(mensagemErro(e)),
   });
 
   const excluir = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.from("distribuidoras").delete().eq("id", catalogoId);
-      if (error) throw error;
-    },
+    mutationFn: () => chamar(excluirCatalogo(catalogoId)),
     onSuccess: () => {
       toast.success("Catálogo excluído.");
       setCatalogoId("");
@@ -642,15 +401,7 @@ function CatalogoPage() {
   }
 
   const criarSecao = useMutation({
-    mutationFn: async (nomeSecao: string) => {
-      const { data, error } = await supabase
-        .from("catalogo_secoes")
-        .insert({ distribuidora_id: catalogoId, nome: nomeSecao, ordem: secoes.length })
-        .select("id")
-        .single();
-      if (error) throw error;
-      return data.id;
-    },
+    mutationFn: (nomeSecao: string) => chamar(criarSecaoAcao(catalogoId, nomeSecao)),
     onSuccess: (id) => {
       toast.success("Seção criada. O que você adicionar agora cai nela.");
       recarregarSecoes();
@@ -661,13 +412,7 @@ function CatalogoPage() {
   });
 
   const renomearSecao = useMutation({
-    mutationFn: async (nomeNovo: string) => {
-      const { error } = await supabase
-        .from("catalogo_secoes")
-        .update({ nome: nomeNovo })
-        .eq("id", secaoId);
-      if (error) throw error;
-    },
+    mutationFn: (nomeNovo: string) => chamar(renomearSecaoAcao(secaoId, nomeNovo)),
     onSuccess: () => {
       toast.success("Seção renomeada.");
       recarregarSecoes();
@@ -685,25 +430,14 @@ function CatalogoPage() {
       const nova = [...secoes];
       nova[i] = vizinho;
       nova[i + direcao] = atual;
-      // ponytail: regrava a ordem inteira em vez de trocar duas linhas — são
-      // poucas seções, e assim a lista se conserta sozinha se a ordem repetir.
-      for (const [idx, s] of nova.entries()) {
-        const { error } = await supabase
-          .from("catalogo_secoes")
-          .update({ ordem: idx })
-          .eq("id", s.id);
-        if (error) throw error;
-      }
+      await chamar(ordenarSecoes(nova.map((s) => s.id)));
     },
     onSuccess: recarregarSecoes,
     onError: (e: Error) => toast.error(mensagemErro(e)),
   });
 
   const excluirSecao = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.from("catalogo_secoes").delete().eq("id", secaoId);
-      if (error) throw error;
-    },
+    mutationFn: () => chamar(excluirSecaoAcao(secaoId)),
     onSuccess: () => {
       toast.success("Seção excluída. Os produtos dela continuam no catálogo, sem seção.");
       setSecaoId("");
@@ -954,11 +688,11 @@ function CatalogoPage() {
                 variant="outline"
                 className="ml-auto rounded-xl text-destructive"
                 disabled={ocupado}
-                onClick={async () => {
+                onClick={() => {
                   const alvo = termo ? `os ${total} da busca` : `todos os ${total}`;
                   const de = secao ? `da seção ${secao.nome}` : `do catálogo ${catalogo?.nome}`;
                   if (!window.confirm(`Remover ${alvo} ${de} do catálogo?`)) return;
-                  remover.mutate(await todosOsIds(true, termo));
+                  remover.mutate("busca");
                 }}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
@@ -1404,7 +1138,7 @@ function CatalogoPage() {
               variant="outline"
               className="rounded-xl"
               disabled={ocupado || totalAdd === 0}
-              onClick={async () => adicionar.mutate(await todosOsIds(false, termoAdd))}
+              onClick={() => adicionar.mutate("busca")}
             >
               <Plus className="mr-2 h-4 w-4" />
               Adicionar {totalAdd}
