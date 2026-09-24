@@ -11,7 +11,12 @@ import {
 } from "@/lib/acessos";
 import { acao, Recusa } from "@/server/acao";
 import { sql } from "@/server/db";
-import { limparErrosLogin, loginBloqueado, registrarErroLogin } from "@/server/freio";
+import {
+  limparErrosLogin,
+  loginBloqueado,
+  MAX_ERROS_POR_USUARIO,
+  registrarErroLogin,
+} from "@/server/freio";
 import { apagarSessao, gravarSessao, ipDaRequisicao, lerSessao } from "@/server/sessao";
 
 // Usuário inexistente também paga um bcrypt: o tempo de resposta não pode
@@ -32,8 +37,12 @@ function areaDe(s: { admin: boolean; prov: boolean }) {
 
 export const entrar = acao(async (usuario: string, senha: string) => {
   const email = loginParaEmail(String(usuario ?? ""));
-  const chave = `${email}|${await ipDaRequisicao()}`;
-  if (loginBloqueado(chave))
+  // Duas chaves: por IP (rápida, mas o cabeçalho só é confiável atrás de proxy —
+  // ver ipDaRequisicao) e por usuário (não depende de cabeçalho nenhum, pega
+  // quem varia de IP a cada tentativa).
+  const agora = Date.now();
+  const chaveIp = `${email}|${await ipDaRequisicao()}`;
+  if (loginBloqueado(chaveIp, agora) || loginBloqueado(email, agora, MAX_ERROS_POR_USUARIO))
     throw new Recusa("Muitas tentativas erradas. Espere 15 minutos e tente de novo.");
 
   const [conta] = await sql<Conta[]>`
@@ -43,11 +52,13 @@ export const entrar = acao(async (usuario: string, senha: string) => {
      where lower(u.email) = ${email}`;
   const confere = await bcrypt.compare(String(senha ?? ""), conta?.senha_hash ?? HASH_FALSO);
   if (!conta?.senha_hash || !confere) {
-    registrarErroLogin(chave);
+    registrarErroLogin(chaveIp, agora);
+    registrarErroLogin(email, agora);
     throw new Recusa("Usuário ou senha incorretos.");
   }
 
-  limparErrosLogin(chave);
+  limparErrosLogin(chaveIp);
+  limparErrosLogin(email);
   await sql`update usuarios set last_sign_in_at = now() where id = ${conta.id}`;
   const sessao = {
     sub: conta.id,

@@ -1,19 +1,25 @@
 // Freio contra força bruta no login: o Supabase fazia isso por nós.
 // ponytail: contador em memória — vale para UMA instância do Next. Com mais de
 // uma atrás de balanceador, mover para uma tabela no crm.
-const MAX_ERROS = 5;
+//
+// Dois tetos: por IP (rápido, mas o IP só é confiável atrás de um proxy reverso
+// que sobrescreve X-Forwarded-For — ver comentário em ipDaRequisicao) e por
+// usuário (pega quem varia de IP a cada tentativa, já que esse teto não depende
+// de cabeçalho nenhum).
+export const MAX_ERROS_POR_IP = 5;
+export const MAX_ERROS_POR_USUARIO = 20;
 const JANELA_MS = 15 * 60 * 1000;
 
 const registros = new Map<string, { erros: number; desde: number }>();
 
-export function loginBloqueado(chave: string, agora = Date.now()) {
+export function loginBloqueado(chave: string, agora = Date.now(), max = MAX_ERROS_POR_IP) {
   const r = registros.get(chave);
   if (!r) return false;
   if (agora - r.desde > JANELA_MS) {
     registros.delete(chave);
     return false;
   }
-  return r.erros >= MAX_ERROS;
+  return r.erros >= max;
 }
 
 export function registrarErroLogin(chave: string, agora = Date.now()) {

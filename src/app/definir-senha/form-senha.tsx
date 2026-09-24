@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { KeyRound } from "lucide-react";
 import { toast } from "sonner";
 
-import { chamar, ErroAcao } from "@/lib/chamar";
+import { chamar } from "@/lib/chamar";
 import { mensagemErro } from "@/lib/erros";
 import { SENHA_MINIMO, senhaFraca } from "@/lib/acessos";
 import { definirSenha } from "@/server/auth";
@@ -35,12 +35,7 @@ export function FormSenha({ usuario }: { usuario: string }) {
       toast.success("Senha definida. Bom trabalho!");
       router.replace(destino);
     } catch (err) {
-      // ErroAcao já é texto final (Recusa do servidor); só erro cru (rede) passa por mensagemErro.
-      toast.error(
-        err instanceof ErroAcao
-          ? err.message
-          : mensagemErro(err, "Não foi possível definir a senha."),
-      );
+      toast.error(mensagemErro(err, "Não foi possível definir a senha."));
     } finally {
       setSalvando(false);
     }

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { chamar, ErroAcao } from "@/lib/chamar";
+import { chamar } from "@/lib/chamar";
 import { mensagemErro } from "@/lib/erros";
 import { entrar } from "@/server/auth";
 import { Button } from "@/components/ui/button";
@@ -32,12 +32,7 @@ export function FormLogin() {
       const destino = await chamar(entrar(usuario, senha));
       router.replace(destino);
     } catch (err) {
-      // ErroAcao já é texto final (Recusa do servidor); só erro cru (rede) passa por mensagemErro.
-      toast.error(
-        err instanceof ErroAcao
-          ? err.message
-          : mensagemErro(err, "Não foi possível entrar. Tente novamente."),
-      );
+      toast.error(mensagemErro(err, "Não foi possível entrar. Tente novamente."));
     } finally {
       setCarregando(false);
     }

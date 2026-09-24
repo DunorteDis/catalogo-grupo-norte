@@ -1,7 +1,12 @@
 // Roda com: bun test
 import { expect, test } from "bun:test";
 
-import { limparErrosLogin, loginBloqueado, registrarErroLogin } from "./freio";
+import {
+  limparErrosLogin,
+  loginBloqueado,
+  MAX_ERROS_POR_USUARIO,
+  registrarErroLogin,
+} from "./freio";
 
 const T0 = 1_000_000;
 const MIN = 60_000;
@@ -29,4 +34,13 @@ test("login certo zera a contagem", () => {
   limparErrosLogin("e");
   registrarErroLogin("e", T0);
   expect(loginBloqueado("e", T0)).toBe(false);
+});
+
+test("teto por usuário (20) bloqueia mesmo variando de IP, não antes do 20º erro", () => {
+  // A chave aqui é só o e-mail: em auth.ts as tentativas somam nela não importa
+  // de qual IP vieram, ao contrário da chave "email|ip" do teto por IP.
+  for (let i = 0; i < 19; i++) registrarErroLogin("usuario@x", T0);
+  expect(loginBloqueado("usuario@x", T0, MAX_ERROS_POR_USUARIO)).toBe(false);
+  registrarErroLogin("usuario@x", T0);
+  expect(loginBloqueado("usuario@x", T0, MAX_ERROS_POR_USUARIO)).toBe(true);
 });

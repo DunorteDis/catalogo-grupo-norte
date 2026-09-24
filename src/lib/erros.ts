@@ -1,3 +1,5 @@
+import { ErroAcao } from "@/lib/chamar";
+
 const MAPA: { teste: RegExp; texto: string }[] = [
   {
     teste: /password is known to be weak|pwned|weak and easy to guess/i,
@@ -35,6 +37,11 @@ const MAPA: { teste: RegExp; texto: string }[] = [
 ];
 
 export function mensagemErro(erro: unknown, padrao = "Algo deu errado. Tente novamente."): string {
+  // acao() já entrega texto final para a tela (Recusa como está, ou já traduzido
+  // no servidor pelo próprio mensagemErro); tentar de novo aqui só erra em
+  // mensagens sem acento, como a do freio de login ("Muitas tentativas...").
+  if (erro instanceof ErroAcao) return erro.message;
+
   const bruto =
     erro instanceof Error
       ? erro.message
