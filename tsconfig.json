@@ -13,8 +13,7 @@
     "src/**/*.test.ts",
     // Transição: código ainda em TanStack/Supabase. Sai da lista conforme migra.
     "src/routes",
-    "src/integrations",
-    "src/lib/acessos.functions.ts"
+    "src/integrations"
   ],
   "compilerOptions": {
     "target": "ES2022",

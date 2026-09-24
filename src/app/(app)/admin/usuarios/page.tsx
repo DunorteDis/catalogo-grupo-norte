@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+"use client";
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
 import { useState, type ComponentType, type ReactNode } from "react";
 import {
   Briefcase,
@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 
 import { useCatalogosPublicos } from "@/hooks/use-catalogos-publicos";
+import { chamar } from "@/lib/chamar";
 import { mensagemErro } from "@/lib/erros";
 import { mensagemAcesso, normalizarUsuario, usuarioDeNome, validarUsuario } from "@/lib/acessos";
 import { cn } from "@/lib/utils";
@@ -41,11 +42,7 @@ import {
   excluirAcesso,
   listarAcessos,
   resetarSenha,
-} from "@/lib/acessos.functions";
-
-export const Route = createFileRoute("/_authenticated/admin/usuarios")({
-  component: UsuariosPage,
-});
+} from "@/server/acessos";
 
 const CHAVE = ["acessos"];
 
@@ -95,16 +92,9 @@ type EmEdicao = {
   whatsapp: string;
 };
 
-function UsuariosPage() {
+export default function UsuariosPage() {
   const qc = useQueryClient();
   const recarregar = () => qc.invalidateQueries({ queryKey: CHAVE });
-
-  const listar = useServerFn(listarAcessos);
-  const criarFn = useServerFn(criarAcesso);
-  const darAcessoFn = useServerFn(criarAcessoVendedor);
-  const resetarFn = useServerFn(resetarSenha);
-  const excluirFn = useServerFn(excluirAcesso);
-  const atualizarFn = useServerFn(atualizarAcesso);
 
   const [novoAberto, setNovoAberto] = useState(false);
   const [credenciais, setCredenciais] = useState<Credenciais | null>(null);
@@ -144,15 +134,14 @@ function UsuariosPage() {
     data: linhas,
     isLoading,
     error: erroLista,
-  } = useQuery({ queryKey: CHAVE, queryFn: () => listar() });
+  } = useQuery({ queryKey: CHAVE, queryFn: () => chamar(listarAcessos()) });
 
   // Mesma lista (e mesmo cache) do painel do vendedor: distribuidoras e
   // catálogos personalizados, para o admin copiar qualquer link.
   const { data: catalogos } = useCatalogosPublicos();
 
   const criar = useMutation({
-    mutationFn: async () =>
-      criarFn({ data: { tipo, nome, usuario, email: email.trim(), whatsapp } }),
+    mutationFn: () => chamar(criarAcesso({ tipo, nome, usuario, email: email.trim(), whatsapp })),
     onSuccess: (c) => {
       setNovoAberto(false);
       limpar();
@@ -162,28 +151,28 @@ function UsuariosPage() {
   });
 
   const darAcesso = useMutation({
-    mutationFn: async (vendedorId: string) => darAcessoFn({ data: { vendedorId } }),
+    mutationFn: (vendedorId: string) => chamar(criarAcessoVendedor(vendedorId)),
     onSuccess: mostrarCredenciais,
     onError: (e: Error) => toast.error(mensagemErro(e)),
   });
 
   const resetar = useMutation({
-    mutationFn: async (usuarioId: string) => resetarFn({ data: { usuarioId } }),
+    mutationFn: (usuarioId: string) => chamar(resetarSenha(usuarioId)),
     onSuccess: mostrarCredenciais,
     onError: (e: Error) => toast.error(mensagemErro(e)),
   });
 
   const salvarEdicao = useMutation({
-    mutationFn: async (e: EmEdicao) =>
-      atualizarFn({
-        data: {
+    mutationFn: (e: EmEdicao) =>
+      chamar(
+        atualizarAcesso({
           ...(e.usuarioId ? { usuarioId: e.usuarioId } : {}),
           ...(e.vendedorId ? { vendedorId: e.vendedorId } : {}),
           nome: e.nome,
           email: e.email.trim(),
           whatsapp: e.whatsapp,
-        },
-      }),
+        }),
+      ),
     onSuccess: () => {
       toast.success("Dados atualizados.");
       setEditando(null);
@@ -193,7 +182,7 @@ function UsuariosPage() {
   });
 
   const remover = useMutation({
-    mutationFn: async (v: { vendedorId?: string; usuarioId?: string }) => excluirFn({ data: v }),
+    mutationFn: (v: { vendedorId?: string; usuarioId?: string }) => chamar(excluirAcesso(v)),
     onSuccess: () => {
       toast.success("Acesso excluído.");
       recarregar();
