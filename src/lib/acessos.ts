@@ -1,5 +1,5 @@
 /**
- * O Supabase só autentica por e-mail, mas o acesso aqui é por usuário
+ * O login é por e-mail no banco, mas o acesso aqui é por usuário
  * (primeiro.ultimo). Cada conta guarda um e-mail sintético neste domínio; a tela
  * de login completa sozinha. O e-mail de verdade, quando informado, é só contato.
  */
@@ -69,7 +69,7 @@ export function validarUsuario(usuario: string) {
 const LETRAS = "abcdefghjkmnpqrstuvwxyz";
 const DIGITOS = "23456789";
 export const ALFABETO_SENHA = LETRAS + DIGITOS;
-/** Piso do Supabase é 6; abaixo disso ele recusa a senha como fraca. */
+/** Piso histórico de 6 caracteres. */
 export const TAMANHO_SENHA = 6;
 
 export function sortear(alfabeto: string, quantidade: number) {
@@ -119,15 +119,25 @@ export function senhaEhProvisoria(metadata: unknown) {
 }
 
 /**
- * Sem rate limit no login do Supabase, senha previsível é o furo de verdade:
+ * O freio de tentativas é por usuário+IP; senha previsível ainda é o furo de verdade:
  * "12345678" cai numa lista de mil palpites, não em 31^8. Aqui barra o óbvio —
  * não é medidor de entropia, é o filtro que impede o pior caso.
  */
 export const SENHA_MINIMO = 8;
 
 const SENHAS_OBVIAS = [
-  "12345678", "123456789", "1234567890", "senha123", "password", "qwerty123",
-  "abcd1234", "11111111", "gruponorte", "catalogo", "vendedor", "administrador",
+  "12345678",
+  "123456789",
+  "1234567890",
+  "senha123",
+  "password",
+  "qwerty123",
+  "abcd1234",
+  "11111111",
+  "gruponorte",
+  "catalogo",
+  "vendedor",
+  "administrador",
 ];
 
 export function senhaFraca(senha: string, usuario?: string): string | null {

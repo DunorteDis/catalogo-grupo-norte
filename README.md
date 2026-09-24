@@ -5,40 +5,36 @@ o cliente escolhe os itens e conclui o pedido, que chega pronto no WhatsApp do v
 
 ## Stack
 
-TanStack Start (React 19) · Vite · Tailwind v4 · shadcn/ui · Supabase (Postgres + Auth)
+Next.js 16 (App Router) · React 19 · Tailwind v4 · shadcn/ui · Postgres (schema `crm`, via postgres.js)
 
 ## Desenvolvimento
 
 ```sh
 bun install
-bun run dev      # http://localhost:8080
-bun test         # testes dos helpers de acesso
-bun run build    # gera .vercel/output (preset vercel)
+bun run dev        # http://localhost:8080
+bun test           # helpers + integração com o banco (só leitura; pula sem PGHOST)
+bun run typecheck
+bun run build && bun run start
 ```
 
 ## Variáveis de ambiente
 
-Crie um `.env` na raiz — ele **não** vai para o Git:
-
-```
-VITE_SUPABASE_URL=https://<projeto>.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=<chave publicavel>
-SUPABASE_URL=https://<projeto>.supabase.co
-SUPABASE_PUBLISHABLE_KEY=<chave publicavel>
-SUPABASE_SERVICE_ROLE_KEY=<chave service_role>
-```
-
-A `SUPABASE_SERVICE_ROLE_KEY` ignora todo o RLS e é usada só nas server functions
-(`src/lib/*.functions.ts`). Nunca a exponha no cliente nem a versione.
+Copie `.env.example` para `.env` — ele **não** vai para o Git. `PG*` apontam para o
+Postgres da empresa; `SESSION_SECRET` assina o cookie de login (trocar derruba todas as
+sessões). Servindo por HTTP puro em produção (sem HTTPS), defina `COOKIE_INSEGURO=1`,
+senão o navegador descarta o cookie e o login falha calado.
 
 ## Banco
 
-O schema vive em `supabase/migrations/`. Aplique com o Supabase CLI:
+Tabelas e dados vivem no schema `crm`. Mudança de schema é um arquivo novo em
+`db/migrations/`, aplicado com:
 
 ```sh
-supabase link --project-ref <ref>
-supabase db push
+bun scripts/aplicar-sql.ts db/migrations/<arquivo>.sql
 ```
 
-Depois, no painel do projeto, confirme: cadastro aberto desativado e tamanho
-mínimo de senha em 6.
+## Login
+
+Usuários ficam em `crm.usuarios` (senha bcrypt em `senha_hash`), papéis em
+`crm.user_roles`. Quem cria acesso é o admin, na tela Usuários. Toda Server Action em
+`src/server/` confere a sessão e o papel antes de tocar no banco.

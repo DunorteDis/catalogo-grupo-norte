@@ -1,6 +1,6 @@
 # Notas para agentes
 
-Projeto TanStack Start + Supabase. Veja README.md.
+Projeto Next.js 16 + Postgres (schema `crm`, SQL direto via postgres.js). Veja README.md.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

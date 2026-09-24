@@ -20,8 +20,9 @@ export function FormSenha({ usuario }: { usuario: string }) {
   const [confirma, setConfirma] = useState("");
   const [salvando, setSalvando] = useState(false);
 
-  // O Supabase não tem freio de tentativa no login, então a única defesa contra
-  // força bruta é a senha não ser adivinhável. A recusa é aqui, não no servidor.
+  // O freio de tentativas (src/server/freio.ts) trava por usuário+IP no servidor;
+  // aqui a defesa é a senha não ser adivinhável. A recusa de verdade também é
+  // no servidor (ver definirSenha).
   const problema = senha.length > 0 ? senhaFraca(senha, usuario) : null;
   const diferentes = confirma.length > 0 && senha !== confirma;
   const podeEnviar = senha.length > 0 && !senhaFraca(senha, usuario) && senha === confirma;

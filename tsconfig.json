@@ -10,10 +10,7 @@
   "exclude": [
     "node_modules",
     // testes rodam com `bun test`, que traz os proprios tipos (bun:test)
-    "src/**/*.test.ts",
-    // Transição: código ainda em TanStack/Supabase. Sai da lista conforme migra.
-    "src/routes",
-    "src/integrations"
+    "src/**/*.test.ts"
   ],
   "compilerOptions": {
     "target": "ES2022",

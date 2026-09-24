@@ -9,7 +9,8 @@ import supergiro from "@/assets/logos/supergiro.png";
 // ponytail: logo por slug, resolvida em build. A coluna distribuidoras.logo_url
 // apontava para assets internos do Lovable (/__l5e/...) e nunca foi editavel pelo
 // app, entao trocar uma logo sempre exigiu deploy de qualquer forma. Se um dia a
-// logo virar conteudo que o admin edita, ai sim volta pro banco + Supabase Storage.
+// logo virar conteudo que o admin edita, ai sim volta pro banco (como a imagem
+// do catalogo, ver src/server/catalogos.ts).
 export const LOGOS: Record<string, string | undefined> = {
   dunorte: dunorte.src,
   elonorte: elonorte.src,

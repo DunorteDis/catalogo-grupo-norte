@@ -71,7 +71,8 @@ async function criarConta(
       on conflict do nothing
       returning id`;
     if (conta) return { id: conta.id, usuario, senha };
-    if (escolhido) throw new Recusa(`Já existe alguém com o usuário "${escolhido}". Escolha outro.`);
+    if (escolhido)
+      throw new Recusa(`Já existe alguém com o usuário "${escolhido}". Escolha outro.`);
   }
   throw new Recusa("Não foi possível gerar um usuário livre para esse nome.");
 }
@@ -79,7 +80,9 @@ async function criarConta(
 export const listarAcessos = acao(async () => {
   await exigirAdmin();
   const [contas, vendedores] = await Promise.all([
-    sql<{ id: string; email: string | null; meta: Meta | null; created_at: string; admin: boolean }[]>`
+    sql<
+      { id: string; email: string | null; meta: Meta | null; created_at: string; admin: boolean }[]
+    >`
       select u.id, u.email, u.raw_user_meta_data as meta, u.created_at,
              exists (select 1 from user_roles r where r.user_id = u.id and r.role = 'admin') as admin
         from usuarios u order by u.created_at`,
@@ -216,7 +219,8 @@ export const excluirAcesso = acao(async (entrada: z.input<typeof alvo>) => {
     return sql.begin(async (tx) => {
       const [vendedor] = await tx<{ user_id: string | null }[]>`
         select user_id from vendedores where id = ${vendedorId}`;
-      if (vendedor?.user_id === s.sub) throw new Recusa("Você não pode excluir a sua própria conta.");
+      if (vendedor?.user_id === s.sub)
+        throw new Recusa("Você não pode excluir a sua própria conta.");
       await tx`delete from vendedores where id = ${vendedorId}`;
       if (vendedor?.user_id) await tx`delete from usuarios where id = ${vendedor.user_id}`;
       return { ok: true as const };
