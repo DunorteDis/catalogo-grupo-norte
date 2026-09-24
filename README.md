@@ -24,6 +24,11 @@ Postgres da empresa; `SESSION_SECRET` assina o cookie de login (trocar derruba t
 sessões). Servindo por HTTP puro em produção (sem HTTPS), defina `COOKIE_INSEGURO=1`,
 senão o navegador descarta o cookie e o login falha calado.
 
+`S3_BUCKET` e as `AWS_*` guardam as fotos de produto arrastadas no cadastro. O bucket
+fica privado: a foto vai para `produtos/<uuid>.<ext>`, o banco guarda `/fotos/<uuid>.<ext>`
+e essa rota responde com uma URL assinada que vale 1 hora. A chave precisa de
+`s3:PutObject` e `s3:GetObject` nesse prefixo.
+
 ## Banco
 
 Tabelas e dados vivem no schema `crm`. Mudança de schema é um arquivo novo em

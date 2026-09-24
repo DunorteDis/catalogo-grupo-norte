@@ -2,6 +2,7 @@
 import { expect, test } from "bun:test";
 
 import {
+  CHAVE_FOTO,
   fotoUrl,
   montarMensagem,
   palavrasBusca,
@@ -19,6 +20,16 @@ test("fotoUrl completa o nome de arquivo do ERP e respeita link colado", () => {
   expect(fotoUrl("  http://exemplo.com/a.jpg  ")).toBe("http://exemplo.com/a.jpg");
   expect(fotoUrl(null)).toBeNull();
   expect(fotoUrl("   ")).toBeNull();
+});
+
+test("fotoUrl deixa o caminho /fotos do S3 para o app assinar", () => {
+  const chave = "3f1c2a9e-0b7d-4c1e-9a2f-6d5e4b3a2c1d.jpg";
+  expect(fotoUrl(`/fotos/${chave}`)).toBe(`/fotos/${chave}`);
+  expect(CHAVE_FOTO.test(chave)).toBe(true);
+  // /fotos só assina foto enviada pelo app, nunca outro caminho do bucket.
+  expect(CHAVE_FOTO.test("../segredo.jpg")).toBe(false);
+  expect(CHAVE_FOTO.test(`outra-pasta/${chave}`)).toBe(false);
+  expect(CHAVE_FOTO.test(chave.replace(".jpg", ".svg"))).toBe(false);
 });
 
 test("parseCodigos aceita qualquer separador de planilha ou lista", () => {

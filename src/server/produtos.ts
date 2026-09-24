@@ -2,8 +2,9 @@
 
 import { z } from "zod";
 
-import { PAGINA_PRODUTOS } from "@/lib/catalogo";
-import { acao } from "@/server/acao";
+import { MAX_FOTO, PAGINA_PRODUTOS, TIPOS_IMAGEM } from "@/lib/catalogo";
+import { acao, Recusa } from "@/server/acao";
+import { guardarFoto } from "@/server/s3";
 import { condicaoBusca, sql } from "@/server/db";
 import { exigirAdmin } from "@/server/sessao";
 
@@ -36,6 +37,18 @@ const produtoSchema = z.object({
   codigo: z.string().trim().min(1, "Informe o código."),
   nome: z.string().trim().min(1, "Informe o nome."),
   arquivo: z.string().trim(),
+});
+
+/** Foto arrastada no cadastro: vai para o bucket privado e volta o caminho /fotos/<chave>. */
+export const enviarFotoProduto = acao(async (dados: FormData) => {
+  await exigirAdmin();
+  const arquivo = dados.get("arquivo");
+  if (!(arquivo instanceof File)) throw new Recusa("Escolha uma foto para o produto.");
+  if (!TIPOS_IMAGEM.includes(arquivo.type))
+    throw new Recusa("Use uma imagem PNG, JPG, WEBP ou GIF.");
+  if (arquivo.size > MAX_FOTO)
+    throw new Recusa("A foto passa de 5 MB. Diminua o tamanho e tente de novo.");
+  return guardarFoto(arquivo);
 });
 
 export const salvarProduto = acao(

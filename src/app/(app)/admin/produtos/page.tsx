@@ -1,8 +1,8 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import { ImageOff, Package, Pencil, Plus, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ImagePlus, Package, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { chamar } from "@/lib/chamar";
@@ -30,8 +30,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { fotoUrl, PAGINA_PRODUTOS as PAGE } from "@/lib/catalogo";
-import { ativarProduto, excluirProduto, listarProdutos, salvarProduto } from "@/server/produtos";
+import { fotoUrl, MAX_FOTO, PAGINA_PRODUTOS as PAGE, TIPOS_IMAGEM } from "@/lib/catalogo";
+import {
+  ativarProduto,
+  enviarFotoProduto,
+  excluirProduto,
+  listarProdutos,
+  salvarProduto,
+} from "@/server/produtos";
 
 type Produto = {
   id: string;
@@ -54,6 +60,10 @@ export default function ProdutosPage() {
   const [nome, setNome] = useState("");
   const [arquivo, setArquivo] = useState("");
   const [fotoQuebrada, setFotoQuebrada] = useState(false);
+  // Foto arrastada ainda não enviada: só sobe ao salvar, então cancelar não deixa arquivo solto no S3.
+  const [fotoNova, setFotoNova] = useState<File | null>(null);
+  const [arrastando, setArrastando] = useState(false);
+  const inputFoto = useRef<HTMLInputElement>(null);
 
   const [aExcluir, setAExcluir] = useState<Produto | null>(null);
 
@@ -77,7 +87,15 @@ export default function ProdutosPage() {
   });
 
   const salvar = useMutation({
-    mutationFn: () => chamar(salvarProduto(editandoId || null, { codigo, nome, arquivo })),
+    mutationFn: async () => {
+      let foto = arquivo;
+      if (fotoNova) {
+        const dados = new FormData();
+        dados.set("arquivo", fotoNova);
+        foto = await chamar(enviarFotoProduto(dados));
+      }
+      return chamar(salvarProduto(editandoId || null, { codigo, nome, arquivo: foto }));
+    },
     onSuccess: () => {
       toast.success(editandoId ? "Produto atualizado." : `${nome.trim()} cadastrado.`);
       setEditandoId(null);
@@ -103,6 +121,7 @@ export default function ProdutosPage() {
     setNome("");
     setArquivo("");
     setFotoQuebrada(false);
+    setFotoNova(null);
     setEditandoId("");
   }
 
@@ -111,10 +130,29 @@ export default function ProdutosPage() {
     setNome(p.nome);
     setArquivo(p.arquivo ?? "");
     setFotoQuebrada(false);
+    setFotoNova(null);
     setEditandoId(p.id);
   }
 
-  const previa = fotoUrl(arquivo);
+  function escolherFoto(f: File | undefined) {
+    if (!f) return;
+    if (!TIPOS_IMAGEM.includes(f.type)) {
+      toast.error("Use uma imagem PNG, JPG, WEBP ou GIF.");
+      return;
+    }
+    if (f.size > MAX_FOTO) {
+      toast.error("A foto passa de 5 MB. Diminua o tamanho e tente de novo.");
+      return;
+    }
+    setFotoQuebrada(false);
+    setFotoNova(f);
+  }
+
+  // ponytail: o blob da prévia não é revogado — é uma foto por vez, num diálogo do admin.
+  const previa = useMemo(
+    () => (fotoNova ? URL.createObjectURL(fotoNova) : fotoUrl(arquivo)),
+    [fotoNova, arquivo],
+  );
   const podeSalvar = codigo.trim() !== "" && nome.trim() !== "" && !salvar.isPending;
 
   function aoSubmeter(e: React.FormEvent) {
@@ -265,8 +303,37 @@ export default function ProdutosPage() {
 
             <div className="space-y-1.5">
               <Label htmlFor="foto-produto">Foto (opcional)</Label>
-              <div className="flex items-start gap-3">
-                <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-md bg-surface-sunken">
+              <input
+                ref={inputFoto}
+                id="foto-produto"
+                type="file"
+                accept={TIPOS_IMAGEM.join(",")}
+                hidden
+                onChange={(e) => {
+                  escolherFoto(e.target.files?.[0]);
+                  // Limpa para que escolher o mesmo arquivo de novo ainda dispare o change.
+                  e.target.value = "";
+                }}
+              />
+              {/* Área de soltar: botão de verdade, então Tab + Enter também abre o seletor.
+                  Filhos sem ponteiro, senão o dragleave dispara ao passar por cima deles. */}
+              <button
+                type="button"
+                onClick={() => inputFoto.current?.click()}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setArrastando(true);
+                }}
+                onDragLeave={() => setArrastando(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setArrastando(false);
+                  escolherFoto(e.dataTransfer.files[0]);
+                }}
+                data-arrastando={arrastando || undefined}
+                className="flex w-full cursor-pointer items-center gap-4 rounded-2xl border-2 border-dashed border-line-strong bg-surface-sunken p-3 text-left transition-colors hover:border-brand hover:bg-surface-hover data-[arrastando]:border-brand data-[arrastando]:bg-brand-soft [&>*]:pointer-events-none"
+              >
+                <span className="grid size-20 shrink-0 place-items-center overflow-hidden rounded-md bg-card">
                   {previa && !fotoQuebrada ? (
                     <img
                       src={previa}
@@ -275,26 +342,46 @@ export default function ProdutosPage() {
                       onError={() => setFotoQuebrada(true)}
                     />
                   ) : (
-                    <ImageOff className="size-5 text-ink-subtle" />
+                    <ImagePlus className="size-6 text-ink-subtle" />
                   )}
-                </div>
-                <div className="min-w-0 flex-1 space-y-1.5">
-                  <Input
-                    id="foto-produto"
-                    value={arquivo}
-                    onChange={(e) => {
-                      setArquivo(e.target.value);
+                </span>
+                <span className="min-w-0">
+                  <span className="block font-semibold text-ink">
+                    {arrastando
+                      ? "Solte a foto aqui"
+                      : previa
+                        ? "Arraste outra foto para trocar"
+                        : "Arraste a foto aqui"}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-ink-muted">
+                    ou clique para escolher. PNG, JPG, WEBP ou GIF de até 5 MB.
+                  </span>
+                </span>
+              </button>
+              {previa && (
+                <div className="flex items-center justify-between gap-3">
+                  <p className="min-w-0 truncate text-xs text-ink-muted">
+                    {fotoNova
+                      ? `${fotoNova.name} · sobe quando você salvar.`
+                      : fotoQuebrada
+                        ? "Não consegui carregar a foto atual. Arraste uma nova para trocar."
+                        : null}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    onClick={() => {
+                      setFotoNova(null);
+                      setArquivo("");
                       setFotoQuebrada(false);
                     }}
-                    placeholder="7891234567890.jpg ou https://..."
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    {previa && fotoQuebrada
-                      ? "Não consegui carregar essa imagem. Confira o nome do arquivo ou o link."
-                      : "Nome do arquivo no servidor de fotos, ou o link inteiro de uma imagem."}
-                  </p>
+                  >
+                    <Trash2 />
+                    Remover foto
+                  </Button>
                 </div>
-              </div>
+              )}
             </div>
 
             <DialogFooter>

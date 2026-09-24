@@ -3,12 +3,13 @@ export const FOTO_BASE = "https://api.vmaissistemas.com.br/foto_produtos/";
 /**
  * Foto do produto: o cadastro que vem do ERP guarda só o nome do arquivo, mas
  * produto cadastrado na mão pode apontar para qualquer imagem da internet —
- * quem já é link fica como está.
+ * quem já é link fica como está. Foto enviada ao S3 é caminho do próprio app
+ * (/fotos/<chave>), que assina a URL na hora de servir.
  */
 export function fotoUrl(arquivo?: string | null) {
   const valor = arquivo?.trim();
   if (!valor) return null;
-  if (/^https?:\/\//i.test(valor)) return valor;
+  if (/^(https?:\/\/|\/)/i.test(valor)) return valor;
   return `${FOTO_BASE}${valor}`;
 }
 
@@ -151,3 +152,15 @@ export const PAGINA_CATALOGO = 25;
 /** Imagem do catálogo personalizado. SVG fica de fora: aberto direto no navegador, roda script. */
 export const TIPOS_IMAGEM = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 export const MAX_IMAGEM = 2 * 1024 * 1024;
+
+/** Foto de produto no S3: mesmos tipos, mas foto de celular passa fácil de 2 MB. */
+export const MAX_FOTO = 5 * 1024 * 1024;
+export const EXTENSAO_FOTO: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
+/** Chave que /fotos aceita assinar: uuid + extensão, nunca um caminho qualquer do bucket. */
+export const CHAVE_FOTO =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|webp|gif)$/;
