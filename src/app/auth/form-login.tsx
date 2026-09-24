@@ -1,30 +1,17 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { supabase } from "@/integrations/supabase/client";
+import { chamar, ErroAcao } from "@/lib/chamar";
 import { mensagemErro } from "@/lib/erros";
-import { loginParaEmail } from "@/lib/acessos";
+import { entrar } from "@/server/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import logoBranco from "@/assets/gruponorte-branco.png";
 import logoEscuro from "@/assets/gruponorte.png";
-
-export const Route = createFileRoute("/auth")({
-  head: () => ({
-    meta: [
-      { title: "Entrar — Grupo Norte Distribuição" },
-      { name: "description", content: "Acesso à plataforma de catálogo do Grupo Norte." },
-      { property: "og:title", content: "Entrar — Grupo Norte Distribuição" },
-      { property: "og:description", content: "Acesso à plataforma de catálogo do Grupo Norte." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-      { name: "robots", content: "noindex" },
-    ],
-  }),
-  component: AuthPage,
-});
 
 const DESTAQUES = [
   { valor: "01", texto: "link por vendedor e distribuidora" },
@@ -32,39 +19,25 @@ const DESTAQUES = [
   { valor: "24/7", texto: "catálogo no ar para receber pedidos" },
 ] as const;
 
-function AuthPage() {
-  const navigate = useNavigate();
+export function FormLogin() {
+  const router = useRouter();
   const [usuario, setUsuario] = useState("");
   const [senha, setSenha] = useState("");
   const [carregando, setCarregando] = useState(false);
-
-  async function irParaArea(userId: string) {
-    const { data: admin } = await supabase.rpc("has_role", {
-      _user_id: userId,
-      _role: "admin",
-    });
-    navigate({ to: admin ? "/admin" : "/vendedor", replace: true });
-  }
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) void irParaArea(data.user.id);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navigate]);
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
     setCarregando(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: loginParaEmail(usuario),
-        password: senha,
-      });
-      if (error) throw error;
-      await irParaArea(data.user.id);
+      const destino = await chamar(entrar(usuario, senha));
+      router.replace(destino);
     } catch (err) {
-      toast.error(mensagemErro(err, "Não foi possível entrar. Tente novamente."));
+      // ErroAcao já é texto final (Recusa do servidor); só erro cru (rede) passa por mensagemErro.
+      toast.error(
+        err instanceof ErroAcao
+          ? err.message
+          : mensagemErro(err, "Não foi possível entrar. Tente novamente."),
+      );
     } finally {
       setCarregando(false);
     }
@@ -73,7 +46,11 @@ function AuthPage() {
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
       <aside className="relative hidden flex-col justify-between bg-ink px-14 py-12 lg:flex">
-        <img src={logoBranco} alt="Grupo Norte Distribuição" className="h-10 w-auto self-start" />
+        <img
+          src={logoBranco.src}
+          alt="Grupo Norte Distribuição"
+          className="h-10 w-auto self-start"
+        />
 
         <div className="max-w-md">
           <p className="font-mono text-xs font-semibold uppercase tracking-[0.25em] text-primary">
@@ -109,7 +86,7 @@ function AuthPage() {
       <main className="flex items-center justify-center bg-background px-6 py-16">
         <div className="w-full max-w-sm">
           <img
-            src={logoEscuro}
+            src={logoEscuro.src}
             alt="Grupo Norte Distribuição"
             className="mb-10 h-7 w-auto lg:hidden"
           />

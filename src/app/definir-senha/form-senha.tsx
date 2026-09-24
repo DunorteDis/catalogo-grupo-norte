@@ -1,46 +1,25 @@
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+"use client";
+
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { KeyRound } from "lucide-react";
 import { toast } from "sonner";
 
-import { supabase } from "@/integrations/supabase/client";
+import { chamar, ErroAcao } from "@/lib/chamar";
 import { mensagemErro } from "@/lib/erros";
-import {
-  CHAVE_SENHA_PROVISORIA,
-  SENHA_MINIMO,
-  senhaEhProvisoria,
-  senhaFraca,
-  usuarioDeEmail,
-} from "@/lib/acessos";
+import { SENHA_MINIMO, senhaFraca } from "@/lib/acessos";
+import { definirSenha } from "@/server/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import logoBranco from "@/assets/gruponorte-branco.png";
 
-export const Route = createFileRoute("/definir-senha")({
-  ssr: false,
-  head: () => ({
-    meta: [{ title: "Definir senha — Grupo Norte" }, { name: "robots", content: "noindex" }],
-  }),
-  beforeLoad: async () => {
-    const { data } = await supabase.auth.getSession();
-    const user = data.session?.user;
-    if (!user) throw redirect({ to: "/auth" });
-    // Quem já trocou não volta para cá; o /admin repassa para /vendedor se não for admin.
-    if (!senhaEhProvisoria(user.user_metadata)) throw redirect({ to: "/admin" });
-    return { user };
-  },
-  component: DefinirSenhaPage,
-});
-
-function DefinirSenhaPage() {
-  const { user } = Route.useRouteContext();
-  const navigate = useNavigate();
+export function FormSenha({ usuario }: { usuario: string }) {
+  const router = useRouter();
   const [senha, setSenha] = useState("");
   const [confirma, setConfirma] = useState("");
   const [salvando, setSalvando] = useState(false);
 
-  const usuario = usuarioDeEmail(user.email ?? "");
   // O Supabase não tem freio de tentativa no login, então a única defesa contra
   // força bruta é a senha não ser adivinhável. A recusa é aqui, não no servidor.
   const problema = senha.length > 0 ? senhaFraca(senha, usuario) : null;
@@ -52,17 +31,16 @@ function DefinirSenhaPage() {
     if (!podeEnviar) return;
     setSalvando(true);
     try {
-      // Troca a senha e baixa a bandeira na mesma chamada: se a senha falhar, a
-      // conta continua marcada como provisória e o bloqueio segue valendo.
-      const { error } = await supabase.auth.updateUser({
-        password: senha,
-        data: { [CHAVE_SENHA_PROVISORIA]: false },
-      });
-      if (error) throw error;
+      const destino = await chamar(definirSenha(senha));
       toast.success("Senha definida. Bom trabalho!");
-      navigate({ to: "/admin", replace: true });
+      router.replace(destino);
     } catch (err) {
-      toast.error(mensagemErro(err, "Não foi possível definir a senha."));
+      // ErroAcao já é texto final (Recusa do servidor); só erro cru (rede) passa por mensagemErro.
+      toast.error(
+        err instanceof ErroAcao
+          ? err.message
+          : mensagemErro(err, "Não foi possível definir a senha."),
+      );
     } finally {
       setSalvando(false);
     }
@@ -70,7 +48,7 @@ function DefinirSenhaPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-ink px-6 py-12">
-      <img src={logoBranco} alt="Grupo Norte Distribuição" className="h-8 w-auto" />
+      <img src={logoBranco.src} alt="Grupo Norte Distribuição" className="h-8 w-auto" />
 
       <div className="mt-10 w-full max-w-sm rounded-2xl border bg-card p-6 shadow-sm">
         <span className="flex size-10 items-center justify-center rounded-xl bg-primary-soft">
