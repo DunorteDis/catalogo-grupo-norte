@@ -1,39 +1,25 @@
-import { createFileRoute } from "@tanstack/react-router";
+"use client";
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { supabase } from "@/integrations/supabase/client";
+import { chamar } from "@/lib/chamar";
 import { mensagemErro } from "@/lib/erros";
 import { Switch } from "@/components/ui/switch";
 import { LOGOS } from "@/lib/logos";
+import { ativarCatalogo, listarDistribuidoras } from "@/server/catalogos";
 
-export const Route = createFileRoute("/_authenticated/admin/distribuidoras")({
-  component: DistribuidorasPage,
-});
-
-function DistribuidorasPage() {
+export default function DistribuidorasPage() {
   const qc = useQueryClient();
 
   const { data } = useQuery({
     queryKey: ["admin-distribuidoras-full"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("distribuidoras")
-        // Catálogo personalizado mora nesta mesma tabela, mas quem liga, desliga
-        // e exclui ele é a tela de Catálogos — aqui só distribuidora de verdade.
-        .select("id, nome, slug, cor, ativo")
-        .eq("personalizado", false)
-        .order("nome");
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () => chamar(listarDistribuidoras()),
   });
 
   const alternar = useMutation({
-    mutationFn: async ({ id, ativo }: { id: string; ativo: boolean }) => {
-      const { error } = await supabase.from("distribuidoras").update({ ativo }).eq("id", id);
-      if (error) throw error;
-    },
+    mutationFn: ({ id, ativo }: { id: string; ativo: boolean }) =>
+      chamar(ativarCatalogo(id, ativo)),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-distribuidoras-full"] }),
     onError: (e: Error) => toast.error(mensagemErro(e)),
   });

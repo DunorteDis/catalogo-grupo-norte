@@ -1,10 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+"use client";
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { ImageOff, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { supabase } from "@/integrations/supabase/client";
+import { chamar } from "@/lib/chamar";
 import { mensagemErro } from "@/lib/erros";
 import {
   AlertDialog,
@@ -28,13 +29,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { filtrosBusca, fotoUrl } from "@/lib/catalogo";
-
-export const Route = createFileRoute("/_authenticated/admin/produtos")({
-  component: ProdutosPage,
-});
-
-const PAGE = 30;
+import { fotoUrl, PAGINA_PRODUTOS as PAGE } from "@/lib/catalogo";
+import { ativarProduto, excluirProduto, listarProdutos, salvarProduto } from "@/server/produtos";
 
 type Produto = {
   id: string;
@@ -45,7 +41,7 @@ type Produto = {
   cod_empresa: number | null;
 };
 
-function ProdutosPage() {
+export default function ProdutosPage() {
   const qc = useQueryClient();
   const [busca, setBusca] = useState("");
   const [termo, setTermo] = useState("");
@@ -70,43 +66,17 @@ function ProdutosPage() {
 
   const { data } = useQuery({
     queryKey: ["admin-produtos", termo, pagina],
-    queryFn: async () => {
-      let q = supabase
-        .from("produtos")
-        .select("id, codigo, nome, arquivo, ativo, cod_empresa", { count: "exact" })
-        // O ERP repete nome: sem desempate a mesma linha aparece em duas páginas,
-        // e excluir a "duplicada" apaga a única que existe.
-        .order("nome")
-        .order("id")
-        .range(pagina * PAGE, pagina * PAGE + PAGE - 1);
-      for (const filtro of filtrosBusca(termo)) q = q.or(filtro);
-      const { data, error, count } = await q;
-      if (error) throw error;
-      return { linhas: (data ?? []) as Produto[], total: count ?? 0 };
-    },
+    queryFn: () => chamar(listarProdutos(termo, pagina)),
   });
 
   const alternar = useMutation({
-    mutationFn: async ({ id, ativo }: { id: string; ativo: boolean }) => {
-      const { error } = await supabase.from("produtos").update({ ativo }).eq("id", id);
-      if (error) throw error;
-    },
+    mutationFn: ({ id, ativo }: { id: string; ativo: boolean }) => chamar(ativarProduto(id, ativo)),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-produtos"] }),
     onError: (e: Error) => toast.error(mensagemErro(e)),
   });
 
-  const salvarProduto = useMutation({
-    mutationFn: async () => {
-      const valores = {
-        codigo: codigo.trim(),
-        nome: nome.trim(),
-        arquivo: arquivo.trim() || null,
-      };
-      const { error } = editandoId
-        ? await supabase.from("produtos").update(valores).eq("id", editandoId)
-        : await supabase.from("produtos").insert(valores);
-      if (error) throw error;
-    },
+  const salvar = useMutation({
+    mutationFn: () => chamar(salvarProduto(editandoId || null, { codigo, nome, arquivo })),
     onSuccess: () => {
       toast.success(editandoId ? "Produto atualizado." : `${nome.trim()} cadastrado.`);
       setEditandoId(null);
@@ -118,10 +88,7 @@ function ProdutosPage() {
   });
 
   const excluir = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("produtos").delete().eq("id", id);
-      if (error) throw error;
-    },
+    mutationFn: (id: string) => chamar(excluirProduto(id)),
     onSuccess: () => {
       toast.success("Produto excluído do cadastro.");
       setAExcluir(null);
@@ -147,11 +114,11 @@ function ProdutosPage() {
   }
 
   const previa = fotoUrl(arquivo);
-  const podeSalvar = codigo.trim() !== "" && nome.trim() !== "" && !salvarProduto.isPending;
+  const podeSalvar = codigo.trim() !== "" && nome.trim() !== "" && !salvar.isPending;
 
-  function salvar(e: React.FormEvent) {
+  function aoSubmeter(e: React.FormEvent) {
     e.preventDefault();
-    if (podeSalvar) salvarProduto.mutate();
+    if (podeSalvar) salvar.mutate();
   }
 
   return (
@@ -243,7 +210,7 @@ function ProdutosPage() {
 
       <Dialog open={editandoId !== null} onOpenChange={(v) => !v && setEditandoId(null)}>
         <DialogContent className="sm:max-w-lg">
-          <form onSubmit={salvar} className="space-y-4">
+          <form onSubmit={aoSubmeter} className="space-y-4">
             <DialogHeader>
               <DialogTitle>{editandoId ? "Editar produto" : "Novo produto"}</DialogTitle>
               <DialogDescription>
@@ -316,7 +283,7 @@ function ProdutosPage() {
                 Cancelar
               </Button>
               <Button type="submit" className="rounded-xl font-bold" disabled={!podeSalvar}>
-                {salvarProduto.isPending
+                {salvar.isPending
                   ? "Salvando..."
                   : editandoId
                     ? "Salvar alterações"
