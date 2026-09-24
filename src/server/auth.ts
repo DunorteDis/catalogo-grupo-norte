@@ -83,11 +83,12 @@ export const definirSenha = acao(async (senha: string) => {
   const problema = senhaFraca(nova, usuarioDeEmail(s.email));
   if (problema) throw new Recusa(problema);
 
+  // sql.json, não JSON.stringify+::jsonb — ver o comentário em criarConta (src/server/acessos.ts).
   await sql`
     update usuarios
        set senha_hash = ${await bcrypt.hash(nova, 10)},
            raw_user_meta_data = coalesce(raw_user_meta_data, '{}'::jsonb)
-                                || ${JSON.stringify({ [CHAVE_SENHA_PROVISORIA]: false })}::jsonb,
+                                || ${sql.json({ [CHAVE_SENHA_PROVISORIA]: false })},
            updated_at = now()
      where id = ${s.sub}`;
   const sessao = { ...s, prov: false };

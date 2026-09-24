@@ -18,9 +18,10 @@ try {
         [ADMIN, "admin"],
         [VENDEDOR, "vendedor"],
       ] as const) {
+        // tx.json, não JSON.stringify+::jsonb — ver o comentário em criarConta (src/server/acessos.ts).
         const [u] = await tx<{ id: string }[]>`
           insert into usuarios (email, senha_hash, raw_user_meta_data, email_confirmed_at)
-          values (${email}, ${hash}, ${JSON.stringify({ nome: `Teste ${papel}`, usuario: email.split("@")[0] })}::jsonb, now())
+          values (${email}, ${hash}, ${tx.json({ nome: `Teste ${papel}`, usuario: email.split("@")[0] })}, now())
           returning id`;
         await tx`insert into user_roles (user_id, role) values (${u!.id}, ${papel})`;
         if (papel === "vendedor")

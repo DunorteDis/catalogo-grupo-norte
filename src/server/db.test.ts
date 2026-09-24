@@ -44,4 +44,21 @@ describe.skipIf(!process.env["PGHOST"])("banco", () => {
     await sql`select senha_hash from usuarios limit 0`;
     await sql`select id, tipo, dados from imagens limit 0`;
   });
+
+  // Ver criarConta em src/server/acessos.ts: bug real achado na Task 9, corrigido também em
+  // definirSenha (auth.ts) e usuario-teste.ts. Os dois testes abaixo documentam por que.
+  test("sql.json mantém o merge jsonb como objeto", async () => {
+    const [{ t }] = await sql<{ t: string }[]>`
+      select jsonb_typeof('{"a":1}'::jsonb || ${sql.json({ senha_provisoria: false })}) as t`;
+    expect(t).toBe("object");
+  });
+
+  // Pino da armadilha: com ::jsonb, postgres.js serializa o parâmetro de novo — a string já
+  // stringificada vira um valor jsonb do tipo string, não objeto. É por isso que criarConta,
+  // definirSenha e usuario-teste.ts usam sql.json/tx.json em vez de JSON.stringify(...)::jsonb.
+  test("JSON.stringify + ::jsonb grava uma string, não um objeto (por isso não se usa)", async () => {
+    const [{ t }] = await sql<{ t: string }[]>`
+      select jsonb_typeof(${JSON.stringify({ a: 1 })}::jsonb) as t`;
+    expect(t).toBe("string");
+  });
 });
