@@ -9,28 +9,8 @@ const MAPA: { teste: RegExp; texto: string }[] = [
     texto: "A senha é muito curta. Use pelo menos 6 caracteres.",
   },
   {
-    teste: /invalid login credentials/i,
-    texto: "E-mail ou senha incorretos.",
-  },
-  {
-    teste: /email not confirmed/i,
-    texto: "Confirme seu e-mail antes de entrar. Verifique sua caixa de entrada.",
-  },
-  {
-    teste: /user already registered|already been registered/i,
-    texto: "Já existe uma conta com esse e-mail. Faça login.",
-  },
-  {
-    teste: /unable to validate email|invalid email/i,
-    texto: "E-mail inválido. Confira o endereço digitado.",
-  },
-  {
     teste: /email rate limit|over_email_send_rate_limit|too many requests|rate limit/i,
     texto: "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.",
-  },
-  {
-    teste: /signups not allowed|signup is disabled/i,
-    texto: "Novos cadastros estão desativados no momento.",
   },
   {
     teste: /duplicate key|already exists|unique constraint/i,
@@ -51,13 +31,6 @@ const MAPA: { teste: RegExp; texto: string }[] = [
   {
     teste: /failed to fetch|network|timeout|fetch error/i,
     texto: "Falha de conexão. Verifique sua internet e tente novamente.",
-  },
-  {
-    // Erro de configuração, não do usuário: sem essa chave nenhuma ação que usa
-    // o cliente de servidor (criar, resetar, listar acessos) consegue rodar.
-    teste: /missing supabase environment variable/i,
-    texto:
-      "O servidor está sem a chave SUPABASE_SERVICE_ROLE_KEY. Sem ela não dá para gerenciar acessos — configure a variável de ambiente e reinicie.",
   },
 ];
 

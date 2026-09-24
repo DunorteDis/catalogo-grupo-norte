@@ -39,19 +39,16 @@ export const MAX_CODIGOS_COLADOS = 2000;
 export const MAX_PALAVRAS_BUSCA = 6;
 
 /**
- * Filtros de busca do PostgREST, um por palavra digitada. Cada palavra precisa
- * aparecer no nome ou no código, e as chamadas de `.or()` se somam com E — é
- * isso que faz "gillette carvao" achar "AP BARB GILLETTE PRESTO3 CARVAO ATV",
- * que o ILIKE do texto inteiro perdia por causa do PRESTO3 no meio.
+ * Palavras da busca, uma condição por palavra no SQL: cada uma precisa aparecer
+ * no nome ou no código, em qualquer ordem — é isso que faz "gillette carvao"
+ * achar "AP BARB GILLETTE PRESTO3 CARVAO ATV", que o ILIKE do texto inteiro
+ * perdia por causa do PRESTO3 no meio.
  *
- * Normalizar aqui também é o que protege a consulta: vírgula, parênteses e `*`
- * são sintaxe do PostgREST e iam direto para dentro do filtro.
+ * O slugify deixa só [a-z0-9]: nenhum `%` ou `_` chega ao ILIKE como curinga.
  */
-export function filtrosBusca(texto: string) {
+export function palavrasBusca(texto: string) {
   const palavras = slugify(texto).split("-").filter(Boolean);
-  return [...new Set(palavras)]
-    .slice(0, MAX_PALAVRAS_BUSCA)
-    .map((palavra) => `nome.ilike.%${palavra}%,codigo.ilike.%${palavra}%`);
+  return [...new Set(palavras)].slice(0, MAX_PALAVRAS_BUSCA);
 }
 
 /**
@@ -145,3 +142,12 @@ export function montarMensagem(opts: {
   }
   return linhas.join("\n");
 }
+
+/** Tamanho das páginas. Servidor e tela precisam do mesmo número. */
+export const PAGINA_VITRINE = 24;
+export const PAGINA_PRODUTOS = 30;
+export const PAGINA_CATALOGO = 25;
+
+/** Imagem do catálogo personalizado. SVG fica de fora: aberto direto no navegador, roda script. */
+export const TIPOS_IMAGEM = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+export const MAX_IMAGEM = 2 * 1024 * 1024;

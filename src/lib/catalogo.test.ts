@@ -2,9 +2,9 @@
 import { expect, test } from "bun:test";
 
 import {
-  filtrosBusca,
   fotoUrl,
   montarMensagem,
+  palavrasBusca,
   parseCodigos,
   qtdComUnidade,
   slugify,
@@ -48,33 +48,27 @@ test("parseCodigos devolve vazio para texto sem código", () => {
   expect(parseCodigos("   \n\n , ; \t ")).toEqual([]);
 });
 
-test("filtrosBusca cobra uma palavra de cada vez, em qualquer ordem", () => {
+test("palavrasBusca cobra uma palavra de cada vez, em qualquer ordem", () => {
   // Sem isso, "gillette carvao" não acha "AP BARB GILLETTE PRESTO3 CARVAO ATV".
-  expect(filtrosBusca("gillette carvao")).toEqual([
-    "nome.ilike.%gillette%,codigo.ilike.%gillette%",
-    "nome.ilike.%carvao%,codigo.ilike.%carvao%",
-  ]);
+  expect(palavrasBusca("gillette carvao")).toEqual(["gillette", "carvao"]);
 });
 
-test("filtrosBusca tira acento, porque o cadastro vem sem", () => {
-  expect(filtrosBusca("carvão")).toEqual(["nome.ilike.%carvao%,codigo.ilike.%carvao%"]);
+test("palavrasBusca tira acento, porque o cadastro vem sem", () => {
+  expect(palavrasBusca("carvão")).toEqual(["carvao"]);
 });
 
-test("filtrosBusca neutraliza a sintaxe do PostgREST digitada na busca", () => {
-  // Vírgula e parênteses separam filtros; se vazassem, a consulta quebrava.
-  expect(filtrosBusca("gillette, carvao (novo)")).toEqual([
-    "nome.ilike.%gillette%,codigo.ilike.%gillette%",
-    "nome.ilike.%carvao%,codigo.ilike.%carvao%",
-    "nome.ilike.%novo%,codigo.ilike.%novo%",
-  ]);
-  expect(filtrosBusca("100%*")).toEqual(["nome.ilike.%100%,codigo.ilike.%100%"]);
+test("palavrasBusca só deixa passar letra e número", () => {
+  // % e _ são curinga do ILIKE; aspas e traços não têm o que fazer numa busca.
+  expect(palavrasBusca("gillette, carvao (novo)")).toEqual(["gillette", "carvao", "novo"]);
+  expect(palavrasBusca("100%*")).toEqual(["100"]);
+  expect(palavrasBusca("a_b' or 1=1 --")).toEqual(["a", "b", "or", "1"]);
 });
 
-test("filtrosBusca ignora repetição, espaço sobrando e excesso de palavras", () => {
-  expect(filtrosBusca("  sabao   sabao ")).toEqual(["nome.ilike.%sabao%,codigo.ilike.%sabao%"]);
-  expect(filtrosBusca("a b c d e f g h")).toHaveLength(6);
-  expect(filtrosBusca("")).toEqual([]);
-  expect(filtrosBusca("   ")).toEqual([]);
+test("palavrasBusca ignora repetição, espaço sobrando e excesso de palavras", () => {
+  expect(palavrasBusca("  sabao   sabao ")).toEqual(["sabao"]);
+  expect(palavrasBusca("a b c d e f g h")).toHaveLength(6);
+  expect(palavrasBusca("")).toEqual([]);
+  expect(palavrasBusca("   ")).toEqual([]);
 });
 
 test("umCadastroPorCodigo prefere a linha que já está no catálogo, senão a primeira", () => {
