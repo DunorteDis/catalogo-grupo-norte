@@ -198,6 +198,7 @@ export const colarCodigos = acao(
 );
 
 /** Substitui o bucket do Storage: a imagem fica no banco e sai por /imagens/<id>. */
+// ponytail: imagem trocada ou órfã (troca, salvar que falha, catálogo excluído) fica em crm.imagens; limpar as não referenciadas quando o banco pesar.
 export const enviarImagem = acao(async (dados: FormData) => {
   await exigirAdmin();
   const arquivo = dados.get("arquivo");
@@ -216,7 +217,15 @@ export const enviarImagem = acao(async (dados: FormData) => {
 const catalogoSchema = z.object({
   nome: z.string().trim().min(1, "Dê um nome ao catálogo."),
   cor: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Cor inválida."),
-  emoji: z.string().trim().max(8).nullable(),
+  // .max(8) conta unidade UTF-16, não code point: um emoji de família (pessoa+ZWJ+
+  // pessoa+ZWJ+...) tem menos de 8 "caracteres" no sentido do CHECK do banco
+  // (char_length, que conta code point) mas passa de 8 unidades UTF-16 e seria
+  // recusado aqui mesmo sendo válido lá. [...s] itera por code point, como o banco.
+  emoji: z
+    .string()
+    .trim()
+    .nullable()
+    .refine((s) => s === null || [...s].length <= 8, "Use um emoji só."),
   imagemUrl: z.string().nullable(),
   copiarDe: z.string(),
 });

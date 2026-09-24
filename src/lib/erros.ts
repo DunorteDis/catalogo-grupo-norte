@@ -2,25 +2,12 @@ import { ErroAcao } from "@/lib/chamar";
 
 const MAPA: { teste: RegExp; texto: string }[] = [
   {
-    teste: /password is known to be weak|pwned|weak and easy to guess/i,
-    texto:
-      "Essa senha é muito comum e aparece em vazamentos. Escolha uma senha mais forte (8+ caracteres, com letras, números e símbolos).",
-  },
-  {
-    teste: /password should be at least|password.*too short/i,
-    texto: "A senha é muito curta. Use pelo menos 6 caracteres.",
-  },
-  {
     teste: /email rate limit|over_email_send_rate_limit|too many requests|rate limit/i,
     texto: "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.",
   },
   {
     teste: /duplicate key|already exists|unique constraint/i,
     texto: "Esse registro já existe. Verifique os dados informados.",
-  },
-  {
-    teste: /row-level security|permission denied|not authorized|jwt|401|403/i,
-    texto: "Você não tem permissão para fazer isso. Entre novamente e tente de novo.",
   },
   {
     teste: /violates foreign key/i,

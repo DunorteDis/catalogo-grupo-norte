@@ -65,8 +65,8 @@ export const produtosDaVitrine = acao(async (entrada: z.input<typeof filtroVitri
 const pedidoSchema = z.object({
   vendedorId: z.string().uuid(),
   distribuidoraId: z.string().uuid(),
-  clienteNome: z.string().trim().max(120),
-  observacao: z.string().trim().max(500),
+  clienteNome: z.string().trim().max(120, "Nome com no máximo 120 caracteres."),
+  observacao: z.string().trim().max(500, "Observação com no máximo 500 caracteres."),
   itens: z
     .array(
       z.object({

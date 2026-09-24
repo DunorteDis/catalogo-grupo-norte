@@ -25,6 +25,8 @@ next-env.d.ts
 !.vscode/extensions.json
 .idea
 .DS_Store
+# Snapshots do smoke test com Playwright MCP: podem conter usuário/senha de teste.
+.playwright-mcp/
 *.suo
 *.ntvs*
 *.njsproj

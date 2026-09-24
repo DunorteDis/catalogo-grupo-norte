@@ -36,7 +36,16 @@ function areaDe(s: { admin: boolean; prov: boolean }) {
 }
 
 export const entrar = acao(async (usuario: string, senha: string) => {
-  const email = loginParaEmail(String(usuario ?? ""));
+  const usuarioStr = String(usuario ?? "");
+  const senhaStr = String(senha ?? "");
+  // Teto de tamanho ANTES de tocar no freio ou no banco: cada tentativa errada vira
+  // chave do freio em memória (src/server/freio.ts) contendo o usuário, presa por até
+  // 15 min, e ainda paga um bcrypt.compare — sem teto, um usuário do tamanho do corpo
+  // máximo de uma Server Action (3 MB) esgota memória e CPU num anônimo só.
+  if (usuarioStr.length > 254 || senhaStr.length > 200)
+    throw new Recusa("Usuário ou senha incorretos.");
+
+  const email = loginParaEmail(usuarioStr);
   // Duas chaves: por IP (rápida, mas o cabeçalho só é confiável atrás de proxy —
   // ver ipDaRequisicao) e por usuário (não depende de cabeçalho nenhum, pega
   // quem varia de IP a cada tentativa).
@@ -45,15 +54,20 @@ export const entrar = acao(async (usuario: string, senha: string) => {
   if (loginBloqueado(chaveIp, agora) || loginBloqueado(email, agora, MAX_ERROS_POR_USUARIO))
     throw new Recusa("Muitas tentativas erradas. Espere 15 minutos e tente de novo.");
 
+  // Conta a tentativa já aqui, antes da consulta e do bcrypt: é isso que faz o freio
+  // segurar sob requisições paralelas — contar só depois de falhar deixaria todas
+  // passarem no loginBloqueado acima antes de qualquer uma registrar erro, e o teto
+  // nunca seria atingido.
+  registrarErroLogin(chaveIp, agora);
+  registrarErroLogin(email, agora);
+
   const [conta] = await sql<Conta[]>`
     select u.id, u.email, u.senha_hash, u.raw_user_meta_data as meta,
            exists (select 1 from user_roles r where r.user_id = u.id and r.role = 'admin') as admin
       from usuarios u
      where lower(u.email) = ${email}`;
-  const confere = await bcrypt.compare(String(senha ?? ""), conta?.senha_hash ?? HASH_FALSO);
+  const confere = await bcrypt.compare(senhaStr, conta?.senha_hash ?? HASH_FALSO);
   if (!conta?.senha_hash || !confere) {
-    registrarErroLogin(chaveIp, agora);
-    registrarErroLogin(email, agora);
     throw new Recusa("Usuário ou senha incorretos.");
   }
 

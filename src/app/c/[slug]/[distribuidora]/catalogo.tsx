@@ -662,12 +662,14 @@ export function Catalogo() {
                 value={cliente}
                 onChange={(e) => setCliente(e.target.value)}
                 placeholder="Seu nome (opcional)"
+                maxLength={120}
                 className="h-12 rounded-xl"
               />
               <Textarea
                 value={observacao}
                 onChange={(e) => setObservacao(e.target.value)}
                 placeholder="Observação (opcional)"
+                maxLength={500}
                 className="rounded-xl"
               />
             </div>

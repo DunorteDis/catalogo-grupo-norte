@@ -36,5 +36,25 @@ bun scripts/aplicar-sql.ts db/migrations/<arquivo>.sql
 ## Login
 
 Usuários ficam em `crm.usuarios` (senha bcrypt em `senha_hash`), papéis em
-`crm.user_roles`. Quem cria acesso é o admin, na tela Usuários. Toda Server Action em
-`src/server/` confere a sessão e o papel antes de tocar no banco.
+`crm.user_roles`. Quem cria acesso é o admin, na tela Usuários. As Server Actions em
+`src/server/` conferem a sessão e o papel antes de tocar no banco — exceto as de
+`src/server/publico.ts`, que são o catálogo público (link do vendedor) e são
+propositalmente anônimas, sem sessão.
+
+## Produção
+
+- **Proxy reverso obrigatório**: sirva atrás de um proxy que **sobrescreve**
+  `X-Forwarded-For` com o IP real do cliente — nginx: `proxy_set_header X-Forwarded-For
+  $remote_addr;`, nunca `$proxy_add_x_forwarded_for` (esse **acrescenta** ao cabeçalho
+  em vez de substituir, e deixa o próprio cliente escolher o primeiro valor). O freio de
+  login (`src/server/freio.ts`) e o antispam de pedido (`src/server/publico.ts`)
+  confiam nesse cabeçalho para identificar quem está tentando.
+- **Host público**: o proxy também precisa repassar o host público —
+  `proxy_set_header Host $host;` (ou `X-Forwarded-Host`) — senão a checagem de origem
+  das Server Actions do Next recusa toda ação (login, pedido). Alternativa:
+  `experimental.serverActions.allowedOrigins` em `next.config.ts`.
+- **Uma instância só**: o freio de login mora em memória (`src/server/freio.ts`); com
+  mais de uma instância atrás de um balanceador, os erros não somam entre elas e o
+  freio não seguraria mais os tetos de tentativas.
+- `COOKIE_INSEGURO=1` só se o site for servido por HTTP puro, sem HTTPS.
+- Vale colocar rate limit em `POST /auth` no proxy, como camada extra ao freio de login.
