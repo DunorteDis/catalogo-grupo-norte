@@ -38,7 +38,7 @@ export function MarcaCatalogo({
   }
   return (
     <span
-      className={cn("inline-flex items-center gap-2 font-extrabold", className)}
+      className={cn("inline-flex items-center gap-2 font-bold", className)}
       style={{ color: marca.cor }}
     >
       {/* Altura em "em" para acompanhar o texto de cada tela, como o emoji. A largura

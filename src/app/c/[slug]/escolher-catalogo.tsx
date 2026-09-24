@@ -49,7 +49,7 @@ export function EscolherCatalogo() {
   if (!vendedorQuery.data) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 px-6 text-center">
-        <h1 className="text-2xl font-extrabold">Link não encontrado</h1>
+        <h1 className="text-2xl font-bold">Link não encontrado</h1>
         <p className="text-sm text-muted-foreground">Peça um novo link para o seu vendedor.</p>
         <Link href="/" className="text-sm font-semibold underline">
           Ir para o início
@@ -63,7 +63,7 @@ export function EscolherCatalogo() {
       <p className="text-xs uppercase tracking-wide text-muted-foreground">
         Vendedor {vendedorQuery.data.nome}
       </p>
-      <h1 className="mt-1 text-2xl font-extrabold">Escolha o catálogo</h1>
+      <h1 className="mt-1 text-2xl font-bold">Escolha o catálogo</h1>
 
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
         {distribuidoras.map((c) => (

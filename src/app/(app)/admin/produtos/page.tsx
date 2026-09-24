@@ -2,11 +2,12 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { ImageOff, Pencil, Plus, Trash2 } from "lucide-react";
+import { ImageOff, Package, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { chamar } from "@/lib/chamar";
 import { mensagemErro } from "@/lib/erros";
+import { Badge, ListRow, PageHeader, SearchInput } from "@/components/abastex";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -121,91 +122,111 @@ export default function ProdutosPage() {
     if (podeSalvar) salvar.mutate();
   }
 
-  return (
-    <div>
-      <div className="flex flex-wrap items-start gap-4">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-extrabold">Produtos</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {data?.total ?? 0} produtos cadastrados. Desative os que não devem aparecer no catálogo.
-          </p>
-        </div>
-        <Button className="h-11 rounded-xl font-bold" onClick={abrirNovo}>
-          <Plus className="mr-2 h-4 w-4" />
-          Novo produto
-        </Button>
-      </div>
+  const linhas = data?.linhas ?? [];
 
-      <Input
-        value={busca}
-        onChange={(e) => setBusca(e.target.value)}
-        placeholder="Buscar por nome ou código"
-        className="mt-4 h-11 max-w-md rounded-xl"
+  return (
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        crumbs={["Abastex", "Produtos"]}
+        icon={Package}
+        tone="warning"
+        title="Produtos"
+        subtitle={`${data ? `${data.total.toLocaleString("pt-BR")} produtos cadastrados. ` : ""}Desative os que não devem aparecer no catálogo.`}
+        actions={
+          <Button onClick={abrirNovo}>
+            <Plus />
+            Novo produto
+          </Button>
+        }
       />
 
-      <div className="mt-4 divide-y rounded-2xl border bg-card">
-        {(data?.linhas ?? []).map((p) => (
-          <div key={p.id} className="flex items-center gap-3 p-3">
-            <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted/40">
-              {fotoUrl(p.arquivo) && (
-                <img
-                  src={fotoUrl(p.arquivo)!}
-                  alt={p.nome}
-                  loading="lazy"
-                  className="h-full w-full object-contain"
-                />
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">{p.nome}</p>
-              <p className="text-xs text-muted-foreground">
-                Cód. {p.codigo}
-                {/* O cadastro espelha o ERP, onde o mesmo código aparece mais de
-                    uma vez: a empresa é o que separa boa parte das repetições. */}
-                {p.cod_empresa != null && ` · Empresa ${p.cod_empresa}`}
-              </p>
-            </div>
-            <Switch
-              checked={!!p.ativo}
-              onCheckedChange={(v) => alternar.mutate({ id: p.id, ativo: v })}
-            />
-            <Button
-              size="icon"
-              variant="ghost"
-              title="Editar produto"
-              onClick={() => abrirEdicao(p)}
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="text-destructive"
-              title="Excluir do cadastro"
-              onClick={() => setAExcluir(p)}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        ))}
-      </div>
+      <div className="flex flex-col gap-4">
+        <SearchInput
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Buscar por nome ou código"
+        />
 
-      <div className="mt-4 flex items-center justify-between">
-        <Button
-          variant="outline"
-          disabled={pagina === 0}
-          onClick={() => setPagina((p) => Math.max(0, p - 1))}
-        >
-          Anterior
-        </Button>
-        <span className="text-xs text-muted-foreground">Página {pagina + 1}</span>
-        <Button
-          variant="outline"
-          disabled={(data?.linhas.length ?? 0) < PAGE}
-          onClick={() => setPagina((p) => p + 1)}
-        >
-          Próxima
-        </Button>
+        <div className="ax-list empty:hidden">
+          {linhas.map((p) => {
+            const foto = fotoUrl(p.arquivo);
+            return (
+              <ListRow
+                key={p.id}
+                inactive={!p.ativo}
+                thumb={
+                  foto ? (
+                    <img src={foto} alt={p.nome} loading="lazy" />
+                  ) : (
+                    <Package size={22} aria-hidden />
+                  )
+                }
+                title={p.nome}
+                badge={!p.ativo && <Badge dot>Oculto</Badge>}
+                meta={
+                  <>
+                    Cód. <code>{p.codigo}</code>
+                    {/* O cadastro espelha o ERP, onde o mesmo código aparece mais de
+                        uma vez: a empresa é o que separa boa parte das repetições. */}
+                    {p.cod_empresa != null && ` · Empresa ${p.cod_empresa}`}
+                  </>
+                }
+                actions={
+                  <>
+                    <Switch
+                      checked={!!p.ativo}
+                      aria-label="Mostrar no catálogo"
+                      title="Mostrar no catálogo"
+                      onCheckedChange={(v) => alternar.mutate({ id: p.id, ativo: v })}
+                      className="mr-2"
+                    />
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      aria-label="Editar produto"
+                      title="Editar produto"
+                      onClick={() => abrirEdicao(p)}
+                    >
+                      <Pencil />
+                    </Button>
+                    <Button
+                      size="icon-sm"
+                      variant="danger"
+                      aria-label="Excluir do cadastro"
+                      title="Excluir do cadastro"
+                      onClick={() => setAExcluir(p)}
+                    >
+                      <Trash2 />
+                    </Button>
+                  </>
+                }
+              />
+            );
+          })}
+          {data && linhas.length === 0 && (
+            <p className="p-12 text-center text-sm text-ink-muted">
+              {termo ? "Nenhum produto bate com essa busca." : "Nenhum produto cadastrado ainda."}
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between">
+          <Button
+            variant="outline"
+            disabled={pagina === 0}
+            onClick={() => setPagina((p) => Math.max(0, p - 1))}
+          >
+            Anterior
+          </Button>
+          <span className="text-xs text-ink-muted">Página {pagina + 1}</span>
+          <Button
+            variant="outline"
+            disabled={linhas.length < PAGE}
+            onClick={() => setPagina((p) => p + 1)}
+          >
+            Próxima
+          </Button>
+        </div>
       </div>
 
       <Dialog open={editandoId !== null} onOpenChange={(v) => !v && setEditandoId(null)}>
@@ -228,7 +249,7 @@ export default function ProdutosPage() {
                 value={codigo}
                 onChange={(e) => setCodigo(e.target.value)}
                 placeholder="Ex.: 7891234567890"
-                className="h-11 rounded-xl font-mono"
+                className="font-mono"
               />
             </div>
 
@@ -239,14 +260,13 @@ export default function ProdutosPage() {
                 value={nome}
                 onChange={(e) => setNome(e.target.value)}
                 placeholder="Ex.: CD ORAL B EXTRA FRESH 3X70G"
-                className="h-11 rounded-xl"
               />
             </div>
 
             <div className="space-y-1.5">
               <Label htmlFor="foto-produto">Foto (opcional)</Label>
               <div className="flex items-start gap-3">
-                <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted/40">
+                <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-md bg-surface-sunken">
                   {previa && !fotoQuebrada ? (
                     <img
                       src={previa}
@@ -255,7 +275,7 @@ export default function ProdutosPage() {
                       onError={() => setFotoQuebrada(true)}
                     />
                   ) : (
-                    <ImageOff className="h-5 w-5 text-muted-foreground" />
+                    <ImageOff className="size-5 text-ink-subtle" />
                   )}
                 </div>
                 <div className="min-w-0 flex-1 space-y-1.5">
@@ -267,7 +287,6 @@ export default function ProdutosPage() {
                       setFotoQuebrada(false);
                     }}
                     placeholder="7891234567890.jpg ou https://..."
-                    className="h-11 rounded-xl"
                   />
                   <p className="text-xs text-muted-foreground">
                     {previa && fotoQuebrada
@@ -282,7 +301,7 @@ export default function ProdutosPage() {
               <Button type="button" variant="outline" onClick={() => setEditandoId(null)}>
                 Cancelar
               </Button>
-              <Button type="submit" className="rounded-xl font-bold" disabled={!podeSalvar}>
+              <Button type="submit" variant="accent" disabled={!podeSalvar}>
                 {salvar.isPending
                   ? "Salvando..."
                   : editandoId
@@ -307,7 +326,6 @@ export default function ProdutosPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={excluir.isPending}
               onClick={(e) => {
                 e.preventDefault();

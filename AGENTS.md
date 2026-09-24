@@ -2,6 +2,8 @@
 
 Projeto Next.js 16 + Postgres (schema `crm`, SQL direto via postgres.js). Veja README.md.
 
+A interface segue o design system Abastex: tokens em `src/abastex.css` (tema escuro por `data-theme="dark"` no `<html>`), mapa para as classes do Tailwind/shadcn em `src/styles.css` e componentes (PageHeader, KpiCard, IconTile, FilterTabs, ListRow...) em `src/components/abastex.tsx`. Use os tokens, nunca hex solto; a cor de uma distribuidora é dado, não tema.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know

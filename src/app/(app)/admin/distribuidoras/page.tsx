@@ -1,11 +1,12 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Check, Warehouse } from "lucide-react";
 import { toast } from "sonner";
 
 import { chamar } from "@/lib/chamar";
 import { mensagemErro } from "@/lib/erros";
-import { Switch } from "@/components/ui/switch";
+import { Badge, DistributorCard, PageHeader } from "@/components/abastex";
 import { LOGOS } from "@/lib/logos";
 import { ativarCatalogo, listarDistribuidoras } from "@/server/catalogos";
 
@@ -24,35 +25,44 @@ export default function DistribuidorasPage() {
     onError: (e: Error) => toast.error(mensagemErro(e)),
   });
 
+  const lista = data ?? [];
+  const ativas = lista.filter((d) => d.ativo).length;
+  const inativas = lista.length - ativas;
+
   return (
-    <div>
-      <h1 className="text-2xl font-extrabold">Distribuidoras</h1>
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {(data ?? []).map((d) => (
-          <div key={d.id} className="rounded-2xl border bg-card p-4">
-            <div className="flex h-16 items-center">
-              {LOGOS[d.slug] ? (
-                <img
-                  src={LOGOS[d.slug]}
-                  alt={d.nome}
-                  className="h-full w-auto max-w-[160px] object-contain"
-                />
-              ) : (
-                <span className="font-extrabold">{d.nome}</span>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        crumbs={["Abastex", "Distribuidoras"]}
+        icon={Warehouse}
+        tone="info"
+        title="Distribuidoras"
+        subtitle="Desligue uma distribuidora para tirar o catálogo dela do ar para todos os vendedores."
+        actions={
+          data && (
+            <>
+              <Badge tone="accent" icon={Check}>
+                {ativas} {ativas === 1 ? "ativa" : "ativas"}
+              </Badge>
+              {inativas > 0 && (
+                <Badge dot>
+                  {inativas} {inativas === 1 ? "inativa" : "inativas"}
+                </Badge>
               )}
-            </div>
-            <div className="mt-3 flex items-center gap-2">
-              <span className="h-4 w-4 rounded-full border" style={{ backgroundColor: d.cor }} />
-              <span className="text-xs text-muted-foreground">{d.cor}</span>
-              <div className="ml-auto flex items-center gap-2">
-                <span className="text-xs font-semibold">{d.ativo ? "Ativa" : "Inativa"}</span>
-                <Switch
-                  checked={!!d.ativo}
-                  onCheckedChange={(v) => alternar.mutate({ id: d.id, ativo: v })}
-                />
-              </div>
-            </div>
-          </div>
+            </>
+          )
+        }
+      />
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {lista.map((d) => (
+          <DistributorCard
+            key={d.id}
+            name={d.nome}
+            color={d.cor}
+            active={!!d.ativo}
+            onToggle={(v) => alternar.mutate({ id: d.id, ativo: v })}
+            logo={LOGOS[d.slug] ? <img src={LOGOS[d.slug]} alt={d.nome} /> : undefined}
+          />
         ))}
       </div>
     </div>

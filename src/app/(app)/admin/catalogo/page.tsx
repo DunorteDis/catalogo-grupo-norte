@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  BookOpen,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -10,6 +11,7 @@ import {
   ImageIcon,
   ImagePlus,
   Loader2,
+  Package,
   Pencil,
   Plus,
   Smile,
@@ -52,6 +54,7 @@ import {
   type Secao,
 } from "@/server/catalogos";
 import { MarcaCatalogo } from "@/components/marca-catalogo";
+import { Badge, FilterTabs, PageHeader, SearchInput } from "@/components/abastex";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -86,7 +89,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const COR_PADRAO = "#b73d25";
+const COR_PADRAO = "#501ea1";
 
 /**
  * Emojis por assunto, pensados para o que uma distribuidora vende e comemora.
@@ -137,16 +140,20 @@ function LinhaProduto({
 }) {
   const foto = fotoUrl(produto.arquivo);
   return (
-    <li className="flex items-center gap-3 p-3">
-      <div className="size-12 shrink-0 overflow-hidden rounded-lg border bg-muted/40">
-        {foto && <img src={foto} alt="" loading="lazy" className="h-full w-full object-contain" />}
+    <li className="ax-row">
+      <span className="ax-row__thumb">
+        {foto ? <img src={foto} alt="" loading="lazy" /> : <Package size={22} aria-hidden />}
+      </span>
+      <div className="ax-row__body">
+        <div className="ax-row__title">
+          <span>{produto.nome}</span>
+          {etiqueta}
+        </div>
+        <div className="ax-row__meta">
+          <code>{produto.codigo}</code>
+        </div>
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold">{produto.nome}</p>
-        <p className="font-mono text-xs text-muted-foreground">{produto.codigo}</p>
-      </div>
-      {etiqueta}
-      {acao}
+      <div className="ax-row__actions">{acao}</div>
     </li>
   );
 }
@@ -482,40 +489,37 @@ export default function CatalogoPage() {
   }
 
   return (
-    <div>
-      <div className="flex flex-wrap items-start gap-4">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-extrabold">Catálogos</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            O que cada distribuidora mostra ao cliente — e os catálogos personalizados, que não
-            pertencem a nenhuma delas e viram links extras para os vendedores.
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          className="h-11 rounded-xl font-bold"
-          onClick={() => abrirFormCatalogo()}
-        >
-          <Sparkles className="mr-2 h-4 w-4" />
-          Novo personalizado
-        </Button>
-        {catalogoId && (
-          <Button
-            className="h-11 rounded-xl font-bold"
-            onClick={() => {
-              setBuscaAdd("");
-              setAdicionarAberto(true);
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Adicionar produtos
-          </Button>
-        )}
-      </div>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        crumbs={["Abastex", "Catálogos"]}
+        icon={BookOpen}
+        tone="rose"
+        title="Catálogos"
+        subtitle="O que cada distribuidora mostra ao cliente — e os personalizados, que não pertencem a nenhuma delas e viram links extras para os vendedores."
+        actions={
+          <>
+            <Button variant="outline" onClick={() => abrirFormCatalogo()}>
+              <Sparkles />
+              Novo personalizado
+            </Button>
+            {catalogoId && (
+              <Button
+                onClick={() => {
+                  setBuscaAdd("");
+                  setAdicionarAberto(true);
+                }}
+              >
+                <Plus />
+                Adicionar produtos
+              </Button>
+            )}
+          </>
+        }
+      />
 
-      <div className="mt-6 flex flex-wrap items-center gap-3 rounded-2xl border bg-card p-4">
+      <div className="ax-card flex flex-wrap items-center gap-3 px-5 py-4">
         <Select value={catalogoId} onValueChange={setCatalogoId}>
-          <SelectTrigger className="h-11 w-64 rounded-xl">
+          <SelectTrigger className="w-64">
             <SelectValue placeholder="Escolha o catálogo" />
           </SelectTrigger>
           <SelectContent>
@@ -523,7 +527,10 @@ export default function CatalogoPage() {
               <SelectLabel>Distribuidoras</SelectLabel>
               {distribuidoras.map((d) => (
                 <SelectItem key={d.id} value={d.id}>
-                  {d.nome}
+                  <span className="flex items-center gap-2">
+                    <i className="size-2.5 shrink-0 rounded-full" style={{ background: d.cor }} />
+                    {d.nome}
+                  </span>
                 </SelectItem>
               ))}
             </SelectGroup>
@@ -542,40 +549,42 @@ export default function CatalogoPage() {
 
         {catalogo && (
           <>
-            <span className="rounded-xl bg-primary-soft px-3 py-2 text-sm font-bold text-primary">
-              {termo ? `${total} na busca` : `${total} no catálogo`}
+            <Badge tone="brand">
+              {termo
+                ? `${total.toLocaleString("pt-BR")} na busca`
+                : `${total.toLocaleString("pt-BR")} no catálogo`}
+            </Badge>
+            <span className="inline-flex h-8 items-center rounded-md bg-surface-sunken px-3 font-mono text-xs text-ink-muted">
+              /c/…/{catalogo.slug}
             </span>
-            <span className="font-mono text-xs text-muted-foreground">/c/…/{catalogo.slug}</span>
           </>
         )}
         {(catalogoQuery.isFetching || ocupado) && (
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          <Loader2 className="size-4 animate-spin text-ink-subtle" aria-label="Carregando" />
         )}
 
         {catalogo?.personalizado && (
-          <div className="ml-auto flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold">{catalogo.ativo ? "Ativo" : "Inativo"}</span>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <label className="mr-2 inline-flex items-center gap-2 text-[13px] font-semibold">
+              {catalogo.ativo ? "Ativo" : "Inativo"}
               <Switch
                 checked={catalogo.ativo}
                 onCheckedChange={(v) => alternarAtivo.mutate(v)}
                 disabled={alternarAtivo.isPending}
               />
-            </div>
+            </label>
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
-              className="rounded-xl"
               disabled={ocupado}
               onClick={() => abrirFormCatalogo(catalogo)}
             >
-              <Pencil className="mr-2 h-4 w-4" />
+              <Pencil />
               Editar
             </Button>
             <Button
-              variant="outline"
+              variant="danger"
               size="sm"
-              className="rounded-xl text-destructive"
               disabled={ocupado}
               onClick={() => {
                 if (!window.confirm(`Excluir o catálogo ${catalogo.nome} e todos os seus links?`))
@@ -583,7 +592,7 @@ export default function CatalogoPage() {
                 excluir.mutate();
               }}
             >
-              <Trash2 className="mr-2 h-4 w-4" />
+              <Trash2 />
               Excluir catálogo
             </Button>
           </div>
@@ -591,88 +600,86 @@ export default function CatalogoPage() {
       </div>
 
       {!catalogoId ? (
-        <p className="mt-6 rounded-2xl border border-dashed p-12 text-center text-sm text-muted-foreground">
+        <p className="rounded-2xl border border-dashed border-line-strong p-12 text-center text-sm text-ink-muted">
           Escolha um catálogo para montá-lo — ou crie um personalizado.
         </p>
       ) : (
         <>
           {/* As abas do cliente. A aberta filtra a lista e recebe o que for adicionado. */}
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <Aba ativa={!secaoId} onClick={() => setSecaoId("")}>
-              Todos
-            </Aba>
-            {secoes.map((s) => (
-              <Aba key={s.id} ativa={secaoId === s.id} onClick={() => setSecaoId(s.id)}>
-                {s.nome}
-              </Aba>
-            ))}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="rounded-full"
+          <div className="flex flex-wrap items-center gap-2">
+            <FilterTabs
+              options={[
+                { value: "", label: "Todos" },
+                ...secoes.map((s) => ({ value: s.id, label: s.nome })),
+              ]}
+              value={secaoId}
+              onChange={setSecaoId}
+            />
+            <button
+              type="button"
               disabled={mexendoNaSecao}
               onClick={abrirNovaSecao}
+              className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-full border border-dashed border-line-strong px-3 text-[13px] font-semibold text-brand transition-colors hover:bg-brand-soft disabled:cursor-not-allowed disabled:opacity-45"
             >
-              <Plus className="mr-1.5 h-4 w-4" />
+              <Plus className="size-3.5" />
               Nova seção
-            </Button>
+            </button>
 
             {secao && (
               <div className="ml-auto flex items-center gap-1">
                 <Button
-                  size="icon"
+                  size="icon-sm"
                   variant="ghost"
-                  className="h-8 w-8"
                   title="Mover seção para a esquerda"
+                  aria-label="Mover seção para a esquerda"
                   disabled={mexendoNaSecao || secoes[0]?.id === secao.id}
                   onClick={() => moverSecao.mutate(-1)}
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft />
                 </Button>
                 <Button
-                  size="icon"
+                  size="icon-sm"
                   variant="ghost"
-                  className="h-8 w-8"
                   title="Mover seção para a direita"
+                  aria-label="Mover seção para a direita"
                   disabled={mexendoNaSecao || secoes[secoes.length - 1]?.id === secao.id}
                   onClick={() => moverSecao.mutate(1)}
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight />
                 </Button>
                 <Button
-                  size="icon"
+                  size="icon-sm"
                   variant="ghost"
-                  className="h-8 w-8"
                   title="Renomear seção"
+                  aria-label="Renomear seção"
                   disabled={mexendoNaSecao}
                   onClick={abrirRenomearSecao}
                 >
-                  <Pencil className="h-4 w-4" />
+                  <Pencil />
                 </Button>
                 <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8 text-destructive"
+                  size="icon-sm"
+                  variant="danger"
                   title="Excluir seção"
+                  aria-label="Excluir seção"
                   disabled={mexendoNaSecao}
                   onClick={() => setExcluirSecaoAberto(true)}
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Trash2 />
                 </Button>
               </div>
             )}
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <Input
+          <div className="flex flex-wrap items-center gap-3">
+            <SearchInput
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               placeholder={secao ? `Buscar em ${secao.nome}` : "Buscar no catálogo"}
-              className="h-11 max-w-md rounded-xl"
+              className="flex-1"
             />
             <Button
               variant="outline"
-              className="rounded-xl"
               disabled={ocupado}
               onClick={() => {
                 setNaoEncontrados([]);
@@ -680,13 +687,13 @@ export default function CatalogoPage() {
                 setColarAberto(true);
               }}
             >
-              <ClipboardPaste className="mr-2 h-4 w-4" />
+              <ClipboardPaste />
               Colar códigos
             </Button>
             {total > 0 && (
               <Button
-                variant="outline"
-                className="ml-auto rounded-xl text-destructive"
+                variant="danger"
+                className="ml-auto"
                 disabled={ocupado}
                 onClick={() => {
                   const alvo = termo ? `os ${total} da busca` : `todos os ${total}`;
@@ -695,51 +702,48 @@ export default function CatalogoPage() {
                   remover.mutate("busca");
                 }}
               >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Remover {total}
+                <Trash2 />
+                Remover {total.toLocaleString("pt-BR")}
               </Button>
             )}
           </div>
 
-          <ul className="mt-4 divide-y rounded-2xl border bg-card">
+          <ul className="ax-list">
             {(catalogoQuery.data?.linhas ?? []).map((item) => (
               <LinhaProduto
                 key={item.produto.id}
                 produto={item.produto}
                 etiqueta={
                   // Na aba Todos vale mostrar de qual seção o item é.
-                  !secaoId && item.secaoId ? (
-                    <span className="shrink-0 rounded-lg bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
-                      {nomePorSecao.get(item.secaoId)}
-                    </span>
-                  ) : null
+                  !secaoId && item.secaoId ? <Badge>{nomePorSecao.get(item.secaoId)}</Badge> : null
                 }
                 acao={
                   <Button
-                    size="icon"
-                    variant="ghost"
-                    className="text-destructive"
+                    size="icon-sm"
+                    variant="danger"
+                    title="Remover deste catálogo"
+                    aria-label="Remover deste catálogo"
                     disabled={ocupado}
                     onClick={() => remover.mutate([item.produto.id])}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 />
                   </Button>
                 }
               />
             ))}
             {!catalogoQuery.isLoading && total === 0 && (
-              <p className="p-12 text-center text-sm text-muted-foreground">
+              <li className="p-12 text-center text-sm text-ink-muted">
                 {termo
                   ? "Nenhum produto bate com essa busca."
                   : secao
                     ? `A seção ${secao.nome} está vazia. Use “Adicionar produtos” ou “Colar códigos” — vai tudo para ela.`
                     : "Catálogo vazio. Use “Adicionar produtos” ou “Colar códigos” para montá-lo."}
-              </p>
+              </li>
             )}
           </ul>
 
           {total > PAGINA && (
-            <div className="mt-4 flex items-center justify-between">
+            <div className="flex items-center justify-between">
               <Button
                 variant="outline"
                 disabled={pagina === 0}
@@ -774,7 +778,6 @@ export default function CatalogoPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={excluirSecao.isPending}
               onClick={(e) => {
                 e.preventDefault();
@@ -809,7 +812,6 @@ export default function CatalogoPage() {
                 onChange={(e) => setNomeSecao(e.target.value)}
                 placeholder="Ex.: Bebidas"
                 maxLength={40}
-                className="h-11 rounded-xl"
               />
               {nomeRepetido && (
                 <p className="text-xs font-semibold text-destructive">
@@ -818,7 +820,7 @@ export default function CatalogoPage() {
               )}
             </div>
 
-            <div className="space-y-2 rounded-xl border bg-muted/30 p-3">
+            <div className="space-y-2 rounded-md bg-surface-sunken p-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Como o cliente vê
               </p>
@@ -838,7 +840,7 @@ export default function CatalogoPage() {
               </Button>
               <Button
                 type="submit"
-                className="rounded-xl font-bold"
+                variant="accent"
                 disabled={!nomeSecaoLimpo || nomeRepetido || mexendoNaSecao}
               >
                 {mexendoNaSecao
@@ -873,7 +875,6 @@ export default function CatalogoPage() {
                 value={nome}
                 onChange={(e) => setNome(e.target.value)}
                 placeholder="Ex.: Promoção de Páscoa"
-                className="h-11 rounded-xl"
               />
               <p className="font-mono text-xs text-muted-foreground">
                 /c/&lt;vendedor&gt;/{editando?.slug ?? (novoSlug || "…")}
@@ -888,18 +889,18 @@ export default function CatalogoPage() {
                   value={icone}
                   // Radix solta o valor ao clicar de novo no marcado; aqui sempre há um.
                   onValueChange={(v) => v && setIcone(v as "emoji" | "imagem")}
-                  className="gap-1 rounded-xl bg-muted p-1"
+                  className="gap-1 rounded-full bg-surface-sunken p-1"
                 >
                   <ToggleGroupItem
                     value="emoji"
-                    className="h-9 rounded-lg px-4 font-semibold data-[state=on]:bg-card data-[state=on]:text-foreground data-[state=on]:shadow-sm"
+                    className="h-8 rounded-full px-4 font-semibold text-ink-muted hover:text-brand data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-glow"
                   >
                     <Smile />
                     Emoji
                   </ToggleGroupItem>
                   <ToggleGroupItem
                     value="imagem"
-                    className="h-9 rounded-lg px-4 font-semibold data-[state=on]:bg-card data-[state=on]:text-foreground data-[state=on]:shadow-sm"
+                    className="h-8 rounded-full px-4 font-semibold text-ink-muted hover:text-brand data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-glow"
                   >
                     <ImageIcon />
                     Imagem
@@ -913,7 +914,7 @@ export default function CatalogoPage() {
                   type="color"
                   value={cor}
                   onChange={(e) => setCor(e.target.value)}
-                  className="block h-11 w-16 cursor-pointer rounded-xl border bg-card p-1"
+                  className="block h-10 w-16 cursor-pointer rounded-md border border-input bg-card p-1"
                 />
               </div>
             </div>
@@ -926,14 +927,14 @@ export default function CatalogoPage() {
                     value={emoji}
                     onChange={(e) => setEmoji(e.target.value)}
                     maxLength={8}
-                    className="h-11 w-16 shrink-0 rounded-xl text-center text-xl"
+                    className="w-16 shrink-0 text-center text-xl"
                   />
                   <p className="text-xs text-muted-foreground">
                     Escolha abaixo ou cole qualquer emoji no campo. No Windows, a tecla Windows +
                     ponto abre todos.
                   </p>
                 </div>
-                <div className="max-h-56 space-y-3 overflow-y-auto rounded-xl border p-2">
+                <div className="max-h-56 space-y-3 overflow-y-auto rounded-md border p-2">
                   {GRUPOS_EMOJI.map(([grupo, lista]) => (
                     <div key={grupo}>
                       <p className="px-1 pb-1 text-xs font-semibold text-muted-foreground">
@@ -947,8 +948,8 @@ export default function CatalogoPage() {
                             aria-pressed={emoji === e}
                             onClick={() => setEmoji(e)}
                             className={cn(
-                              "size-9 rounded-lg text-xl transition hover:bg-muted",
-                              emoji === e && "bg-primary-soft ring-2 ring-primary",
+                              "size-9 rounded-sm text-xl transition hover:bg-surface-hover",
+                              emoji === e && "bg-brand-soft ring-2 ring-brand",
                             )}
                           >
                             {e}
@@ -972,19 +973,18 @@ export default function CatalogoPage() {
                   type="button"
                   aria-label={previaImagem ? "Trocar imagem" : "Escolher imagem"}
                   onClick={() => inputImagem.current?.click()}
-                  className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed bg-muted/40 transition hover:bg-muted"
+                  className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-line-strong bg-surface-sunken transition hover:border-brand hover:bg-surface-hover"
                 >
                   {previaImagem ? (
                     <img src={previaImagem} alt="" className="h-full w-full object-contain p-1.5" />
                   ) : (
-                    <ImagePlus className="h-6 w-6 text-muted-foreground" />
+                    <ImagePlus className="size-6 text-ink-subtle" />
                   )}
                 </button>
                 <div className="min-w-0 flex-1 space-y-1.5">
                   <Button
                     type="button"
                     variant="outline"
-                    className="rounded-xl"
                     onClick={() => inputImagem.current?.click()}
                   >
                     {previaImagem ? "Trocar imagem" : "Escolher imagem"}
@@ -1004,7 +1004,7 @@ export default function CatalogoPage() {
                   value={copiarDe || "vazio"}
                   onValueChange={(v) => setCopiarDe(v === "vazio" ? "" : v)}
                 >
-                  <SelectTrigger className="h-11 rounded-xl">
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1044,7 +1044,7 @@ export default function CatalogoPage() {
               Cancelar
             </Button>
             <Button
-              className="rounded-xl font-bold"
+              variant="accent"
               disabled={
                 !novoSlug || salvarCatalogo.isPending || (icone === "imagem" && !previaImagem)
               }
@@ -1074,14 +1074,14 @@ export default function CatalogoPage() {
             value={textoCodigos}
             onChange={(e) => setTextoCodigos(e.target.value)}
             placeholder={"7891234567890\n7891234567891\n7891234567892"}
-            className="min-h-40 rounded-xl font-mono text-sm"
+            className="min-h-40 font-mono text-sm"
           />
           <p className="text-xs text-muted-foreground">
             {parseCodigos(textoCodigos).length} código(s) na lista, sem repetidos.
           </p>
 
           {naoEncontrados.length > 0 && (
-            <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-3">
+            <div className="rounded-md border border-danger/30 bg-danger-soft p-3">
               <p className="text-xs font-semibold text-destructive">
                 {naoEncontrados.length} código(s) sem cadastro de produto:
               </p>
@@ -1091,7 +1091,7 @@ export default function CatalogoPage() {
               <Button
                 size="sm"
                 variant="outline"
-                className="mt-2 rounded-lg"
+                className="mt-2"
                 onClick={() => {
                   navigator.clipboard.writeText(naoEncontrados.join("\n"));
                   toast.success("Códigos copiados.");
@@ -1107,7 +1107,7 @@ export default function CatalogoPage() {
               Fechar
             </Button>
             <Button
-              className="rounded-xl font-bold"
+              variant="accent"
               disabled={colar.isPending || textoCodigos.trim() === ""}
               onClick={() => colar.mutate()}
             >
@@ -1132,20 +1132,19 @@ export default function CatalogoPage() {
               value={buscaAdd}
               onChange={(e) => setBuscaAdd(e.target.value)}
               placeholder="Buscar por nome ou código"
-              className="h-11 flex-1 rounded-xl"
+              className="flex-1"
             />
             <Button
               variant="outline"
-              className="rounded-xl"
               disabled={ocupado || totalAdd === 0}
               onClick={() => adicionar.mutate("busca")}
             >
-              <Plus className="mr-2 h-4 w-4" />
-              Adicionar {totalAdd}
+              <Plus />
+              Adicionar {totalAdd.toLocaleString("pt-BR")}
             </Button>
           </div>
 
-          <ul className="max-h-[50vh] divide-y overflow-y-auto rounded-xl border">
+          <ul className="ax-list max-h-[50vh] overflow-y-auto">
             {(cadastroQuery.data?.linhas ?? []).map((p) => {
               const jaTem = jaNoCatalogoQuery.data?.has(p.id) ?? false;
               const secaoDele = jaNoCatalogoQuery.data?.get(p.id) ?? null;
@@ -1158,19 +1157,17 @@ export default function CatalogoPage() {
                   produto={p}
                   acao={
                     parado ? (
-                      <span className="flex shrink-0 items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5 text-xs font-semibold text-muted-foreground">
-                        <Check className="h-3.5 w-3.5" />
+                      <Badge tone="accent" icon={Check}>
                         {secaoId ? "Nesta seção" : "No catálogo"}
-                      </span>
+                      </Badge>
                     ) : (
                       <Button
                         size="sm"
                         variant="outline"
-                        className="rounded-xl"
                         disabled={ocupado || jaNoCatalogoQuery.isLoading}
                         onClick={() => adicionar.mutate([p.id])}
                       >
-                        <Plus className="mr-1.5 h-3.5 w-3.5" />
+                        <Plus />
                         {jaTem ? "Mover para cá" : "Adicionar"}
                       </Button>
                     )
@@ -1179,9 +1176,9 @@ export default function CatalogoPage() {
               );
             })}
             {!cadastroQuery.isLoading && totalAdd === 0 && (
-              <p className="p-10 text-center text-sm text-muted-foreground">
+              <li className="p-10 text-center text-sm text-ink-muted">
                 Nenhum produto encontrado.
-              </p>
+              </li>
             )}
           </ul>
 
@@ -1207,7 +1204,7 @@ export default function CatalogoPage() {
                 Próxima
               </Button>
             </div>
-            <Button type="button" onClick={() => setAdicionarAberto(false)}>
+            <Button type="button" variant="accent" onClick={() => setAdicionarAberto(false)}>
               Concluir
             </Button>
           </DialogFooter>

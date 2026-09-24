@@ -12,7 +12,8 @@ import { definirSenha } from "@/server/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import logoBranco from "@/assets/gruponorte-branco.png";
+import logoEscuro from "@/assets/abastex/abastex-logo-dark.png";
+import { IconTile } from "@/components/abastex";
 
 export function FormSenha({ usuario }: { usuario: string }) {
   const router = useRouter();
@@ -43,19 +44,17 @@ export function FormSenha({ usuario }: { usuario: string }) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-ink px-6 py-12">
-      <img src={logoBranco.src} alt="Grupo Norte Distribuição" className="h-8 w-auto" />
+    <div className="flex min-h-screen flex-col items-center justify-center bg-sidebar px-6 py-12">
+      <img src={logoEscuro.src} alt="Abastex" className="h-8 w-auto" />
 
-      <div className="mt-10 w-full max-w-sm rounded-2xl border bg-card p-6 shadow-sm">
-        <span className="flex size-10 items-center justify-center rounded-xl bg-primary-soft">
-          <KeyRound className="size-5 text-primary" />
-        </span>
-        <h1 className="mt-4 text-2xl font-extrabold tracking-tight">Crie sua senha</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
+      <div className="ax-card mt-10 w-full max-w-sm p-6">
+        <IconTile icon={KeyRound} tone="brand" size="lg" />
+        <h1 className="mt-4 text-2xl font-bold tracking-tight">Crie sua senha</h1>
+        <p className="mt-2 text-ink-muted">
           A senha que você recebeu é provisória e passou por WhatsApp. Escolha uma que só você saiba
           para continuar.
         </p>
-        <p className="mt-3 font-mono text-xs text-muted-foreground">{usuario}</p>
+        <p className="mt-3 font-mono text-xs text-ink-muted">{usuario}</p>
 
         <form onSubmit={enviar} className="mt-6 space-y-4">
           <div className="space-y-1.5">
@@ -69,7 +68,6 @@ export function FormSenha({ usuario }: { usuario: string }) {
               value={senha}
               onChange={(e) => setSenha(e.target.value)}
               aria-invalid={Boolean(problema)}
-              className="h-11 rounded-xl"
             />
             <p className={problema ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
               {problema ?? `Mínimo de ${SENHA_MINIMO} caracteres.`}
@@ -86,16 +84,11 @@ export function FormSenha({ usuario }: { usuario: string }) {
               value={confirma}
               onChange={(e) => setConfirma(e.target.value)}
               aria-invalid={diferentes}
-              className="h-11 rounded-xl"
             />
             {diferentes && <p className="text-xs text-destructive">As senhas não são iguais.</p>}
           </div>
 
-          <Button
-            type="submit"
-            disabled={salvando || !podeEnviar}
-            className="h-11 w-full rounded-xl font-bold"
-          >
+          <Button type="submit" disabled={salvando || !podeEnviar} className="w-full">
             {salvando ? "Salvando..." : "Salvar e entrar"}
           </Button>
         </form>

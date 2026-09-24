@@ -5,11 +5,11 @@ import { lerSessao } from "@/server/sessao";
 import { FormLogin } from "./form-login";
 
 export const metadata: Metadata = {
-  title: "Entrar — Grupo Norte Distribuição",
-  description: "Acesso à plataforma de catálogo do Grupo Norte.",
+  title: "Entrar — Abastex",
+  description: "Acesso ao Abastex, a plataforma de catálogo do Grupo Norte.",
   openGraph: {
-    title: "Entrar — Grupo Norte Distribuição",
-    description: "Acesso à plataforma de catálogo do Grupo Norte.",
+    title: "Entrar — Abastex",
+    description: "Acesso ao Abastex, a plataforma de catálogo do Grupo Norte.",
     type: "website",
   },
   twitter: { card: "summary_large_image" },

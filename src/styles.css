@@ -1,181 +1,106 @@
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
+@import "./abastex.css";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is([data-theme="dark"] *));
 
 /*
- * Norte DS v1 — terracota + verde-petróleo.
- * Tokens semânticos definidos aqui; componentes usam apenas as classes do tema.
+ * Abastex: os tokens moram em abastex.css. Aqui só o mapa para os nomes que o
+ * shadcn e as classes do Tailwind usam. Único nome em conflito: no shadcn
+ * `accent` é o fundo de hover; a menta do Abastex vira `mint`.
  */
-
-:root {
-  --radius: 0.5rem;
-
-  --background: #f6f5f3;
-  --foreground: #101820;
-
-  --card: #ffffff;
-  --card-foreground: #101820;
-  --popover: #ffffff;
-  --popover-foreground: #101820;
-
-  --primary: #b73d25;
-  --primary-foreground: #ffffff;
-  --primary-soft: #fbeae5;
-
-  --secondary: #527575;
-  --secondary-foreground: #ffffff;
-
-  --success: #3d7a58;
-  --success-foreground: #ffffff;
-  --warning: #a5701f;
-  --warning-foreground: #ffffff;
-  --destructive: #9f1f2f;
-  --destructive-foreground: #ffffff;
-
-  --muted: #f1efec;
-  --muted-foreground: #5c626b;
-  --accent: #fbeae5;
-  --accent-foreground: #b73d25;
-
-  --surface-2: #f1efec;
-  --ink: #12161c;
-
-  --border: #e4e0da;
-  --input: #e4e0da;
-  --ring: #b73d25;
-
-  --chart-1: #b73d25;
-  --chart-2: #527575;
-  --chart-3: #3d7a58;
-  --chart-4: #a5701f;
-  --chart-5: #9f1f2f;
-
-  /* ponytail: sidebar sempre escura nos dois temas, como na referencia */
-  --sidebar: #12161c;
-  --sidebar-foreground: #c9ccd1;
-  --sidebar-primary: #b73d25;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #1e242c;
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #232a33;
-  --sidebar-ring: #b73d25;
-}
-
-.dark {
-  --background: #12161c;
-  --foreground: #ececea;
-
-  --card: #1a1f26;
-  --card-foreground: #ececea;
-  --popover: #1a1f26;
-  --popover-foreground: #ececea;
-
-  --primary: #d3573a;
-  --primary-foreground: #ffffff;
-  --primary-soft: #3a211b;
-
-  --secondary: #6d8f8f;
-  --secondary-foreground: #101820;
-
-  --success: #5aa179;
-  --success-foreground: #101820;
-  --warning: #cb9137;
-  --warning-foreground: #101820;
-  --destructive: #d3573a;
-  --destructive-foreground: #ffffff;
-
-  --muted: #222932;
-  --muted-foreground: #9aa1ab;
-  --accent: #2a2019;
-  --accent-foreground: #e8a48f;
-
-  --surface-2: #222932;
-  --ink: #0c0f14;
-
-  --border: #2c333d;
-  --input: #2c333d;
-  --ring: #d3573a;
-
-  --chart-1: #d3573a;
-  --chart-2: #6d8f8f;
-  --chart-3: #5aa179;
-  --chart-4: #cb9137;
-  --chart-5: #c25a67;
-
-  --sidebar: #1a1f26;
-  --sidebar-foreground: #ececea;
-  --sidebar-primary: #d3573a;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #2a2019;
-  --sidebar-accent-foreground: #e8a48f;
-  --sidebar-border: #2c333d;
-  --sidebar-ring: #d3573a;
-}
-
 @theme inline {
-  --radius-sm: calc(var(--radius) - 3px);
-  --radius-md: calc(var(--radius) - 1px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 24px;
 
-  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-sans: "Outfit", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
+  --color-background: var(--bg);
+  --color-foreground: var(--ink);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--ink);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--ink);
   --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary-soft: var(--primary-soft);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
-  --color-warning: var(--warning);
-  --color-warning-foreground: var(--warning-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-surface-2: var(--surface-2);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--on-primary);
+  --color-primary-soft: var(--brand-soft);
+  --color-secondary: var(--surface-sunken);
+  --color-secondary-foreground: var(--ink);
+  --color-muted: var(--surface-sunken);
+  --color-muted-foreground: var(--ink-muted);
+  --color-accent: var(--surface-hover);
+  --color-accent-foreground: var(--brand);
+  --color-destructive: var(--danger);
+  --color-destructive-foreground: var(--surface);
+  --color-border: var(--line);
+  --color-input: var(--line-strong);
+  --color-ring: var(--brand);
+
+  --color-surface: var(--surface);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-hover: var(--surface-hover);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
   --color-ink: var(--ink);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-ring-offset-background: var(--background);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-subtle: var(--ink-subtle);
+  --color-brand: var(--brand);
+  --color-brand-soft: var(--brand-soft);
+  --color-mint: var(--accent);
+  --color-on-mint: var(--on-accent);
+  --color-mint-ink: var(--accent-ink);
+  --color-mint-soft: var(--accent-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Menu lateral escuro nos dois temas, como no DS. */
+  --color-sidebar: var(--sidebar-bg);
+  --color-sidebar-foreground: var(--sidebar-ink);
+  --color-sidebar-muted: var(--sidebar-ink-muted);
+  --color-sidebar-primary: var(--sidebar-active);
+  --color-sidebar-primary-foreground: var(--sidebar-ink);
+  --color-sidebar-accent: var(--sidebar-hover);
+  --color-sidebar-accent-foreground: var(--sidebar-ink);
+  --color-sidebar-border: var(--sidebar-line);
+  --color-sidebar-ring: var(--accent);
+  --color-sidebar-marker: var(--sidebar-marker);
+
+  --shadow-card: var(--shadow-sm);
+  --shadow-float: var(--shadow-md);
+  --shadow-glow: var(--shadow-primary);
 }
 
 @layer base {
   * {
-    border-color: var(--color-border);
+    border-color: var(--line);
   }
 
   body {
-    background-color: var(--color-background);
-    color: var(--color-foreground);
-    font-family: "Outfit", ui-sans-serif, system-ui, sans-serif;
+    background-color: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 20px;
+    -webkit-font-smoothing: antialiased;
   }
 
   code,
@@ -183,6 +108,11 @@
   samp,
   pre,
   .font-mono {
-    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+    font-family: var(--font-mono);
+  }
+
+  /* Lucide com o traço do DS em todo lugar; um utilitário ainda pode engrossar. */
+  svg.lucide {
+    stroke-width: 1.75;
   }
 }

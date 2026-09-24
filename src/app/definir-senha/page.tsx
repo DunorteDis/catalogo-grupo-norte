@@ -6,7 +6,7 @@ import { lerSessao } from "@/server/sessao";
 import { FormSenha } from "./form-senha";
 
 export const metadata: Metadata = {
-  title: "Definir senha — Grupo Norte",
+  title: "Definir senha — Abastex",
   robots: { index: false },
 };
 

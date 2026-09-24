@@ -3,82 +3,42 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { ArrowDown, ArrowRight, ArrowUp, TriangleAlert } from "lucide-react";
-import { Bar, BarChart, CartesianGrid, LabelList, XAxis, YAxis } from "recharts";
+import {
+  LayoutDashboard,
+  ShoppingBag,
+  ShoppingCart,
+  TrendingUp,
+  TriangleAlert,
+  Users,
+} from "lucide-react";
+import { Bar, BarChart, CartesianGrid, Cell, LabelList, XAxis, YAxis } from "recharts";
 
 import { chamar } from "@/lib/chamar";
 import { fimDoDia, inicioDoDia, paraInput } from "@/lib/periodo";
-import { cn } from "@/lib/utils";
+import { Badge, BarList, Card, Chip, KpiCard, PageHeader } from "@/components/abastex";
 import { FiltroPeriodo, periodoInicial } from "@/components/filtro-periodo";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { resumoPainel, vendedoresAtivos, type PedidoResumo } from "@/server/pedidos";
-
-/** Série única: uma cor só. Ramp por valor em categoria nominal duplicaria o que o tamanho da barra já diz. */
-const COR = "var(--color-primary)";
+import { resumoPainel, vendedoresAtivos } from "@/server/pedidos";
 
 function variacao(atual: number, anterior: number) {
   if (anterior === 0) return atual === 0 ? 0 : null; // null = sem base de comparação
   return Math.round(((atual - anterior) / anterior) * 100);
 }
 
-function Kpi({
-  rotulo,
-  valor,
-  delta,
-  sufixo,
-}: {
-  rotulo: string;
-  valor: number | string;
-  delta?: number | null;
-  sufixo?: string;
-}) {
-  const Seta = delta == null || delta === 0 ? ArrowRight : delta > 0 ? ArrowUp : ArrowDown;
-  return (
-    <div className="rounded-2xl border bg-card p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {rotulo}
-      </p>
-      <p className="mt-1.5 text-3xl font-extrabold tabular-nums">
-        {valor}
-        {sufixo && <span className="ml-1 text-base font-bold text-muted-foreground">{sufixo}</span>}
-      </p>
-      {delta !== undefined && (
-        <p
-          className={cn(
-            "mt-1 flex items-center gap-1 text-xs font-medium",
-            delta == null || delta === 0
-              ? "text-muted-foreground"
-              : delta > 0
-                ? "text-success"
-                : "text-destructive",
-          )}
-        >
-          <Seta className="h-3 w-3" />
-          {delta == null
-            ? "sem base anterior"
-            : `${delta > 0 ? "+" : ""}${delta}% vs período anterior`}
-        </p>
-      )}
-    </div>
-  );
+/** Comparação do KPI no formato do DS: seta e cor só quando há base. */
+function comparar(atual: number, anterior: number) {
+  const d = variacao(atual, anterior);
+  if (d == null) return { text: "sem base anterior" };
+  return {
+    direction: d > 0 ? ("up" as const) : d < 0 ? ("down" as const) : ("flat" as const),
+    text: `${d > 0 ? "+" : ""}${d}% vs período anterior`,
+  };
 }
 
-function Painel({
-  titulo,
-  descricao,
-  children,
-}: {
-  titulo: string;
-  descricao: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-2xl border bg-card p-5">
-      <h2 className="text-sm font-bold">{titulo}</h2>
-      <p className="mt-0.5 text-xs text-muted-foreground">{descricao}</p>
-      <div className="mt-4">{children}</div>
-    </section>
-  );
+const num = (n: number) => n.toLocaleString("pt-BR");
+
+function Aviso({ children }: { children: React.ReactNode }) {
+  return <p className="py-16 text-center text-sm text-ink-muted">{children}</p>;
 }
 
 export default function AdminHome() {
@@ -127,6 +87,7 @@ export default function AdminHome() {
     const i = indice.get(paraInput(new Date(p.created_at)));
     if (i !== undefined) porDia[i]!.pedidos++;
   }
+  const pico = Math.max(0, ...porDia.map((d) => d.pedidos));
 
   const porVendedor = new Map<string, { nome: string; pedidos: number; itens: number }>();
   for (const p of noPeriodo) {
@@ -137,65 +98,89 @@ export default function AdminHome() {
     porVendedor.set(nome, atual);
   }
   const ranking = [...porVendedor.values()].sort((a, b) => b.pedidos - a.pedidos).slice(0, 8);
+  const ativos = vendedoresQuery.data?.length ?? 0;
   const semPedido = (vendedoresQuery.data ?? []).filter((v) => !comPedido.has(v.id));
 
   const carregando = pedidosQuery.isLoading;
 
   return (
-    <div>
-      <h1 className="text-2xl font-extrabold">Visão geral</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Como andam os pedidos e a equipe. Sem valores — o sistema não registra preço.
-      </p>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        crumbs={["Abastex", "Visão geral"]}
+        icon={LayoutDashboard}
+        tone="brand"
+        title="Visão geral"
+        subtitle="Como andam os pedidos e a equipe. Sem valores — o sistema não registra preço."
+        actions={
+          <FiltroPeriodo
+            valor={periodo}
+            onChange={setPeriodo}
+            carregando={pedidosQuery.isFetching}
+          />
+        }
+      />
 
-      <div className="mt-6">
-        <FiltroPeriodo valor={periodo} onChange={setPeriodo} carregando={pedidosQuery.isFetching} />
-      </div>
-
-      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi
-          rotulo="Pedidos"
-          valor={noPeriodo.length}
-          delta={variacao(noPeriodo.length, anteriores.length)}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiCard
+          label="Pedidos"
+          value={num(noPeriodo.length)}
+          icon={ShoppingBag}
+          tone="accent"
+          delta={comparar(noPeriodo.length, anteriores.length)}
         />
-        <Kpi rotulo="Itens pedidos" valor={itens} delta={variacao(itens, itensAnt)} />
-        <Kpi
-          rotulo="Vendedores com pedido"
-          valor={comPedido.size}
-          sufixo={`de ${vendedoresQuery.data?.length ?? 0}`}
-          delta={variacao(comPedido.size, comPedidoAnt.size)}
+        <KpiCard
+          label="Itens pedidos"
+          value={num(itens)}
+          icon={ShoppingCart}
+          tone="info"
+          delta={comparar(itens, itensAnt)}
         />
-        <Kpi
-          rotulo="Itens por pedido"
-          valor={media.toFixed(1)}
-          delta={variacao(Math.round(media * 10), Math.round(mediaAnt * 10))}
+        <KpiCard
+          label="Vendedores com pedido"
+          value={num(comPedido.size)}
+          suffix={`de ${num(ativos)}`}
+          icon={Users}
+          tone="brand"
+          delta={comparar(comPedido.size, comPedidoAnt.size)}
+        />
+        <KpiCard
+          label="Itens por pedido"
+          value={media.toLocaleString("pt-BR", {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1,
+          })}
+          icon={TrendingUp}
+          tone="warning"
+          delta={comparar(Math.round(media * 10), Math.round(mediaAnt * 10))}
         />
       </div>
 
       {pedidosQuery.error && (
-        <div className="mt-6 rounded-2xl border border-destructive/40 bg-destructive/5 p-4">
-          <p className="text-sm font-bold text-destructive">Não foi possível carregar o painel.</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {(pedidosQuery.error as Error).message}
+        <div className="rounded-2xl border border-danger/30 bg-danger-soft p-4">
+          <p className="flex items-center gap-2 text-sm font-semibold text-danger">
+            <TriangleAlert className="size-4" />
+            Não foi possível carregar o painel.
           </p>
+          <p className="mt-1 text-xs text-ink-muted">{(pedidosQuery.error as Error).message}</p>
         </div>
       )}
 
-      <div className="mt-3 grid gap-3 lg:grid-cols-2">
-        <Painel titulo="Pedidos por dia" descricao="Dias sem pedido aparecem como zero.">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+        <Card
+          title="Pedidos por dia"
+          subtitle="Dias sem pedido aparecem como zero. O dia de pico fica em verde."
+        >
           {carregando ? (
-            <p className="py-16 text-center text-sm text-muted-foreground">Carregando...</p>
+            <Aviso>Carregando...</Aviso>
           ) : noPeriodo.length === 0 ? (
-            <p className="py-16 text-center text-sm text-muted-foreground">
-              Nenhum pedido no período.
-            </p>
+            <Aviso>Nenhum pedido no período.</Aviso>
           ) : (
             <ChartContainer
-              config={{ pedidos: { label: "Pedidos", color: "var(--primary)" } }}
-              className="h-56 w-full"
+              config={{ pedidos: { label: "Pedidos", color: "var(--chart-1)" } }}
+              className="h-56 w-full [&_.recharts-cartesian-axis-tick_text]:fill-ink-subtle"
             >
-              <BarChart data={porDia} margin={{ left: -20, right: 4, top: 4 }}>
-                <CartesianGrid vertical={false} stroke="var(--border)" />
+              <BarChart data={porDia} margin={{ left: -20, right: 4, top: 20 }}>
+                <CartesianGrid vertical={false} stroke="var(--line)" />
                 <XAxis
                   dataKey="rotulo"
                   tickLine={false}
@@ -212,47 +197,19 @@ export default function AdminHome() {
                   fontSize={11}
                 />
                 <ChartTooltip content={<ChartTooltipContent />} cursor={false} />
-                <Bar dataKey="pedidos" fill={COR} radius={[4, 4, 0, 0]} maxBarSize={28} />
-              </BarChart>
-            </ChartContainer>
-          )}
-        </Painel>
-
-        <Painel titulo="Pedidos por vendedor" descricao="Quem mais recebeu pedido no período.">
-          {carregando ? (
-            <p className="py-16 text-center text-sm text-muted-foreground">Carregando...</p>
-          ) : ranking.length === 0 ? (
-            <p className="py-16 text-center text-sm text-muted-foreground">
-              Nenhum pedido no período.
-            </p>
-          ) : (
-            <ChartContainer
-              config={{ pedidos: { label: "Pedidos", color: "var(--primary)" } }}
-              className="h-56 w-full"
-            >
-              <BarChart
-                data={ranking}
-                layout="vertical"
-                margin={{ left: 4, right: 28, top: 4, bottom: 4 }}
-              >
-                <CartesianGrid horizontal={false} stroke="var(--border)" />
-                <XAxis type="number" hide allowDecimals={false} />
-                <YAxis
-                  type="category"
-                  dataKey="nome"
-                  tickLine={false}
-                  axisLine={false}
-                  width={130}
-                  fontSize={11}
-                />
-                <ChartTooltip content={<ChartTooltipContent />} cursor={false} />
-                <Bar dataKey="pedidos" fill={COR} radius={[0, 4, 4, 0]} maxBarSize={22}>
-                  {/* eixo oculto: sem o rotulo na ponta o numero seria ilegivel.
-                      Poucas barras, entao rotular todas nao vira ruido. */}
+                <Bar dataKey="pedidos" radius={[4, 4, 0, 0]} maxBarSize={28}>
+                  {porDia.map((d) => (
+                    <Cell
+                      key={d.dia}
+                      fill={d.pedidos === pico ? "var(--accent)" : "var(--chart-1)"}
+                    />
+                  ))}
+                  {/* valor em cima da barra; o zero fica sem rótulo para não virar ruído */}
                   <LabelList
                     dataKey="pedidos"
-                    position="right"
-                    offset={8}
+                    position="top"
+                    offset={6}
+                    formatter={(v: number) => (v ? v : "")}
                     className="fill-foreground"
                     fontSize={11}
                     fontWeight={700}
@@ -261,40 +218,51 @@ export default function AdminHome() {
               </BarChart>
             </ChartContainer>
           )}
-        </Painel>
-      </div>
+        </Card>
 
-      <div className="mt-3">
-        <Painel
-          titulo="Vendedores sem pedido no período"
-          descricao="Quem não recebeu nenhum pedido. É aqui que costuma estar a ação."
-        >
-          {vendedoresQuery.isLoading ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">Carregando...</p>
-          ) : semPedido.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              Todos os vendedores ativos receberam pedido. Bom sinal.
-            </p>
+        <Card title="Pedidos por vendedor" subtitle="Quem mais recebeu pedido no período.">
+          {carregando ? (
+            <Aviso>Carregando...</Aviso>
+          ) : ranking.length === 0 ? (
+            <Aviso>Nenhum pedido no período.</Aviso>
           ) : (
-            <ul className="flex flex-wrap gap-2">
-              {semPedido.map((v) => (
-                <li
-                  key={v.id}
-                  className="flex items-center gap-2 rounded-xl border border-warning/40 bg-warning/5 px-3 py-2 text-sm font-semibold"
-                >
-                  <TriangleAlert className="h-3.5 w-3.5 text-warning" />
-                  {v.nome}
-                </li>
-              ))}
-            </ul>
+            <BarList data={ranking.map((r) => ({ label: r.nome, value: r.pedidos }))} />
           )}
-        </Painel>
+        </Card>
       </div>
 
-      <p className="mt-4 text-xs text-muted-foreground">
+      <Card
+        title="Vendedores sem pedido no período"
+        subtitle="Quem não recebeu nenhum pedido. É aqui que costuma estar a ação."
+        actions={
+          semPedido.length > 0 && (
+            <Badge tone="warning" icon={TriangleAlert}>
+              {num(semPedido.length)} de {num(ativos)}
+            </Badge>
+          )
+        }
+      >
+        {vendedoresQuery.isLoading ? (
+          <p className="py-8 text-center text-sm text-ink-muted">Carregando...</p>
+        ) : semPedido.length === 0 ? (
+          <p className="py-8 text-center text-sm text-ink-muted">
+            Todos os vendedores ativos receberam pedido. Bom sinal.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {semPedido.map((v) => (
+              <Chip key={v.id} tone="warning" icon={TriangleAlert}>
+                {v.nome}
+              </Chip>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      <p className="text-xs text-ink-muted">
         O pedido é gravado quando o cliente conclui no catálogo, antes de abrir o WhatsApp — os
         números contam intenção de compra.{" "}
-        <Link href="/admin/pedidos" className="font-semibold underline underline-offset-2">
+        <Link href="/admin/pedidos" className="font-semibold text-brand hover:underline">
           Ver todos os pedidos
         </Link>
       </p>

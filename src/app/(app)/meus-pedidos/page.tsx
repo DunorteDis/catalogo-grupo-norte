@@ -1,12 +1,13 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
+import { Loader2, ShoppingBag } from "lucide-react";
 import { useState } from "react";
 
 import { chamar } from "@/lib/chamar";
 import { useMeuVendedor } from "@/hooks/use-meu-vendedor";
 import { fimDoDia, inicioDoDia } from "@/lib/periodo";
+import { PageHeader } from "@/components/abastex";
 import { FiltroPeriodo, periodoInicial } from "@/components/filtro-periodo";
 import { ListaPedidos, type PedidoDaLista } from "@/components/lista-pedidos";
 import { meusPedidos } from "@/server/pedidos";
@@ -30,7 +31,7 @@ export default function MeusPedidosPage() {
   if (vendedorQuery.isLoading) {
     return (
       <div className="flex justify-center py-16">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <Loader2 className="size-6 animate-spin text-ink-subtle" />
       </div>
     );
   }
@@ -44,15 +45,21 @@ export default function MeusPedidosPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <h1 className="text-2xl font-extrabold">Pedidos recebidos</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Tudo que os clientes concluíram pelos seus links.
-      </p>
-
-      <div className="mt-6">
-        <FiltroPeriodo valor={periodo} onChange={setPeriodo} carregando={pedidosQuery.isFetching} />
-      </div>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        crumbs={["Abastex", "Pedidos"]}
+        icon={ShoppingBag}
+        tone="accent"
+        title="Pedidos recebidos"
+        subtitle="Tudo que os clientes concluíram pelos seus links. Clique num pedido para ver os itens."
+        actions={
+          <FiltroPeriodo
+            valor={periodo}
+            onChange={setPeriodo}
+            carregando={pedidosQuery.isFetching}
+          />
+        }
+      />
 
       <ListaPedidos
         pedidos={pedidosQuery.data ?? []}

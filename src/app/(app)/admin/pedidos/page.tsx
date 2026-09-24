@@ -2,9 +2,11 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { ShoppingBag } from "lucide-react";
 
 import { chamar } from "@/lib/chamar";
 import { fimDoDia, inicioDoDia } from "@/lib/periodo";
+import { PageHeader } from "@/components/abastex";
 import { FiltroPeriodo, periodoInicial } from "@/components/filtro-periodo";
 import { ListaPedidos } from "@/components/lista-pedidos";
 import { pedidosDoPeriodo } from "@/server/pedidos";
@@ -22,15 +24,21 @@ export default function PedidosPage() {
   });
 
   return (
-    <div>
-      <h1 className="text-2xl font-extrabold">Pedidos</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Tudo que os clientes concluíram pelos links dos vendedores.
-      </p>
-
-      <div className="mt-6">
-        <FiltroPeriodo valor={periodo} onChange={setPeriodo} carregando={pedidosQuery.isFetching} />
-      </div>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        crumbs={["Abastex", "Pedidos"]}
+        icon={ShoppingBag}
+        tone="accent"
+        title="Pedidos"
+        subtitle="Tudo que os clientes concluíram pelos links dos vendedores. Clique num pedido para ver os itens."
+        actions={
+          <FiltroPeriodo
+            valor={periodo}
+            onChange={setPeriodo}
+            carregando={pedidosQuery.isFetching}
+          />
+        }
+      />
 
       <ListaPedidos
         pedidos={pedidosQuery.data ?? []}

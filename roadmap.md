@@ -5,6 +5,7 @@
 - [x] Mensagens e avisos em português
 - [x] Cadastro aberto removido; usuários criados só pelo admin, sem confirmação por e-mail
 - [x] Aplicar novo tema (cores terracota/azul, fontes Outfit + Fira Code) em todo o sistema
+- [x] Redesign com o design system Abastex: roxo + menta, logo e favicon Abastex, PageHeader/KPIs/listas do DS em todas as telas, modo escuro completo
 - [x] Sistema inicia no login (/ redireciona para /auth) com layout split-screen e marca Grupo Norte
 - [x] Shell autenticado com sidebar (shadcn) compartilhada por admin e vendedor, com alternancia claro/escuro
 - [x] Vendedores e Usuários fundidos numa tela só (todo vendedor nasce com login; órfãos ficam visíveis e recuperáveis)

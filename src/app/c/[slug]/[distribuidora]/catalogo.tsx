@@ -150,7 +150,7 @@ function DetalheProduto({
         )}
       </div>
       <div className="px-4 pt-4">
-        <DrawerTitle className="text-base font-extrabold leading-snug">{produto.nome}</DrawerTitle>
+        <DrawerTitle className="text-base font-bold leading-snug">{produto.nome}</DrawerTitle>
         <DrawerDescription className="mt-1 text-xs">Cód. {produto.codigo}</DrawerDescription>
       </div>
       <div className="px-4 pt-5">
@@ -308,7 +308,7 @@ export function Catalogo() {
   const produtos = useMemo(() => produtosQuery.data?.pages.flat() ?? [], [produtosQuery.data]);
   const itens = Object.values(carrinho);
   const totalItens = itens.reduce((s, i) => s + i.quantidade, 0);
-  const cor = distribuidora?.cor || "#b73d25";
+  const cor = distribuidora?.cor || "#501ea1";
 
   function setQtd(p: Produto, qtd: number, unidade?: Unidade) {
     setCarrinho((atual) => {
@@ -385,7 +385,7 @@ export function Catalogo() {
   if (!vendedor || !distribuidora) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 px-6 text-center">
-        <h1 className="text-2xl font-extrabold">Link não encontrado</h1>
+        <h1 className="text-2xl font-bold">Link não encontrado</h1>
         <p className="text-sm text-muted-foreground">Peça um novo link para o seu vendedor.</p>
         <Link href="/" className="text-sm font-semibold underline">
           Ir para o início
@@ -569,7 +569,7 @@ export function Catalogo() {
       {aberto && (
         <div className="fixed inset-0 z-40 flex flex-col bg-background">
           <div className="flex items-center gap-3 border-b px-4 py-3">
-            <h2 className="text-lg font-extrabold">Seu pedido</h2>
+            <h2 className="text-lg font-bold">Seu pedido</h2>
             <Button
               size="icon"
               variant="ghost"

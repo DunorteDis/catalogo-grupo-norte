@@ -1,9 +1,8 @@
-import { Loader2 } from "lucide-react";
+import { CalendarDays, Loader2 } from "lucide-react";
 
 import { ATALHOS, paraInput, type Atalho } from "@/lib/periodo";
-import { cn } from "@/lib/utils";
+import { FilterTabs } from "@/components/abastex";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 export type EstadoPeriodo = {
   atalho: Atalho;
@@ -17,6 +16,11 @@ export function periodoInicial(atalho: Atalho = "hoje"): EstadoPeriodo {
   const a = ATALHOS.find((x) => x.id === atalho);
   return { atalho, de: a ? a.de() : hoje, ate: hoje };
 }
+
+const OPCOES = [
+  ...ATALHOS.map((a) => ({ value: a.id as Atalho, label: a.label })),
+  { value: "personalizado" as Atalho, label: "Período", icon: CalendarDays },
+];
 
 export function FiltroPeriodo({
   valor,
@@ -32,63 +36,32 @@ export function FiltroPeriodo({
     onChange(a ? { atalho: id, de: a.de(), ate: paraInput(new Date()) } : { ...valor, atalho: id });
   }
 
-  const botao = (id: Atalho, label: string) => (
-    <button
-      key={id}
-      type="button"
-      onClick={() => escolher(id)}
-      className={cn(
-        "rounded-xl px-3.5 py-2 text-sm font-semibold transition-colors",
-        valor.atalho === id
-          ? "bg-primary text-primary-foreground"
-          : "bg-muted text-muted-foreground hover:bg-muted/70",
-      )}
-    >
-      {label}
-    </button>
-  );
-
   return (
-    <div className="flex flex-wrap items-end gap-3 rounded-2xl border bg-card p-4">
-      <div className="flex flex-wrap gap-1.5">
-        {ATALHOS.map((a) => botao(a.id, a.label))}
-        {botao("personalizado", "Período")}
-      </div>
-
-      {valor.atalho === "personalizado" && (
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="space-y-1">
-            <Label htmlFor="de" className="text-xs text-muted-foreground">
-              De
-            </Label>
-            <Input
-              id="de"
-              type="date"
-              value={valor.de}
-              max={valor.ate}
-              onChange={(e) => onChange({ ...valor, de: e.target.value })}
-              className="h-10 w-40 rounded-xl"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="ate" className="text-xs text-muted-foreground">
-              Até
-            </Label>
-            <Input
-              id="ate"
-              type="date"
-              value={valor.ate}
-              min={valor.de}
-              onChange={(e) => onChange({ ...valor, ate: e.target.value })}
-              className="h-10 w-40 rounded-xl"
-            />
-          </div>
-        </div>
-      )}
-
+    <div className="flex flex-wrap items-center gap-2">
       {carregando && (
-        <Loader2 className="mb-2 ml-auto h-4 w-4 animate-spin text-muted-foreground" />
+        <Loader2 className="size-4 animate-spin text-ink-subtle" aria-label="Carregando" />
       )}
+      {valor.atalho === "personalizado" && (
+        <>
+          <Input
+            aria-label="De"
+            type="date"
+            value={valor.de}
+            max={valor.ate}
+            onChange={(e) => onChange({ ...valor, de: e.target.value })}
+            className="w-40"
+          />
+          <Input
+            aria-label="Até"
+            type="date"
+            value={valor.ate}
+            min={valor.de}
+            onChange={(e) => onChange({ ...valor, ate: e.target.value })}
+            className="w-40"
+          />
+        </>
+      )}
+      <FilterTabs options={OPCOES} value={valor.atalho} onChange={escolher} />
     </div>
   );
 }

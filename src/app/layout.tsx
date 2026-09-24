@@ -9,12 +9,10 @@ export const metadata: Metadata = {
   description: "Catálogo de produtos com pedido pelo WhatsApp.",
   openGraph: { type: "website" },
   twitter: { card: "summary_large_image" },
+  // Símbolo do Abastex (o X de quatro barras), como pede o DS para favicon.
   icons: {
-    icon: [
-      { url: "/favicon-32.png", type: "image/png", sizes: "32x32" },
-      { url: "/favicon-64.png", type: "image/png", sizes: "64x64" },
-    ],
-    apple: "/apple-touch-icon.png",
+    icon: [{ url: "/abastex-symbol.png", type: "image/png", sizes: "108x108" }],
+    apple: "/abastex-symbol.png",
   },
 };
 
@@ -26,7 +24,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
         />
       </head>
       <body>

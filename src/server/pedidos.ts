@@ -23,7 +23,7 @@ async function listaPedidos(inicio: string, fim: string, vendedorId: string | nu
     ...(await sql<PedidoDaLista[]>`
       select p.id, p.cliente_nome, p.observacao, p.total_itens, p.created_at,
              case when v.id is null then null else json_build_object('nome', v.nome) end as vendedores,
-             case when d.id is null then null else json_build_object('nome', d.nome) end as distribuidoras,
+             case when d.id is null then null else json_build_object('nome', d.nome, 'cor', d.cor) end as distribuidoras,
              coalesce((select json_agg(json_build_object('codigo', i.codigo, 'nome', i.nome,
                                                          'quantidade', i.quantidade, 'unidade', i.unidade)
                                        order by i.created_at, i.id)
