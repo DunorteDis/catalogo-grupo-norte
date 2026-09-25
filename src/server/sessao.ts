@@ -5,6 +5,7 @@ import {
   DURACAO_SESSAO_S,
   assinarSessao,
   cookieSeguro,
+  cookieSeriaDescartado,
   lerToken,
   type Sessao,
 } from "@/lib/sessao-token";
@@ -16,6 +17,14 @@ export async function lerSessao() {
 }
 
 export async function gravarSessao(s: Sessao) {
+  if (cookieSeriaDescartado((await headers()).get("origin"))) {
+    console.error(
+      "Login recusado: página em http:// e cookie secure. Defina COOKIE_INSEGURO=1 no .env do servidor ou sirva por HTTPS.",
+    );
+    throw new Recusa(
+      "Este endereço não tem HTTPS e o servidor exige cookie seguro. Peça ao administrador para definir COOKIE_INSEGURO=1 ou servir por HTTPS.",
+    );
+  }
   (await cookies()).set(COOKIE_SESSAO, await assinarSessao(s), {
     httpOnly: true,
     sameSite: "lax",

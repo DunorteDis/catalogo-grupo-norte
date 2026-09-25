@@ -2,7 +2,7 @@
 import { expect, test } from "bun:test";
 import { SignJWT } from "jose";
 
-import { assinarSessao, cookieSeguro, lerToken } from "./sessao-token";
+import { assinarSessao, cookieSeguro, cookieSeriaDescartado, lerToken } from "./sessao-token";
 
 const SEGREDO = "x".repeat(40);
 const SESSAO = {
@@ -41,4 +41,14 @@ test("cookie só é secure em produção, e dá para desligar para HTTP puro", (
   expect(cookieSeguro({ NODE_ENV: "production" })).toBe(true);
   expect(cookieSeguro({ NODE_ENV: "production", COOKIE_INSEGURO: "1" })).toBe(false);
   expect(cookieSeguro({ NODE_ENV: "development" })).toBe(false);
+});
+
+test("login por http:// com cookie secure é recusado em vez de falhar calado", () => {
+  const prod = { NODE_ENV: "production" };
+  expect(cookieSeriaDescartado("http://172.16.0.20:5015", prod)).toBe(true);
+  expect(cookieSeriaDescartado("https://abastex.exemplo.com", prod)).toBe(false);
+  expect(cookieSeriaDescartado("http://172.16.0.20:5015", { ...prod, COOKIE_INSEGURO: "1" })).toBe(
+    false,
+  );
+  expect(cookieSeriaDescartado(null, prod)).toBe(false);
 });

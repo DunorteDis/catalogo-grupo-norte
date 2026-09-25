@@ -2,7 +2,9 @@ import { SignJWT, jwtVerify } from "jose";
 
 // Sem next/headers aqui: o proxy também lê o token.
 
-export const COOKIE_SESSAO = "sessao";
+// Nome próprio do app: cookie não separa por porta, e outro sistema no mesmo IP
+// (ex.: 172.16.0.20) usando "sessao" derrubaria a sessão daqui e vice-versa.
+export const COOKIE_SESSAO = "abastex_sessao";
 export const DURACAO_SESSAO_S = 60 * 60 * 24 * 7;
 
 export type Sessao = { sub: string; email: string; admin: boolean; prov: boolean };
@@ -49,4 +51,15 @@ export async function lerToken(
  */
 export function cookieSeguro(env: Record<string, string | undefined> = process.env) {
   return env["NODE_ENV"] === "production" && env["COOKIE_INSEGURO"] !== "1";
+}
+
+/**
+ * Login vindo de uma página http:// com cookie secure: o navegador ia descartar a
+ * sessão sem erro nenhum. Melhor recusar o login dizendo o porquê.
+ */
+export function cookieSeriaDescartado(
+  origem: string | null,
+  env: Record<string, string | undefined> = process.env,
+) {
+  return cookieSeguro(env) && !!origem?.startsWith("http://");
 }

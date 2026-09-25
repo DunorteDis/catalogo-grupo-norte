@@ -79,3 +79,6 @@ A imagem é o build `standalone` do Next em Node 22, rodando sem root. O `.env` 
 na imagem (`.dockerignore`): o compose injeta as variáveis na hora de subir. Use o
 compose em vez de `docker run --env-file`, que deixaria as aspas do `.env` dentro dos
 valores. As notas de Produção acima valem igual: proxy reverso na frente e um container só.
+
+Acessando por `http://IP:porta`, sem HTTPS, ponha `COOKIE_INSEGURO=1` no `.env`: sem isso
+o navegador descarta o cookie de sessão e o login recusa com esse aviso.
