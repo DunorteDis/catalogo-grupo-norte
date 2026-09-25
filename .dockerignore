@@ -1,0 +1,12 @@
+# .env fica fora: segredo entra só no run (env_file do compose), nunca na imagem.
+.env*
+node_modules
+.next
+.git
+.playwright-mcp
+.vscode
+*.log
+*.tsbuildinfo
+# Só na raiz (sem **): prints e o zip do design system; public/ e src/ seguem inteiros.
+*.png
+*.zip

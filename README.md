@@ -63,3 +63,19 @@ propositalmente anônimas, sem sessão.
   freio não seguraria mais os tetos de tentativas.
 - `COOKIE_INSEGURO=1` só se o site for servido por HTTP puro, sem HTTPS.
 - Vale colocar rate limit em `POST /auth` no proxy, como camada extra ao freio de login.
+
+## Docker
+
+O container roda só o app (porta 8080); Postgres e S3 são externos e entram pelas
+variáveis do `.env`. No servidor, com o `.env` preenchido (as mesmas do `.env.example`)
+ao lado do `docker-compose.yml`:
+
+```sh
+docker compose up -d --build   # sobe (e reconstrói depois de um git pull)
+docker compose logs -f app     # acompanha o log
+```
+
+A imagem é o build `standalone` do Next em Node 22, rodando sem root. O `.env` não entra
+na imagem (`.dockerignore`): o compose injeta as variáveis na hora de subir. Use o
+compose em vez de `docker run --env-file`, que deixaria as aspas do `.env` dentro dos
+valores. As notas de Produção acima valem igual: proxy reverso na frente e um container só.
