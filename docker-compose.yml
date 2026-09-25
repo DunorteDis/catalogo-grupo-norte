@@ -3,7 +3,7 @@
 services:
   app:
     build: .
-    image: crm-grupo-norte
+    image: abastex
     # O compose lê .env com aspas do jeito certo; o "docker run --env-file" manteria as aspas no valor.
     env_file: .env
     ports:
