@@ -33,3 +33,9 @@ next-env.d.ts
 *.sln
 *.sw?
 .env
+
+abastex-design-system.zip
+print.png
+print1.png
+print2.png
+print3.png

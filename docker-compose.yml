@@ -7,5 +7,5 @@ services:
     # O compose lê .env com aspas do jeito certo; o "docker run --env-file" manteria as aspas no valor.
     env_file: .env
     ports:
-      - "8080:8080"
+      - "5015:8080"
     restart: unless-stopped
