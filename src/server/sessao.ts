@@ -18,8 +18,9 @@ export async function lerSessao() {
 
 export async function gravarSessao(s: Sessao) {
   if (cookieSeriaDescartado((await headers()).get("origin"))) {
+    // O valor exato vai para o log: "undefined" = a variável não chegou ao processo.
     console.error(
-      "Login recusado: página em http:// e cookie secure. Defina COOKIE_INSEGURO=1 no .env do servidor ou sirva por HTTPS.",
+      `Login recusado: página em http:// e cookie secure. Defina COOKIE_INSEGURO=1 no .env do servidor ou sirva por HTTPS. Valor recebido: COOKIE_INSEGURO=${JSON.stringify(process.env["COOKIE_INSEGURO"])}`,
     );
     throw new Recusa(
       "Este endereço não tem HTTPS e o servidor exige cookie seguro. Peça ao administrador para definir COOKIE_INSEGURO=1 ou servir por HTTPS.",

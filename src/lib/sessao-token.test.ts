@@ -41,6 +41,10 @@ test("cookie só é secure em produção, e dá para desligar para HTTP puro", (
   expect(cookieSeguro({ NODE_ENV: "production" })).toBe(true);
   expect(cookieSeguro({ NODE_ENV: "production", COOKIE_INSEGURO: "1" })).toBe(false);
   expect(cookieSeguro({ NODE_ENV: "development" })).toBe(false);
+  // .env vindo do Windows, com espaço ou escrito "true": continua desligando.
+  for (const valor of ["1\r", " 1 ", "true", "TRUE"])
+    expect(cookieSeguro({ NODE_ENV: "production", COOKIE_INSEGURO: valor })).toBe(false);
+  expect(cookieSeguro({ NODE_ENV: "production", COOKIE_INSEGURO: "0" })).toBe(true);
 });
 
 test("login por http:// com cookie secure é recusado em vez de falhar calado", () => {

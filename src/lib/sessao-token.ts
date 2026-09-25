@@ -50,7 +50,9 @@ export async function lerToken(
  * navegador descarta cookie secure e o login falha calado: COOKIE_INSEGURO=1.
  */
 export function cookieSeguro(env: Record<string, string | undefined> = process.env) {
-  return env["NODE_ENV"] === "production" && env["COOKIE_INSEGURO"] !== "1";
+  // trim: .env salvo no Windows e levado para o servidor chega como "1\r".
+  const inseguro = env["COOKIE_INSEGURO"]?.trim().toLowerCase();
+  return env["NODE_ENV"] === "production" && inseguro !== "1" && inseguro !== "true";
 }
 
 /**
