@@ -255,9 +255,13 @@ function CatalogoPage() {
   const [cliente, setCliente] = useState("");
   const [observacao, setObservacao] = useState("");
   const [enviando, setEnviando] = useState(false);
-  // Pedido recém-enviado: troca o carrinho pela tela de confirmação. Guarda o
-  // resumo e o link do WhatsApp para reenviar se a aba não tiver aberto.
-  const [enviado, setEnviado] = useState<{ resumo: string; url: string } | null>(null);
+  // Pedido recém-enviado: troca o carrinho pela tela de confirmação. Guarda os
+  // itens (o carrinho é esvaziado), o total e o link do WhatsApp para reenviar.
+  const [enviado, setEnviado] = useState<{
+    itens: ItemCarrinho[];
+    total: string;
+    url: string;
+  } | null>(null);
   // "" = aba Todos.
   const [secaoId, setSecaoId] = useState("");
   // O produto fica guardado depois de fechar: senão o painel desce já vazio.
@@ -422,7 +426,7 @@ function CatalogoPage() {
       });
       const url = `https://wa.me/${whatsappNumero(vendedor.whatsapp)}?text=${encodeURIComponent(texto)}`;
       // Quem volta do WhatsApp cai na tela de confirmação, não no carrinho vazio.
-      setEnviado({ resumo: totalPorUnidade(itens), url });
+      setEnviado({ itens, total: totalPorUnidade(itens), url });
       setCarrinho({});
       setCliente("");
       setObservacao("");
@@ -764,9 +768,28 @@ function CatalogoPage() {
                 tocar em enviar por lá. Ele confirma tudo com você pelo WhatsApp.
               </p>
             </div>
-            <span className="rounded-full bg-card px-4 py-2 text-sm font-bold text-success shadow-sm">
-              {enviado.resumo}
-            </span>
+            <div className="w-full rounded-2xl bg-card p-4 text-left shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Resumo do pedido
+              </p>
+              <ul className="mt-1 divide-y">
+                {enviado.itens.map((i) => (
+                  <li
+                    key={i.produto_id}
+                    className="flex items-baseline justify-between gap-3 py-2 text-sm"
+                  >
+                    <span className="min-w-0 flex-1 font-medium leading-snug">{i.nome}</span>
+                    <span className="shrink-0 font-bold text-success">
+                      {qtdComUnidade(i.quantidade, i.unidade)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="flex items-baseline justify-between gap-3 border-t pt-2 text-sm font-bold">
+                <span>Total</span>
+                <span className="text-success">{enviado.total}</span>
+              </p>
+            </div>
           </div>
           <div className="mx-auto w-full max-w-md space-y-2 px-6 pb-8">
             <Button

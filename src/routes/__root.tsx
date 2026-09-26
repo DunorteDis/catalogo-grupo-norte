@@ -103,7 +103,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    // pt-BR de verdade: com lang="en" o Chrome do celular "traduzia" o site
+    // sozinho e mutilava os textos ("catálogo" virava "alento").
+    <html lang="pt-BR">
       <head>
         <HeadContent />
       </head>
