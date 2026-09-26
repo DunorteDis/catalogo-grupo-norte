@@ -255,6 +255,9 @@ function CatalogoPage() {
   const [cliente, setCliente] = useState("");
   const [observacao, setObservacao] = useState("");
   const [enviando, setEnviando] = useState(false);
+  // Pedido recém-enviado: troca o carrinho pela tela de confirmação. Guarda o
+  // resumo e o link do WhatsApp para reenviar se a aba não tiver aberto.
+  const [enviado, setEnviado] = useState<{ resumo: string; url: string } | null>(null);
   // "" = aba Todos.
   const [secaoId, setSecaoId] = useState("");
   // O produto fica guardado depois de fechar: senão o painel desce já vazio.
@@ -418,7 +421,12 @@ function CatalogoPage() {
         itens,
       });
       const url = `https://wa.me/${whatsappNumero(vendedor.whatsapp)}?text=${encodeURIComponent(texto)}`;
+      // Quem volta do WhatsApp cai na tela de confirmação, não no carrinho vazio.
+      setEnviado({ resumo: totalPorUnidade(itens), url });
       setCarrinho({});
+      setCliente("");
+      setObservacao("");
+      setAberto(false);
       // noopener: sem isso a aba do WhatsApp recebe window.opener e pode trocar esta pagina
       window.open(url, "_blank", "noopener");
     } catch (e) {
@@ -735,6 +743,47 @@ function CatalogoPage() {
               onClick={concluir}
             >
               {enviando ? "Enviando..." : "Concluir pedido no WhatsApp"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmação em tela cheia: quem volta do WhatsApp vê que deu certo,
+          não o carrinho vazio. */}
+      {enviado && (
+        <div className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-success-soft">
+          <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-6 px-6 py-10 text-center">
+            <span className="grid size-24 shrink-0 place-items-center rounded-full bg-success text-success-foreground shadow-md ring-8 ring-success/25 duration-300 animate-in fade-in zoom-in-75">
+              <Check className="size-12" strokeWidth={2.5} aria-hidden />
+            </span>
+            <div className="space-y-3">
+              <h2 className="text-3xl font-extrabold tracking-tight">Pedido concluído</h2>
+              <p className="leading-relaxed text-muted-foreground">
+                Seu pedido já foi registrado, e a mensagem ficou pronta no WhatsApp de{" "}
+                <strong className="font-semibold text-foreground">{vendedor.nome}</strong> — é só
+                tocar em enviar por lá. Ele confirma tudo com você pelo WhatsApp.
+              </p>
+            </div>
+            <span className="rounded-full bg-card px-4 py-2 text-sm font-bold text-success shadow-sm">
+              {enviado.resumo}
+            </span>
+          </div>
+          <div className="mx-auto w-full max-w-md space-y-2 px-6 pb-8">
+            <Button
+              className="h-14 w-full rounded-xl text-base font-bold text-white hover:opacity-90"
+              style={{ backgroundColor: cor }}
+              onClick={() => setEnviado(null)}
+            >
+              Voltar ao catálogo
+            </Button>
+            <Button
+              asChild
+              variant="ghost"
+              className="h-12 w-full rounded-xl text-muted-foreground"
+            >
+              <a href={enviado.url} target="_blank" rel="noopener noreferrer">
+                O WhatsApp não abriu? Toque aqui
+              </a>
             </Button>
           </div>
         </div>
