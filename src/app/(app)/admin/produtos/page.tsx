@@ -2,22 +2,12 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ImagePlus, Package, Pencil, Plus, Trash2 } from "lucide-react";
+import { ImagePlus, Package, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { chamar } from "@/lib/chamar";
 import { mensagemErro } from "@/lib/erros";
 import { Badge, ListRow, PageHeader, SearchInput } from "@/components/abastex";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -31,13 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { fotoUrl, MAX_FOTO, PAGINA_PRODUTOS as PAGE, TIPOS_IMAGEM } from "@/lib/catalogo";
-import {
-  ativarProduto,
-  enviarFotoProduto,
-  excluirProduto,
-  listarProdutos,
-  salvarProduto,
-} from "@/server/produtos";
+import { ativarProduto, editarProduto, enviarFotoProduto, listarProdutos } from "@/server/produtos";
 
 type Produto = {
   id: string;
@@ -45,8 +29,31 @@ type Produto = {
   nome: string;
   arquivo: string | null;
   ativo: boolean;
-  cod_empresa: number | null;
+  cod_produto: number | null;
+  nome_editado: boolean;
+  descricao_erp: string | null;
 };
+
+/** Código do ERP e, quando existe, o EAN — que no cadastro fica em `codigo`. */
+function Codigos({ p }: { p: Produto }) {
+  if (p.cod_produto == null)
+    return (
+      <>
+        Fora do ERP · <code>{p.codigo}</code>
+      </>
+    );
+  return (
+    <>
+      Cód. <code>{p.cod_produto}</code>
+      {p.codigo !== String(p.cod_produto) && (
+        <>
+          {" "}
+          · EAN <code>{p.codigo}</code>
+        </>
+      )}
+    </>
+  );
+}
 
 export default function ProdutosPage() {
   const qc = useQueryClient();
@@ -54,9 +61,8 @@ export default function ProdutosPage() {
   const [termo, setTermo] = useState("");
   const [pagina, setPagina] = useState(0);
 
-  // null = diálogo fechado; string vazia = produto novo; id = editando aquele.
-  const [editandoId, setEditandoId] = useState<string | null>(null);
-  const [codigo, setCodigo] = useState("");
+  // Produtos vêm da system.pcprodut (sincronização diária): aqui só se edita.
+  const [editando, setEditando] = useState<Produto | null>(null);
   const [nome, setNome] = useState("");
   const [arquivo, setArquivo] = useState("");
   const [fotoQuebrada, setFotoQuebrada] = useState(false);
@@ -64,8 +70,6 @@ export default function ProdutosPage() {
   const [fotoNova, setFotoNova] = useState<File | null>(null);
   const [arrastando, setArrastando] = useState(false);
   const inputFoto = useRef<HTMLInputElement>(null);
-
-  const [aExcluir, setAExcluir] = useState<Produto | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -94,11 +98,11 @@ export default function ProdutosPage() {
         dados.set("arquivo", fotoNova);
         foto = await chamar(enviarFotoProduto(dados));
       }
-      return chamar(salvarProduto(editandoId || null, { codigo, nome, arquivo: foto }));
+      return chamar(editarProduto(editando!.id, { nome, arquivo: foto }));
     },
     onSuccess: () => {
-      toast.success(editandoId ? "Produto atualizado." : `${nome.trim()} cadastrado.`);
-      setEditandoId(null);
+      toast.success("Produto atualizado.");
+      setEditando(null);
       qc.invalidateQueries({ queryKey: ["admin-produtos"] });
       // O catálogo do cliente mostra nome e foto deste cadastro.
       qc.invalidateQueries({ queryKey: ["catalogo"] });
@@ -106,32 +110,12 @@ export default function ProdutosPage() {
     onError: (e: Error) => toast.error(mensagemErro(e)),
   });
 
-  const excluir = useMutation({
-    mutationFn: (id: string) => chamar(excluirProduto(id)),
-    onSuccess: () => {
-      toast.success("Produto excluído do cadastro.");
-      setAExcluir(null);
-      qc.invalidateQueries({ queryKey: ["admin-produtos"] });
-    },
-    onError: (e: Error) => toast.error(mensagemErro(e)),
-  });
-
-  function abrirNovo() {
-    setCodigo("");
-    setNome("");
-    setArquivo("");
-    setFotoQuebrada(false);
-    setFotoNova(null);
-    setEditandoId("");
-  }
-
   function abrirEdicao(p: Produto) {
-    setCodigo(p.codigo);
     setNome(p.nome);
     setArquivo(p.arquivo ?? "");
     setFotoQuebrada(false);
     setFotoNova(null);
-    setEditandoId(p.id);
+    setEditando(p);
   }
 
   function escolherFoto(f: File | undefined) {
@@ -153,7 +137,9 @@ export default function ProdutosPage() {
     () => (fotoNova ? URL.createObjectURL(fotoNova) : fotoUrl(arquivo)),
     [fotoNova, arquivo],
   );
-  const podeSalvar = codigo.trim() !== "" && nome.trim() !== "" && !salvar.isPending;
+  const podeSalvar = nome.trim() !== "" && !salvar.isPending;
+  const descricaoErp = editando?.descricao_erp ?? null;
+  const diferenteDoErp = descricaoErp != null && nome.trim() !== descricaoErp;
 
   function aoSubmeter(e: React.FormEvent) {
     e.preventDefault();
@@ -169,13 +155,7 @@ export default function ProdutosPage() {
         icon={Package}
         tone="warning"
         title="Produtos"
-        subtitle={`${data ? `${data.total.toLocaleString("pt-BR")} produtos cadastrados. ` : ""}Desative os que não devem aparecer no catálogo.`}
-        actions={
-          <Button onClick={abrirNovo}>
-            <Plus />
-            Novo produto
-          </Button>
-        }
+        subtitle={`${data ? `${data.total.toLocaleString("pt-BR")} produtos, ` : "Produtos "}vindos do ERP e atualizados toda madrugada. Aqui você troca foto e descrição e escolhe quais aparecem no catálogo.`}
       />
 
       <div className="flex flex-col gap-4">
@@ -200,15 +180,19 @@ export default function ProdutosPage() {
                   )
                 }
                 title={p.nome}
-                badge={!p.ativo && <Badge dot>Oculto</Badge>}
-                meta={
-                  <>
-                    Cód. <code>{p.codigo}</code>
-                    {/* O cadastro espelha o ERP, onde o mesmo código aparece mais de
-                        uma vez: a empresa é o que separa boa parte das repetições. */}
-                    {p.cod_empresa != null && ` · Empresa ${p.cod_empresa}`}
-                  </>
+                badge={
+                  (!p.ativo || p.nome_editado) && (
+                    <>
+                      {!p.ativo && <Badge dot>Oculto</Badge>}
+                      {p.nome_editado && (
+                        <Badge tone="info" dot>
+                          Descrição editada
+                        </Badge>
+                      )}
+                    </>
+                  )
                 }
+                meta={<Codigos p={p} />}
                 actions={
                   <>
                     <Switch
@@ -226,15 +210,6 @@ export default function ProdutosPage() {
                       onClick={() => abrirEdicao(p)}
                     >
                       <Pencil />
-                    </Button>
-                    <Button
-                      size="icon-sm"
-                      variant="danger"
-                      aria-label="Excluir do cadastro"
-                      title="Excluir do cadastro"
-                      onClick={() => setAExcluir(p)}
-                    >
-                      <Trash2 />
                     </Button>
                   </>
                 }
@@ -267,38 +242,54 @@ export default function ProdutosPage() {
         </div>
       </div>
 
-      <Dialog open={editandoId !== null} onOpenChange={(v) => !v && setEditandoId(null)}>
+      <Dialog open={editando !== null} onOpenChange={(v) => !v && setEditando(null)}>
         <DialogContent className="sm:max-w-lg">
           <form onSubmit={aoSubmeter} className="space-y-4">
             <DialogHeader>
-              <DialogTitle>{editandoId ? "Editar produto" : "Novo produto"}</DialogTitle>
+              <DialogTitle>Editar produto</DialogTitle>
               <DialogDescription>
-                {editandoId
-                  ? "Nome e foto valem em todos os catálogos onde este produto está. Pedidos já enviados não mudam."
-                  : "Entra no cadastro geral. Para ele aparecer para o cliente, adicione depois a um catálogo em Catálogos."}
+                Descrição e foto valem em todos os catálogos onde este produto está. Código e EAN
+                vêm do ERP e não mudam aqui. Pedidos já enviados não mudam.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="codigo-produto">Código</Label>
-              <Input
-                id="codigo-produto"
-                autoFocus
-                value={codigo}
-                onChange={(e) => setCodigo(e.target.value)}
-                placeholder="Ex.: 7891234567890"
-                className="font-mono"
-              />
-            </div>
+            {editando && (
+              <p className="rounded-md bg-surface-sunken px-3 py-2 text-sm text-ink-muted">
+                <Codigos p={editando} />
+              </p>
+            )}
 
             <div className="space-y-1.5">
-              <Label htmlFor="nome-produto">Nome</Label>
+              <Label htmlFor="nome-produto">Descrição</Label>
               <Input
                 id="nome-produto"
+                autoFocus
                 value={nome}
                 onChange={(e) => setNome(e.target.value)}
-                placeholder="Ex.: CD ORAL B EXTRA FRESH 3X70G"
               />
+              {diferenteDoErp ? (
+                <div className="flex items-center justify-between gap-3 text-xs text-ink-muted">
+                  <p className="min-w-0">
+                    No ERP: <span className="font-semibold text-ink">{descricaoErp}</span>. A
+                    descrição editada aqui não é trocada pela do ERP na atualização da madrugada.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setNome(descricaoErp!)}
+                  >
+                    <RotateCcw />
+                    Usar a do ERP
+                  </Button>
+                </div>
+              ) : (
+                descricaoErp != null && (
+                  <p className="text-xs text-ink-muted">
+                    Igual à do ERP: acompanha as mudanças de lá toda madrugada.
+                  </p>
+                )
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -385,45 +376,16 @@ export default function ProdutosPage() {
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setEditandoId(null)}>
+              <Button type="button" variant="outline" onClick={() => setEditando(null)}>
                 Cancelar
               </Button>
               <Button type="submit" variant="accent" disabled={!podeSalvar}>
-                {salvar.isPending
-                  ? "Salvando..."
-                  : editandoId
-                    ? "Salvar alterações"
-                    : "Cadastrar produto"}
+                {salvar.isPending ? "Salvando..." : "Salvar alterações"}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
-
-      <AlertDialog open={aExcluir !== null} onOpenChange={(v) => !v && setAExcluir(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir {aExcluir?.nome}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              O produto sai do cadastro e <strong>de todos os catálogos</strong> onde estiver. Os
-              pedidos já feitos não mudam — eles guardam código e nome próprios. Se a ideia é só
-              tirar do catálogo, o botão ao lado desativa sem apagar.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={excluir.isPending}
-              onClick={(e) => {
-                e.preventDefault();
-                if (aExcluir) excluir.mutate(aExcluir.id);
-              }}
-            >
-              {excluir.isPending ? "Excluindo..." : "Excluir produto"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

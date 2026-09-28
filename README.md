@@ -46,7 +46,12 @@ bun scripts/aplicar-sql.ts db/migrations/<arquivo>.sql
 `cod_produto = codprod`: cadastra o que é novo, põe nome e EAN do ERP, desativa quem saiu
 e reativa quem voltou. Nunca apaga (o id é a chave dos catálogos) e não mexe no `ativo`
 de quem está no ERP nem na foto. Se a `pcprodut` vier vazia ou bem menor que na última
-execução, não faz nada. Cada execução fica em `crm.sincronizacao_produtos`:
+execução, não faz nada. A `pcprodut` só é lida, nunca escrita.
+
+No sistema não se cria nem se exclui produto: a tela Produtos só edita foto e descrição.
+Descrição diferente da do ERP marca `nome_editado`, e aí a sincronização para de
+sobrescrevê-la (`db/migrations/003_nome_editado.sql`); voltar à do ERP desmarca.
+Cada execução fica em `crm.sincronizacao_produtos`:
 
 ```sql
 select * from crm.sincronizacao_produtos order by quando desc limit 5;

@@ -1,10 +1,10 @@
 // Roda com: bun test
 import { expect, test } from "bun:test";
 
-import { CORTE, planejar, type Destino, type Fonte } from "./sincronizar-supabase";
+import { planejar, type Destino, type Fonte } from "./sincronizar-supabase";
 
-const antes = new Date(+CORTE - 86_400_000);
-const depois = new Date(+CORTE + 86_400_000);
+const antes = new Date("2026-09-20T00:00:00Z");
+const depois = new Date("2026-09-25T00:00:00Z");
 const vazio = {
   usuarios: [],
   papeis: [],
@@ -17,39 +17,28 @@ const vazio = {
   itens: [],
 };
 
-test("mais recente vence: só atualiza o que foi editado depois no Supabase", () => {
+test("mais recente vence: só atualiza usuário editado depois no Supabase", () => {
   const f: Fonte = {
     ...vazio,
-    produtos: [
+    usuarios: [
       { id: "editado-no-supabase", updated_at: depois },
-      { id: "curado-no-crm", updated_at: antes }, // crm desativou depois: fica como está
+      { id: "editado-no-crm", updated_at: antes }, // ex.: trocou a senha no sistema novo
       { id: "novo", updated_at: antes },
     ],
   };
   const d: Destino = {
     ...vazio,
-    produtos: [
-      { id: "editado-no-supabase", updated_at: antes, created_at: antes },
-      { id: "curado-no-crm", updated_at: depois, created_at: antes },
+    usuarios: [
+      { id: "editado-no-supabase", updated_at: antes },
+      { id: "editado-no-crm", updated_at: depois },
     ],
   };
   const p = planejar(f, d);
-  expect(p.produtosAtualizar.map((r) => r.id)).toEqual(["editado-no-supabase"]);
-  expect(p.produtosNovos.map((r) => r.id)).toEqual(["novo"]);
+  expect(p.usuariosAtualizar.map((r) => r.id)).toEqual(["editado-no-supabase"]);
+  expect(p.usuariosNovos.map((r) => r.id)).toEqual(["novo"]);
 });
 
-test("só apaga produto da cópia inicial que sumiu do Supabase; o criado no sistema novo fica", () => {
-  const d: Destino = {
-    ...vazio,
-    produtos: [
-      { id: "apagado-no-antigo", updated_at: antes, created_at: antes },
-      { id: "criado-no-novo", updated_at: depois, created_at: depois },
-    ],
-  };
-  expect(planejar(vazio, d).produtosApagar.map((r) => r.id)).toEqual(["apagado-no-antigo"]);
-});
-
-test("catálogo novo entra inteiro; vínculo e seção de catálogo existente não", () => {
+test("catálogo novo entra inteiro, mas só com produto que existe no crm (produto é do ERP)", () => {
   const f: Fonte = {
     ...vazio,
     catalogos: [{ id: "novo" }, { id: "existente" }],
@@ -58,17 +47,23 @@ test("catálogo novo entra inteiro; vínculo e seção de catálogo existente n�
       { id: "s2", distribuidora_id: "existente" },
     ],
     vinculos: [
-      { id: "v1", distribuidora_id: "novo" },
-      { id: "v2", distribuidora_id: "existente" },
+      { id: "v1", distribuidora_id: "novo", produto_id: "no-crm" },
+      { id: "v2", distribuidora_id: "novo", produto_id: "so-no-supabase" },
+      { id: "v3", distribuidora_id: "existente", produto_id: "no-crm" },
     ],
   };
-  const p = planejar(f, { ...vazio, catalogos: [{ id: "existente" }] });
+  const p = planejar(f, {
+    ...vazio,
+    catalogos: [{ id: "existente" }],
+    produtos: [{ id: "no-crm" }],
+  });
   expect(p.catalogosNovos.map((r) => r.id)).toEqual(["novo"]);
   expect(p.secoesNovas.map((r) => r.id)).toEqual(["s1"]);
   expect(p.vinculosNovos.map((r) => r.id)).toEqual(["v1"]);
+  expect(p.vinculosSemProduto.map((r) => r.id)).toEqual(["v2"]);
 });
 
-test("pedido e usuário do sistema novo nunca saem; os do Supabase entram", () => {
+test("pedido e usuário do sistema novo nunca saem; e produto não é tocado", () => {
   const f: Fonte = {
     ...vazio,
     pedidos: [{ id: "antigo" }],
@@ -82,5 +77,5 @@ test("pedido e usuário do sistema novo nunca saem; os do Supabase entram", () =
   const p = planejar(f, d);
   expect(p.pedidosNovos.map((r) => r.id)).toEqual(["antigo"]);
   expect(p.usuariosNovos.map((r) => r.id)).toEqual(["u2"]);
-  expect(p).not.toHaveProperty("pedidosApagar");
+  expect(Object.keys(p).some((k) => k.startsWith("produtos"))).toBe(false);
 });

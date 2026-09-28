@@ -14,17 +14,22 @@ type Produto = {
   nome: string;
   arquivo: string | null;
   ativo: boolean;
-  cod_empresa: number | null;
+  cod_produto: number | null;
+  nome_editado: boolean;
+  /** Descrição atual no ERP, para comparar e voltar a ela no Editar. */
+  descricao_erp: string | null;
 };
 
 export const listarProdutos = acao(async (termo: string, pagina: number) => {
   await exigirAdmin();
   const [linhas, [contagem]] = await Promise.all([
     sql<Produto[]>`
-      select p.id, p.codigo, p.nome, p.arquivo, p.ativo, p.cod_empresa
-        from produtos p where true ${condicaoBusca(termo)}
-       -- O ERP repete nome: sem desempate a mesma linha aparece em duas páginas,
-       -- e excluir a "duplicada" apaga a única que existe.
+      select p.id, p.codigo, p.nome, p.arquivo, p.ativo, p.cod_produto, p.nome_editado,
+             trim(x.descricao) as descricao_erp
+        from produtos p
+        left join system.pcprodut x on x.codprod = p.cod_produto
+       where true ${condicaoBusca(termo)}
+       -- O ERP repete nome: sem desempate a mesma linha aparece em duas páginas.
        order by p.nome, p.id
        limit ${PAGINA_PRODUTOS} offset ${pagina * PAGINA_PRODUTOS}`,
     sql<{ total: number }[]>`
@@ -33,9 +38,8 @@ export const listarProdutos = acao(async (termo: string, pagina: number) => {
   return { linhas: [...linhas], total: contagem?.total ?? 0 };
 });
 
-const produtoSchema = z.object({
-  codigo: z.string().trim().min(1, "Informe o código."),
-  nome: z.string().trim().min(1, "Informe o nome."),
+const edicaoSchema = z.object({
+  nome: z.string().trim().min(1, "Informe a descrição."),
   arquivo: z.string().trim(),
 });
 
@@ -51,23 +55,25 @@ export const enviarFotoProduto = acao(async (dados: FormData) => {
   return guardarFoto(arquivo);
 });
 
-export const salvarProduto = acao(
-  async (id: string | null, entrada: z.input<typeof produtoSchema>) => {
-    await exigirAdmin();
-    const v = produtoSchema.parse(entrada);
-    const valores = { codigo: v.codigo, nome: v.nome, arquivo: v.arquivo || null };
-    if (id)
-      await sql`update produtos set ${sql(valores, "codigo", "nome", "arquivo")} where id = ${id}`;
-    else await sql`insert into produtos ${sql(valores, "codigo", "nome", "arquivo")}`;
-  },
-);
+/**
+ * Produto vem da system.pcprodut (sincronização diária): aqui não se cria nem se
+ * apaga, só se trocam descrição e foto. O código é do ERP e não muda por aqui.
+ * nome_editado liga quando a descrição salva difere da do ERP — aí a sincronização
+ * para de sobrescrevê-la; voltar à do ERP desliga de novo. A pcprodut só é lida.
+ */
+export const editarProduto = acao(async (id: string, entrada: z.input<typeof edicaoSchema>) => {
+  await exigirAdmin();
+  const v = edicaoSchema.parse(entrada);
+  await sql`
+    update produtos p
+       set nome = ${v.nome},
+           arquivo = ${v.arquivo || null},
+           nome_editado = ${v.nome} is distinct from
+             (select trim(x.descricao) from system.pcprodut x where x.codprod = p.cod_produto)
+     where p.id = ${id}`;
+});
 
 export const ativarProduto = acao(async (id: string, ativo: boolean) => {
   await exigirAdmin();
   await sql`update produtos set ativo = ${ativo} where id = ${id}`;
-});
-
-export const excluirProduto = acao(async (id: string) => {
-  await exigirAdmin();
-  await sql`delete from produtos where id = ${id}`;
 });
