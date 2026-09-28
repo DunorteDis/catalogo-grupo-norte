@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
 import {
   ChevronDown,
+  FileSpreadsheet,
   Package,
   ShoppingBag,
   ShoppingCart,
@@ -9,12 +10,15 @@ import {
   User,
   Users,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { chamar } from "@/lib/chamar";
 import { fotoUrl, qtdComUnidade } from "@/lib/catalogo";
 import { formatarData } from "@/lib/periodo";
+import { baixarPlanilhaDoPedido } from "@/lib/planilha-pedido";
 import { cn } from "@/lib/utils";
 import { Badge, IconTile, KpiCard } from "@/components/abastex";
+import { Button } from "@/components/ui/button";
 import { fotosPorCodigo } from "@/server/pedidos";
 
 export type PedidoDaLista = {
@@ -189,6 +193,20 @@ export function ListaPedidos({
                         {pedido.observacao}
                       </p>
                     )}
+                    <div className="flex justify-end border-t border-dashed pt-3">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          baixarPlanilhaDoPedido(pedido).catch(() =>
+                            toast.error("Não foi possível gerar a planilha. Tente de novo."),
+                          )
+                        }
+                      >
+                        <FileSpreadsheet />
+                        Exportar Excel
+                      </Button>
+                    </div>
                   </div>
                 </AccordionPrimitive.Content>
               </AccordionPrimitive.Item>
