@@ -40,6 +40,10 @@ bun scripts/aplicar-sql.ts db/migrations/<arquivo>.sql
 
 ### Produtos vêm do ERP
 
+Só existem duas tabelas de produto: a `system.pcprodut` (fonte, uma linha por `codprod`)
+e o `crm.produtos` (espelho, também uma linha por `cod_produto`). A `system.produtos` não
+entra em nada daqui (a herança dela saiu em `db/migrations/004_uma_linha_por_codprod.sql`).
+
 `crm.produtos` segue a `system.pcprodut`, que é recarregada todo dia (~02:00). A função
 `crm.sincronizar_produtos()` (em `db/migrations/002_sincronizar_produtos.sql`) roda pelo
 `pg_cron` às 03:00 (job `sincronizar-produtos-erp`) e reconcilia pelo
