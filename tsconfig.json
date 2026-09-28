@@ -10,7 +10,8 @@
   "exclude": [
     "node_modules",
     // testes rodam com `bun test`, que traz os proprios tipos (bun:test)
-    "src/**/*.test.ts"
+    "src/**/*.test.ts",
+    "scripts/**/*.test.ts"
   ],
   "compilerOptions": {
     "target": "ES2022",
