@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { useCatalogosPublicos } from "@/hooks/use-catalogos-publicos";
 import { useCopiado } from "@/hooks/use-copiado";
 import { chamar } from "@/lib/chamar";
+import { copiarTexto } from "@/lib/copiar";
 import { mensagemErro } from "@/lib/erros";
 import { mensagemAcesso, normalizarUsuario, usuarioDeNome, validarUsuario } from "@/lib/acessos";
 import { cn } from "@/lib/utils";
@@ -203,11 +204,15 @@ export default function UsuariosPage() {
     onError: (e: Error) => toast.error(mensagemErro(e)),
   });
 
-  function copiarCredenciais() {
+  async function copiarCredenciais() {
     if (!credenciais) return;
-    navigator.clipboard.writeText(
+    const ok = await copiarTexto(
       mensagemAcesso({ ...credenciais, url: `${window.location.origin}/auth` }),
     );
+    if (!ok) {
+      toast.error("Não foi possível copiar. Anote o usuário e a senha que aparecem aqui.");
+      return;
+    }
     setCopiado(true);
     toast.success("Mensagem copiada. É só colar no WhatsApp.");
   }

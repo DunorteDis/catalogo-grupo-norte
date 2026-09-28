@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { mensagemErro } from "@/lib/erros";
 import { chamar } from "@/lib/chamar";
+import { copiarTexto } from "@/lib/copiar";
 import {
   fotoUrl,
   MAX_IMAGEM,
@@ -1092,9 +1093,10 @@ export default function CatalogoPage() {
                 size="sm"
                 variant="outline"
                 className="mt-2"
-                onClick={() => {
-                  navigator.clipboard.writeText(naoEncontrados.join("\n"));
-                  toast.success("Códigos copiados.");
+                onClick={async () => {
+                  if (await copiarTexto(naoEncontrados.join("\n")))
+                    toast.success("Códigos copiados.");
+                  else toast.error("Não foi possível copiar. Selecione a lista e copie à mão.");
                 }}
               >
                 Copiar lista
