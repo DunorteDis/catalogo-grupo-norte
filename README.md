@@ -38,6 +38,21 @@ Tabelas e dados vivem no schema `crm`. Mudança de schema é um arquivo novo em
 bun scripts/aplicar-sql.ts db/migrations/<arquivo>.sql
 ```
 
+### Produtos vêm do ERP
+
+`crm.produtos` segue a `system.pcprodut`, que é recarregada todo dia (~02:00). A função
+`crm.sincronizar_produtos()` (em `db/migrations/002_sincronizar_produtos.sql`) roda pelo
+`pg_cron` às 03:00 (job `sincronizar-produtos-erp`) e reconcilia pelo
+`cod_produto = codprod`: cadastra o que é novo, põe nome e EAN do ERP, desativa quem saiu
+e reativa quem voltou. Nunca apaga (o id é a chave dos catálogos) e não mexe no `ativo`
+de quem está no ERP nem na foto. Se a `pcprodut` vier vazia ou bem menor que na última
+execução, não faz nada. Cada execução fica em `crm.sincronizacao_produtos`:
+
+```sql
+select * from crm.sincronizacao_produtos order by quando desc limit 5;
+select crm.sincronizar_produtos();  -- rodar na mão, se precisar
+```
+
 ## Login
 
 Usuários ficam em `crm.usuarios` (senha bcrypt em `senha_hash`), papéis em
