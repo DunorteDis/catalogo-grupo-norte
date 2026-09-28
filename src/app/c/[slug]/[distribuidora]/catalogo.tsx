@@ -477,13 +477,16 @@ export function Catalogo() {
                   // O card na cor do catálogo é o sinal, de longe, do que já está no pedido.
                   style={item ? { borderColor: cor } : undefined}
                 >
-                  <div className="flex aspect-square items-center justify-center bg-muted/40 p-3">
+                  {/* A foto fica absoluta dentro do quadro: com ela no fluxo, foto
+                      vertical (ex.: 146x480) esticava o aspect-square e desalinhava
+                      a grade. Assim todo quadro tem o mesmo tamanho e a foto cabe inteira. */}
+                  <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-muted/40">
                     {foto ? (
                       <img
                         src={foto}
                         alt={p.nome}
                         loading="lazy"
-                        className="h-full w-full object-contain"
+                        className="absolute inset-0 h-full w-full object-contain p-3"
                         onError={(e) => {
                           (e.currentTarget as HTMLImageElement).style.visibility = "hidden";
                         }}
