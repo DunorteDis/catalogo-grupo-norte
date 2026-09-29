@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { useCatalogosPublicos } from "@/hooks/use-catalogos-publicos";
 import { useCopiado } from "@/hooks/use-copiado";
 import { chamar } from "@/lib/chamar";
+import { confirmar } from "@/lib/confirmar";
 import { copiarTexto } from "@/lib/copiar";
 import { mensagemErro } from "@/lib/erros";
 import { mensagemAcesso, normalizarUsuario, usuarioDeNome, validarUsuario } from "@/lib/acessos";
@@ -340,10 +341,11 @@ export default function UsuariosPage() {
                       size="sm"
                       variant="ghost"
                       disabled={resetar.isPending}
-                      onClick={() => {
+                      onClick={async () => {
                         if (
-                          window.confirm(
+                          await confirmar(
                             `Gerar uma nova senha para ${nomeExibido}? A senha atual deixa de valer.`,
+                            "Gerar senha",
                           )
                         )
                           resetar.mutate(l.usuarioId!);
@@ -359,8 +361,8 @@ export default function UsuariosPage() {
                     variant="danger"
                     aria-label={`Excluir ${nomeExibido}`}
                     title="Excluir usuário"
-                    onClick={() => {
-                      if (window.confirm(`Excluir ${nomeExibido}?`))
+                    onClick={async () => {
+                      if (await confirmar(`Excluir ${nomeExibido}?`, "Excluir"))
                         remover.mutate(v ? { vendedorId: v.id } : { usuarioId: l.usuarioId! });
                     }}
                   >

@@ -32,7 +32,7 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+>(({ className, children, onInteractOutside, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     {/* grid-cols-1 = minmax(0, 1fr): sem isso a coluna cresce até o texto que não quebra
@@ -43,6 +43,11 @@ const DialogContent = React.forwardRef<
         "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg grid-cols-1 translate-x-[-50%] translate-y-[-50%] gap-4 border bg-card p-6 shadow-float duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-2xl",
         className,
       )}
+      // Clicar num toast (ex.: confirmar()) não é clicar fora: o diálogo fica aberto.
+      onInteractOutside={(e) => {
+        if ((e.target as Element | null)?.closest?.("[data-sonner-toaster]")) e.preventDefault();
+        onInteractOutside?.(e);
+      }}
       {...props}
     >
       {children}

@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { mensagemErro } from "@/lib/erros";
 import { chamar } from "@/lib/chamar";
+import { confirmar } from "@/lib/confirmar";
 import { copiarTexto } from "@/lib/copiar";
 import {
   fotoUrl,
@@ -587,8 +588,13 @@ export default function CatalogoPage() {
               variant="danger"
               size="sm"
               disabled={ocupado}
-              onClick={() => {
-                if (!window.confirm(`Excluir o catálogo ${catalogo.nome} e todos os seus links?`))
+              onClick={async () => {
+                if (
+                  !(await confirmar(
+                    `Excluir o catálogo ${catalogo.nome} e todos os seus links?`,
+                    "Excluir",
+                  ))
+                )
                   return;
                 excluir.mutate();
               }}
@@ -696,10 +702,10 @@ export default function CatalogoPage() {
                 variant="danger"
                 className="ml-auto"
                 disabled={ocupado}
-                onClick={() => {
+                onClick={async () => {
                   const alvo = termo ? `os ${total} da busca` : `todos os ${total}`;
                   const de = secao ? `da seção ${secao.nome}` : `do catálogo ${catalogo?.nome}`;
-                  if (!window.confirm(`Remover ${alvo} ${de} do catálogo?`)) return;
+                  if (!(await confirmar(`Remover ${alvo} ${de} do catálogo?`, "Remover"))) return;
                   remover.mutate("busca");
                 }}
               >

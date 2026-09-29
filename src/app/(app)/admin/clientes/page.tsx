@@ -6,6 +6,7 @@ import { Contact, Pencil, Store, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { chamar } from "@/lib/chamar";
+import { confirmar } from "@/lib/confirmar";
 import { mensagemErro } from "@/lib/erros";
 import {
   formatarTelefone,
@@ -283,8 +284,9 @@ function Contatos({ cliente }: { cliente: Cliente }) {
                   aria-label="Excluir contato"
                   title="Excluir contato"
                   disabled={excluir.isPending}
-                  onClick={() => {
-                    if (window.confirm(`Excluir o contato ${k.nome}?`)) excluir.mutate(k.id);
+                  onClick={async () => {
+                    if (await confirmar(`Excluir o contato ${k.nome}?`, "Excluir"))
+                      excluir.mutate(k.id);
                   }}
                 >
                   <Trash2 />
@@ -307,7 +309,7 @@ function Contatos({ cliente }: { cliente: Cliente }) {
           {editandoId ? "Editar contato" : "Novo contato"}
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="contato-nome">Nome</Label>
             <Input id="contato-nome" value={nome} onChange={(e) => setNome(e.target.value)} />
           </div>
@@ -339,16 +341,16 @@ function Contatos({ cliente }: { cliente: Cliente }) {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-end justify-end gap-2">
-            {editandoId && (
-              <Button type="button" variant="outline" onClick={limpar}>
-                Cancelar
-              </Button>
-            )}
-            <Button type="submit" variant="accent" disabled={!podeSalvar}>
-              {salvar.isPending ? "Salvando..." : editandoId ? "Salvar alterações" : "Adicionar"}
+        </div>
+        <div className="flex justify-end gap-2">
+          {editandoId && (
+            <Button type="button" variant="outline" onClick={limpar}>
+              Cancelar
             </Button>
-          </div>
+          )}
+          <Button type="submit" variant="accent" disabled={!podeSalvar}>
+            {salvar.isPending ? "Salvando..." : editandoId ? "Salvar alterações" : "Adicionar"}
+          </Button>
         </div>
       </form>
     </div>
