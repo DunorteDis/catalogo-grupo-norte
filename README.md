@@ -65,9 +65,10 @@ select crm.sincronizar_produtos();  -- rodar na mão, se precisar
 ### Clientes vêm do ERP
 
 A tela Clientes lista a `system.pcclient` (só leitura): sem `dtexclusao` é ativo, com ela
-é inativo. Os contatos do ERP vêm da `system.pccontato` pelo `codcli` e também só são
-lidos. Os que o admin acrescenta ou edita ficam em `crm.cliente_contatos`
-(`db/migrations/005_cliente_contatos.sql`): nome e celular, este gravado só com dígitos,
+é inativo. Os contatos do ERP vêm da `system.pccontato` pelo `codcli`, mais o `telent1`
+do próprio cadastro, e também só são lidos. Os que o admin acrescenta ou edita ficam em
+`crm.cliente_contatos` (migrações 005 e 006): nome, tipo livre (dono, comprador...) e
+celular, este gravado só com dígitos,
 DDD + número, sem o 55 — é por ele que se vai saber de que cliente é quem chama o
 vendedor no WhatsApp.
 

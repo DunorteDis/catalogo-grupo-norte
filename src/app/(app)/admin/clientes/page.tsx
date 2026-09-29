@@ -34,6 +34,8 @@ const ABAS: { value: Situacao; label: string }[] = [
   { value: "todos", label: "Todos" },
 ];
 
+const TIPOS_CONTATO = ["Dono", "Sócio", "Comprador", "Gerente", "Financeiro", "Funcionário"];
+
 function Dados({ c }: { c: Cliente }) {
   return (
     <>
@@ -164,6 +166,7 @@ function Contatos({ cliente }: { cliente: Cliente }) {
   // Contato cadastrado aqui em edição no formulário; null = o formulário adiciona.
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [nome, setNome] = useState("");
+  const [tipo, setTipo] = useState("");
   const [celular, setCelular] = useState("");
 
   const { data } = useQuery({
@@ -174,6 +177,7 @@ function Contatos({ cliente }: { cliente: Cliente }) {
   function limpar() {
     setEditandoId(null);
     setNome("");
+    setTipo("");
     setCelular("");
   }
 
@@ -184,7 +188,8 @@ function Contatos({ cliente }: { cliente: Cliente }) {
   }
 
   const salvar = useMutation({
-    mutationFn: () => chamar(salvarContato({ codcli, id: editandoId ?? undefined, nome, celular })),
+    mutationFn: () =>
+      chamar(salvarContato({ codcli, id: editandoId ?? undefined, nome, tipo, celular })),
     onSuccess: () => {
       toast.success(editandoId ? "Contato atualizado." : "Contato adicionado.");
       limpar();
@@ -219,7 +224,7 @@ function Contatos({ cliente }: { cliente: Cliente }) {
       <div className="ax-list max-h-72 overflow-y-auto empty:hidden">
         {data?.erp.map((k) => (
           <ListRow
-            key={`erp-${k.codcontato}`}
+            key={`erp-${k.chave}`}
             title={k.nome || "Sem nome"}
             badge={<Badge>ERP</Badge>}
             meta={k.celular ? formatarTelefone(k.celular) : "Sem telefone"}
@@ -234,7 +239,7 @@ function Contatos({ cliente }: { cliente: Cliente }) {
                 Cadastrado aqui
               </Badge>
             }
-            meta={formatarTelefone(k.celular)}
+            meta={[formatarTelefone(k.celular), k.tipo].filter(Boolean).join(" · ")}
             actions={
               <>
                 <Button
@@ -245,6 +250,7 @@ function Contatos({ cliente }: { cliente: Cliente }) {
                   onClick={() => {
                     setEditandoId(k.id);
                     setNome(k.nome);
+                    setTipo(k.tipo ?? "");
                     setCelular(formatarTelefone(k.celular));
                   }}
                 >
@@ -295,16 +301,32 @@ function Contatos({ cliente }: { cliente: Cliente }) {
               onChange={(e) => setCelular(e.target.value)}
             />
           </div>
-        </div>
-        <div className="flex justify-end gap-2">
-          {editandoId && (
-            <Button type="button" variant="outline" onClick={limpar}>
-              Cancelar
+          <div className="space-y-1.5">
+            <Label htmlFor="contato-tipo">Tipo (opcional)</Label>
+            {/* Texto livre: a lista só sugere. */}
+            <Input
+              id="contato-tipo"
+              list="tipos-contato"
+              placeholder="Dono, comprador..."
+              value={tipo}
+              onChange={(e) => setTipo(e.target.value)}
+            />
+            <datalist id="tipos-contato">
+              {TIPOS_CONTATO.map((t) => (
+                <option key={t} value={t} />
+              ))}
+            </datalist>
+          </div>
+          <div className="flex items-end justify-end gap-2">
+            {editandoId && (
+              <Button type="button" variant="outline" onClick={limpar}>
+                Cancelar
+              </Button>
+            )}
+            <Button type="submit" variant="accent" disabled={!podeSalvar}>
+              {salvar.isPending ? "Salvando..." : editandoId ? "Salvar alterações" : "Adicionar"}
             </Button>
-          )}
-          <Button type="submit" variant="accent" disabled={!podeSalvar}>
-            {salvar.isPending ? "Salvando..." : editandoId ? "Salvar alterações" : "Adicionar"}
-          </Button>
+          </div>
         </div>
       </form>
     </div>
