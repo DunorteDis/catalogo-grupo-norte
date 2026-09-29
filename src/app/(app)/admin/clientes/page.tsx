@@ -7,7 +7,12 @@ import { toast } from "sonner";
 
 import { chamar } from "@/lib/chamar";
 import { mensagemErro } from "@/lib/erros";
-import { formatarTelefone, numeroNacional, PAGINA_CLIENTES as PAGE } from "@/lib/catalogo";
+import {
+  formatarTelefone,
+  numeroNacional,
+  PAGINA_CLIENTES as PAGE,
+  TIPOS_CONTATO,
+} from "@/lib/catalogo";
 import { Badge, FilterTabs, ListRow, PageHeader, SearchInput } from "@/components/abastex";
 import {
   Dialog,
@@ -19,6 +24,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   contatosDoCliente,
   excluirContato,
@@ -34,7 +46,7 @@ const ABAS: { value: Situacao; label: string }[] = [
   { value: "todos", label: "Todos" },
 ];
 
-const TIPOS_CONTATO = ["Dono", "Sócio", "Comprador", "Gerente", "Financeiro", "Funcionário"];
+type TipoContato = (typeof TIPOS_CONTATO)[number];
 
 function Dados({ c }: { c: Cliente }) {
   return (
@@ -81,7 +93,7 @@ export default function ClientesPage() {
         icon={Store}
         tone="info"
         title="Clientes"
-        subtitle={`${data ? `${data.total.toLocaleString("pt-BR")} clientes ` : "Clientes "}do ERP. Aqui você acrescenta contatos com nome e celular, para saber de que cliente é quem chama no WhatsApp.`}
+        subtitle={`${data ? `${data.total.toLocaleString("pt-BR")} ${data.total === 1 ? "cliente" : "clientes"} ` : "Clientes "}do ERP. Aqui você acrescenta contatos com nome e celular, para saber de que cliente é quem chama no WhatsApp.`}
       />
 
       <div className="flex flex-col gap-4">
@@ -189,7 +201,16 @@ function Contatos({ cliente }: { cliente: Cliente }) {
 
   const salvar = useMutation({
     mutationFn: () =>
-      chamar(salvarContato({ codcli, id: editandoId ?? undefined, nome, tipo, celular })),
+      chamar(
+        salvarContato({
+          codcli,
+          id: editandoId ?? undefined,
+          nome,
+          // O servidor confere se está na lista.
+          tipo: (tipo || null) as TipoContato | null,
+          celular,
+        }),
+      ),
     onSuccess: () => {
       toast.success(editandoId ? "Contato atualizado." : "Contato adicionado.");
       limpar();
@@ -303,19 +324,20 @@ function Contatos({ cliente }: { cliente: Cliente }) {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="contato-tipo">Tipo (opcional)</Label>
-            {/* Texto livre: a lista só sugere. */}
-            <Input
-              id="contato-tipo"
-              list="tipos-contato"
-              placeholder="Dono, comprador..."
-              value={tipo}
-              onChange={(e) => setTipo(e.target.value)}
-            />
-            <datalist id="tipos-contato">
-              {TIPOS_CONTATO.map((t) => (
-                <option key={t} value={t} />
-              ))}
-            </datalist>
+            {/* Radix não aceita item com valor vazio: "nenhum" volta o campo para vazio. */}
+            <Select value={tipo} onValueChange={(v) => setTipo(v === "nenhum" ? "" : v)}>
+              <SelectTrigger id="contato-tipo">
+                <SelectValue placeholder="Escolha o tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nenhum">Sem tipo</SelectItem>
+                {TIPOS_CONTATO.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {t}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex items-end justify-end gap-2">
             {editandoId && (

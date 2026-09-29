@@ -35,6 +35,17 @@ export function numeroNacional(valor: string) {
   return n.length === 10 || n.length === 11 ? n : null;
 }
 
+/** Tipos do contato de cliente: lista fechada, para o dado sair padronizado. */
+export const TIPOS_CONTATO = [
+  "Dono",
+  "Sócio",
+  "Comprador",
+  "Gerente",
+  "Financeiro",
+  "Funcionário",
+  "Outro",
+] as const;
+
 /** "(92) 99217-7381". O que não parece telefone sai como veio. */
 export function formatarTelefone(valor: string) {
   const n = numeroNacional(valor);

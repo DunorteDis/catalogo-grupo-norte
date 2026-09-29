@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-import { numeroNacional, PAGINA_CLIENTES } from "@/lib/catalogo";
+import { numeroNacional, PAGINA_CLIENTES, TIPOS_CONTATO } from "@/lib/catalogo";
 import { acao, Recusa } from "@/server/acao";
 import { condicaoBusca, sql } from "@/server/db";
 import { exigirAdmin } from "@/server/sessao";
@@ -84,8 +84,7 @@ const contatoSchema = z.object({
   /** Sem id = contato novo. */
   id: z.string().uuid().optional(),
   nome: z.string().trim().min(1, "Informe o nome do contato."),
-  /** Dono, comprador...: livre e opcional. */
-  tipo: z.string().trim().optional(),
+  tipo: z.enum(TIPOS_CONTATO, { message: "Escolha um tipo da lista." }).nullable(),
   celular: z.string(),
 });
 
@@ -94,12 +93,11 @@ export const salvarContato = acao(async (entrada: z.input<typeof contatoSchema>)
   const v = contatoSchema.parse(entrada);
   const celular = numeroNacional(v.celular);
   if (!celular) throw new Recusa("Informe o celular com DDD, como (92) 99999-9999.");
-  const tipo = v.tipo || null;
   try {
     if (v.id) {
       const feito = await sql`
         update cliente_contatos
-           set nome = ${v.nome}, tipo = ${tipo}, celular = ${celular}, updated_at = now()
+           set nome = ${v.nome}, tipo = ${v.tipo}, celular = ${celular}, updated_at = now()
          where id = ${v.id} and codcli = ${v.codcli}
         returning id`;
       if (!feito.length) throw new Recusa("Esse contato não existe mais. Feche e abra de novo.");
@@ -108,7 +106,7 @@ export const salvarContato = acao(async (entrada: z.input<typeof contatoSchema>)
       if (!cliente) throw new Recusa("Cliente não encontrado no ERP.");
       await sql`
         insert into cliente_contatos (codcli, nome, tipo, celular)
-        values (${v.codcli}, ${v.nome}, ${tipo}, ${celular})`;
+        values (${v.codcli}, ${v.nome}, ${v.tipo}, ${celular})`;
     }
   } catch (e) {
     if ((e as { code?: string }).code === "23505")
