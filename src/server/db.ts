@@ -19,13 +19,21 @@ export const sql = global.sql ?? conectar();
 if (process.env.NODE_ENV !== "production") global.sql = sql;
 
 /**
- * Uma condição por palavra digitada, somadas com AND. Espera `produtos` com o
- * alias `p` na consulta. Sempre parametrizado: a palavra nunca vira texto de SQL.
+ * Uma condição por palavra digitada, somadas com AND: cada palavra precisa estar
+ * em alguma das colunas. Sem colunas, espera `produtos` com o alias `p` na
+ * consulta. Sempre parametrizado: a palavra nunca vira texto de SQL.
  */
-export function condicaoBusca(termo: string) {
+export function condicaoBusca(termo: string, colunas = [sql`p.nome`, sql`p.codigo`]) {
   return palavrasBusca(termo).reduce(
-    (acc, palavra) =>
-      sql`${acc} and (p.nome ilike ${`%${palavra}%`} or p.codigo ilike ${`%${palavra}%`})`,
+    (acc, palavra) => {
+      const alguma = colunas
+        .slice(1)
+        .reduce(
+          (o, c) => sql`${o} or ${c} ilike ${`%${palavra}%`}`,
+          sql`${colunas[0]!} ilike ${`%${palavra}%`}`,
+        );
+      return sql`${acc} and (${alguma})`;
+    },
     sql``,
   );
 }

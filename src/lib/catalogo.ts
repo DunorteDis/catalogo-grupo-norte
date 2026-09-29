@@ -24,6 +24,23 @@ export function whatsappNumero(valor: string) {
   return n;
 }
 
+/**
+ * DDD + número, só dígitos, sem o 55 nem o 0 da operadora: "+55 (92) 99217-7381"
+ * vira "92992177381". É assim que o contato de cliente fica gravado, para bater
+ * com o número de quem chama no WhatsApp. Null se não parece telefone com DDD.
+ */
+export function numeroNacional(valor: string) {
+  let n = somenteDigitos(valor).replace(/^0+/, "");
+  if (n.length > 11 && n.startsWith("55")) n = n.slice(2);
+  return n.length === 10 || n.length === 11 ? n : null;
+}
+
+/** "(92) 99217-7381". O que não parece telefone sai como veio. */
+export function formatarTelefone(valor: string) {
+  const n = numeroNacional(valor);
+  return n ? `(${n.slice(0, 2)}) ${n.slice(2, -4)}-${n.slice(-4)}` : valor;
+}
+
 export function slugify(valor: string) {
   return (valor || "")
     .normalize("NFD")
@@ -148,6 +165,7 @@ export function montarMensagem(opts: {
 export const PAGINA_VITRINE = 24;
 export const PAGINA_PRODUTOS = 30;
 export const PAGINA_CATALOGO = 25;
+export const PAGINA_CLIENTES = 30;
 
 /** Imagem do catálogo personalizado. SVG fica de fora: aberto direto no navegador, roda script. */
 export const TIPOS_IMAGEM = ["image/png", "image/jpeg", "image/webp", "image/gif"];

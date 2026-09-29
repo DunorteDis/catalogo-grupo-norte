@@ -40,6 +40,22 @@ describe.skipIf(!process.env["PGHOST"])("banco", () => {
     expect(linhas).toHaveLength(0);
   });
 
+  // Mesmas colunas de listarClientes (src/server/clientes.ts).
+  test("busca de cliente acha pelo CNPJ digitado sem pontuação", async () => {
+    const [alvo] = await sql<{ codcli: number; cgcent: string }[]>`
+      select codcli, cgcent from system.pcclient where cgcent ~ '[./-]' limit 1`;
+    const achados = await sql<{ codcli: number }[]>`
+      select c.codcli from system.pcclient c where true ${condicaoBusca(
+        alvo!.cgcent.replace(/\D/g, ""),
+        [sql`c.cliente`, sql`c.fantasia`, sql`regexp_replace(c.cgcent, '[^0-9]', '', 'g')`],
+      )}`;
+    expect(achados.map((x) => x.codcli)).toContain(alvo!.codcli);
+  });
+
+  test("migração 005 aplicada", async () => {
+    await sql`select id, codcli, nome, celular from cliente_contatos limit 0`;
+  });
+
   test("migração 001 aplicada", async () => {
     await sql`select senha_hash from usuarios limit 0`;
     await sql`select id, tipo, dados from imagens limit 0`;

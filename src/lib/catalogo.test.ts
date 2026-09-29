@@ -3,8 +3,10 @@ import { expect, test } from "bun:test";
 
 import {
   CHAVE_FOTO,
+  formatarTelefone,
   fotoUrl,
   montarMensagem,
+  numeroNacional,
   palavrasBusca,
   parseCodigos,
   qtdComUnidade,
@@ -126,4 +128,17 @@ test("montarMensagem leva a unidade de cada item e totaliza por unidade", () => 
   expect(texto).toContain("Cód: 123 — Qtd: 3 unidades");
   // Caixa não se soma com unidade: 3 unidades e 7 caixas, nunca "10 itens".
   expect(texto).toContain("Total: 3 unidades e 7 caixas");
+});
+
+test("numeroNacional deixa DDD + número, do jeito que o ERP e o WhatsApp mandarem", () => {
+  expect(numeroNacional("92 99217-7381")).toBe("92992177381");
+  expect(numeroNacional("+55 (92) 99217-7381")).toBe("92992177381");
+  expect(numeroNacional("5592992177381")).toBe("92992177381");
+  expect(numeroNacional("092 3639-8889")).toBe("9236398889");
+  // Sem DDD não identifica ninguém.
+  expect(numeroNacional("99217-7381")).toBeNull();
+  expect(numeroNacional("")).toBeNull();
+  expect(formatarTelefone("92992177381")).toBe("(92) 99217-7381");
+  expect(formatarTelefone("9236398889")).toBe("(92) 3639-8889");
+  expect(formatarTelefone("ramal 12")).toBe("ramal 12");
 });

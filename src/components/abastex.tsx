@@ -9,7 +9,7 @@ import { ArrowDownRight, ArrowRight, ArrowUpRight, Search, type LucideIcon } fro
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 
-/** Cada módulo tem um tom: Visão geral brand · Distribuidoras info · Produtos warning · Catálogos rose · Pedidos accent · Usuários brand. */
+/** Cada módulo tem um tom: Visão geral brand · Distribuidoras info · Produtos warning · Catálogos rose · Clientes info · Pedidos accent · Usuários brand. */
 export type Tom = "brand" | "accent" | "warning" | "info" | "rose" | "danger";
 
 export function IconTile({
