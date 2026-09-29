@@ -61,6 +61,22 @@ describe.skipIf(!process.env["PGHOST"])("banco", () => {
     await sql`select id, tipo, dados from imagens limit 0`;
   });
 
+  test("migração 009 aplicada", async () => {
+    await sql`select id, distribuidora_id, marca_id, slug, ativo from catalogos limit 0`;
+    await sql`select catalogo_id from distribuidora_produtos limit 0`;
+    await sql`select catalogo_id from catalogo_secoes limit 0`;
+    await sql`select catalogo_id, distribuidora_id from pedidos limit 0`;
+    await sql`select distribuidora_id from usuarios limit 0`;
+  });
+
+  test("todo catálogo de marca da mesma dona tem marca diferente", async () => {
+    const [{ n }] = await sql<{ n: number }[]>`
+      select count(*)::int as n from (
+        select distribuidora_id, marca_id from catalogos where marca_id is not null
+         group by 1, 2 having count(*) > 1) x`;
+    expect(n).toBe(0);
+  });
+
   // Ver criarConta em src/server/acessos.ts: bug real achado na Task 9, corrigido também em
   // definirSenha (auth.ts) e usuario-teste.ts. Os dois testes abaixo documentam por que.
   test("sql.json mantém o merge jsonb como objeto", async () => {

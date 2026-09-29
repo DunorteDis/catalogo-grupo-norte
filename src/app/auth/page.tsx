@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { lerSessao } from "@/server/sessao";
+import { destinoDoAcesso } from "@/lib/sessao-token";
+import { acessoDe, lerSessao } from "@/server/sessao";
 import { FormLogin } from "./form-login";
 
 export const metadata: Metadata = {
@@ -17,8 +18,13 @@ export const metadata: Metadata = {
 };
 
 export default async function AuthPage() {
-  // Quem já tem sessão vai direto para a própria área.
+  // Quem tem sessão que ainda vale vai direto para a própria área. Sessão que não
+  // vale mais (conta apagada, distribuidora desligada) fica no formulário: o layout
+  // manda para cá pela mesma regra, então não há ciclo.
   const s = await lerSessao();
-  if (s) redirect(s.prov ? "/definir-senha" : s.admin ? "/admin" : "/vendedor");
+  if (s) {
+    const destino = destinoDoAcesso(await acessoDe(s.sub, s.dist), s.prov);
+    if (destino) redirect(destino);
+  }
   return <FormLogin />;
 }

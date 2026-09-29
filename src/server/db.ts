@@ -37,3 +37,19 @@ export function condicaoBusca(termo: string, colunas = [sql`p.nome`, sql`p.codig
     sql``,
   );
 }
+
+/**
+ * Colunas do catálogo como a tela e o cliente veem: o de marca herda nome, cor e
+ * logo da marca. Espera `catalogos c left join distribuidoras m on m.id = c.marca_id`.
+ */
+export function camposCatalogo() {
+  return sql`c.id, c.slug, c.ativo, c.marca_id, c.marca_id is null as personalizado,
+    coalesce(m.nome, c.nome) as nome, coalesce(m.cor, c.cor) as cor,
+    c.emoji, c.imagem_url, m.logo_url`;
+}
+
+/** No ar para o cliente: catálogo ligado, dona ativa e marca (se houver) ativa. Mesmos aliases. */
+export function catalogoNoAr() {
+  return sql`c.ativo and (m.id is null or m.ativo)
+    and exists (select 1 from distribuidoras dona where dona.id = c.distribuidora_id and dona.ativo)`;
+}

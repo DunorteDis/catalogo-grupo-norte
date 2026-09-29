@@ -17,6 +17,7 @@ import {
   Smile,
   Sparkles,
   Trash2,
+  Warehouse,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -26,6 +27,7 @@ import { chamar } from "@/lib/chamar";
 import { confirmar } from "@/lib/confirmar";
 import { copiarTexto } from "@/lib/copiar";
 import {
+  COR_PADRAO,
   fotoUrl,
   MAX_IMAGEM,
   PAGINA_CATALOGO as PAGINA,
@@ -37,6 +39,7 @@ import {
   ativarCatalogo,
   cadastroParaAdicionar,
   colarCodigos,
+  criarCatalogoDeMarca,
   criarSecao as criarSecaoAcao,
   desvincular,
   desvincularBusca,
@@ -46,6 +49,7 @@ import {
   itensDoCatalogo,
   jaNoCatalogo,
   listarCatalogos,
+  marcasDisponiveis,
   ordenarSecoes,
   renomearSecao as renomearSecaoAcao,
   salvarCatalogo as salvarCatalogoAcao,
@@ -90,8 +94,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-const COR_PADRAO = "#501ea1";
 
 /**
  * Emojis por assunto, pensados para o que uma distribuidora vende e comemora.
@@ -207,6 +209,9 @@ export default function CatalogoPage() {
   const [imagemNova, setImagemNova] = useState<File | null>(null);
   const [cor, setCor] = useState(COR_PADRAO);
   const [copiarDe, setCopiarDe] = useState("");
+  // Novo catálogo com a marca de uma distribuidora: só escolher qual.
+  const [marcaAberta, setMarcaAberta] = useState(false);
+  const [marcaId, setMarcaId] = useState("");
   const inputImagem = useRef<HTMLInputElement>(null);
   // ponytail: o blob da prévia não é revogado — é uma imagem por vez, num diálogo do admin.
   const previaImagem = useMemo(
@@ -233,6 +238,12 @@ export default function CatalogoPage() {
   const catalogosQuery = useQuery({
     queryKey: ["catalogos"],
     queryFn: () => chamar(listarCatalogos()),
+  });
+
+  const marcasQuery = useQuery({
+    queryKey: ["catalogo-marcas"],
+    enabled: marcaAberta,
+    queryFn: () => chamar(marcasDisponiveis()),
   });
 
   const catalogos = catalogosQuery.data ?? [];
@@ -371,6 +382,19 @@ export default function CatalogoPage() {
     onError: (e: Error) => toast.error(mensagemErro(e)),
   });
 
+  const criarDeMarca = useMutation({
+    mutationFn: () => chamar(criarCatalogoDeMarca(marcaId)),
+    onSuccess: (novo) => {
+      toast.success(`Catálogo ${novo.nome} criado. Agora é só adicionar os produtos.`);
+      setMarcaAberta(false);
+      qc.invalidateQueries({ queryKey: ["catalogos"] });
+      qc.invalidateQueries({ queryKey: ["catalogo-marcas"] });
+      qc.invalidateQueries({ queryKey: ["catalogos-publicos"] });
+      setCatalogoId(novo.id);
+    },
+    onError: (e: Error) => toast.error(mensagemErro(e)),
+  });
+
   const colar = useMutation({
     mutationFn: () => chamar(colarCodigos(catalogoId, textoCodigos, secaoId || null)),
     onSuccess: ({ total, repetidos, faltando }) => {
@@ -497,9 +521,19 @@ export default function CatalogoPage() {
         icon={BookOpen}
         tone="rose"
         title="Catálogos"
-        subtitle="O que cada distribuidora mostra ao cliente — e os personalizados, que não pertencem a nenhuma delas e viram links extras para os vendedores."
+        subtitle="Os catálogos desta distribuidora: os de marca (Dunorte, Elonorte...) e os personalizados. Cada um vira um link no painel dos vendedores dela."
         actions={
           <>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setMarcaId("");
+                setMarcaAberta(true);
+              }}
+            >
+              <Warehouse />
+              Novo de distribuidora
+            </Button>
             <Button variant="outline" onClick={() => abrirFormCatalogo()}>
               <Sparkles />
               Novo personalizado
@@ -526,7 +560,7 @@ export default function CatalogoPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              <SelectLabel>Distribuidoras</SelectLabel>
+              <SelectLabel>De distribuidora</SelectLabel>
               {distribuidoras.map((d) => (
                 <SelectItem key={d.id} value={d.id}>
                   <span className="flex items-center gap-2">
@@ -565,7 +599,7 @@ export default function CatalogoPage() {
           <Loader2 className="size-4 animate-spin text-ink-subtle" aria-label="Carregando" />
         )}
 
-        {catalogo?.personalizado && (
+        {catalogo && (
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <label className="mr-2 inline-flex items-center gap-2 text-[13px] font-semibold">
               {catalogo.ativo ? "Ativo" : "Inativo"}
@@ -575,15 +609,18 @@ export default function CatalogoPage() {
                 disabled={alternarAtivo.isPending}
               />
             </label>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={ocupado}
-              onClick={() => abrirFormCatalogo(catalogo)}
-            >
-              <Pencil />
-              Editar
-            </Button>
+            {/* O de marca não se edita aqui: nome, logo e cor são os da distribuidora. */}
+            {catalogo.personalizado && (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={ocupado}
+                onClick={() => abrirFormCatalogo(catalogo)}
+              >
+                <Pencil />
+                Editar
+              </Button>
+            )}
             <Button
               variant="danger"
               size="sm"
@@ -608,7 +645,7 @@ export default function CatalogoPage() {
 
       {!catalogoId ? (
         <p className="rounded-2xl border border-dashed border-line-strong p-12 text-center text-sm text-ink-muted">
-          Escolha um catálogo para montá-lo — ou crie um personalizado.
+          Escolha um catálogo para montá-lo — ou crie um novo.
         </p>
       ) : (
         <>
@@ -858,6 +895,51 @@ export default function CatalogoPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={marcaAberta} onOpenChange={setMarcaAberta}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Novo catálogo de distribuidora</DialogTitle>
+            <DialogDescription>
+              Usa nome, logo e cor da distribuidora escolhida. Os produtos você escolhe depois, e
+              são só deste catálogo.
+            </DialogDescription>
+          </DialogHeader>
+          {marcasQuery.data && marcasQuery.data.length === 0 ? (
+            <p className="text-sm text-ink-muted">
+              Esta distribuidora já tem catálogo de todas as marcas ativas.
+            </p>
+          ) : (
+            <Select value={marcaId} onValueChange={setMarcaId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Escolha a distribuidora" />
+              </SelectTrigger>
+              <SelectContent>
+                {(marcasQuery.data ?? []).map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    <span className="flex items-center gap-2">
+                      <i className="size-2.5 shrink-0 rounded-full" style={{ background: m.cor }} />
+                      {m.nome}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMarcaAberta(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="accent"
+              disabled={!marcaId || criarDeMarca.isPending}
+              onClick={() => criarDeMarca.mutate()}
+            >
+              {criarDeMarca.isPending ? "Criando..." : "Criar catálogo"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

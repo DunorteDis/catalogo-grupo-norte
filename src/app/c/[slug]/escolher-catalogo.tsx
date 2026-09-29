@@ -30,7 +30,7 @@ export function EscolherCatalogo() {
   const { slug } = useParams<{ slug: string }>();
 
   const vendedorQuery = useVendedorPublico(slug);
-  const catalogosQuery = useCatalogosPublicos();
+  const catalogosQuery = useCatalogosPublicos(slug);
 
   const catalogos = catalogosQuery.data ?? [];
   const distribuidoras = catalogos.filter((c) => !c.personalizado);

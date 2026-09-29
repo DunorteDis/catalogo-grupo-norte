@@ -1,6 +1,7 @@
 "use server";
 
 import bcrypt from "bcryptjs";
+import { z } from "zod";
 
 import {
   CHAVE_SENHA_PROVISORIA,
@@ -9,6 +10,7 @@ import {
   senhaFraca,
   usuarioDeEmail,
 } from "@/lib/acessos";
+import { areaDe, type Sessao } from "@/lib/sessao-token";
 import { acao, Recusa } from "@/server/acao";
 import { sql } from "@/server/db";
 import {
@@ -17,7 +19,14 @@ import {
   MAX_ERROS_POR_USUARIO,
   registrarErroLogin,
 } from "@/server/freio";
-import { apagarSessao, gravarSessao, ipDaRequisicao, lerSessao } from "@/server/sessao";
+import {
+  acessoDe,
+  apagarSessao,
+  exigirTI,
+  gravarSessao,
+  ipDaRequisicao,
+  lerSessao,
+} from "@/server/sessao";
 
 // Usuário inexistente também paga um bcrypt: o tempo de resposta não pode
 // entregar quais usuários existem.
@@ -28,12 +37,7 @@ type Conta = {
   email: string;
   senha_hash: string | null;
   meta: Record<string, unknown> | null;
-  admin: boolean;
 };
-
-function areaDe(s: { admin: boolean; prov: boolean }) {
-  return s.prov ? "/definir-senha" : s.admin ? "/admin" : "/vendedor";
-}
 
 export const entrar = acao(async (usuario: string, senha: string) => {
   const usuarioStr = String(usuario ?? "");
@@ -62,8 +66,7 @@ export const entrar = acao(async (usuario: string, senha: string) => {
   registrarErroLogin(email, agora);
 
   const [conta] = await sql<Conta[]>`
-    select u.id, u.email, u.senha_hash, u.raw_user_meta_data as meta,
-           exists (select 1 from user_roles r where r.user_id = u.id and r.role = 'admin') as admin
+    select u.id, u.email, u.senha_hash, u.raw_user_meta_data as meta
       from usuarios u
      where lower(u.email) = ${email}`;
   const confere = await bcrypt.compare(senhaStr, conta?.senha_hash ?? HASH_FALSO);
@@ -73,11 +76,20 @@ export const entrar = acao(async (usuario: string, senha: string) => {
 
   limparErrosLogin(chaveIp);
   limparErrosLogin(email);
+  const acesso = await acessoDe(conta.id, null);
+  if (!acesso?.papel) throw new Recusa("Seu acesso está sem papel. Fale com o TI.");
+  if (acesso.papel !== "ti") {
+    if (!acesso.dist)
+      throw new Recusa("Seu acesso não está ligado a uma distribuidora. Fale com o TI.");
+    if (!acesso.ativa) throw new Recusa("Sua distribuidora está desativada. Fale com o TI.");
+  }
   await sql`update usuarios set last_sign_in_at = now() where id = ${conta.id}`;
-  const sessao = {
+  const sessao: Sessao = {
     sub: conta.id,
     email: conta.email,
-    admin: conta.admin,
+    papel: acesso.papel,
+    // O TI escolhe depois, na tela de escolha.
+    dist: acesso.papel === "ti" ? null : acesso.dist,
     prov: senhaEhProvisoria(conta.meta),
   };
   await gravarSessao(sessao);
@@ -108,4 +120,26 @@ export const definirSenha = acao(async (senha: string) => {
   const sessao = { ...s, prov: false };
   await gravarSessao(sessao);
   return areaDe(sessao);
+});
+
+/** Distribuidoras em que o TI pode entrar. */
+export const distribuidorasParaEscolher = acao(async () => {
+  await exigirTI();
+  return [
+    ...(await sql<
+      { id: string; nome: string; slug: string; cor: string; logo_url: string | null }[]
+    >`
+      select id, nome, slug, cor, logo_url from distribuidoras where ativo order by nome`),
+  ];
+});
+
+/** O TI entra numa distribuidora: vale para todas as telas até trocar de novo. */
+export const escolherDistribuidora = acao(async (id: string) => {
+  const s = await exigirTI();
+  const dist = z.string().uuid().parse(id);
+  const [d] = await sql`select 1 from distribuidoras where id = ${dist} and ativo`;
+  if (!d) throw new Recusa("Essa distribuidora não está disponível.");
+  // exigirTI já barrou senha provisória: prov é false aqui.
+  await gravarSessao({ sub: s.sub, email: s.email, papel: "ti", dist, prov: false });
+  return "/admin";
 });

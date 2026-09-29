@@ -151,9 +151,11 @@ export default function UsuariosPage() {
     error: erroLista,
   } = useQuery({ queryKey: CHAVE, queryFn: () => chamar(listarAcessos()) });
 
-  // Mesma lista (e mesmo cache) do painel do vendedor: distribuidoras e
-  // catálogos personalizados, para o admin copiar qualquer link.
-  const { data: catalogos } = useCatalogosPublicos();
+  // Mesma lista (e mesmo cache) do painel do vendedor, para o admin copiar
+  // qualquer link. Todo vendedor daqui é da mesma distribuidora, então os
+  // catálogos no ar de um vendedor ativo valem para todos.
+  const umVendedorAtivo = linhas?.find((l) => l.vendedor?.ativo)?.vendedor?.slug;
+  const { data: catalogos } = useCatalogosPublicos(umVendedorAtivo);
 
   const criar = useMutation({
     mutationFn: () => chamar(criarAcesso({ tipo, nome, usuario, email: email.trim(), whatsapp })),

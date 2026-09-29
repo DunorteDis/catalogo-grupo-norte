@@ -72,13 +72,31 @@ celular, este gravado só com dígitos,
 DDD + número, sem o 55 — é por ele que se vai saber de que cliente é quem chama o
 vendedor no WhatsApp.
 
+### Distribuidoras e catálogos
+
+`crm.distribuidoras` é o cadastro do TI: quem usa o sistema (Abastex, DunoPro...) e as
+marcas de catálogo (Dunorte, Elonorte...) — uma lista só. `crm.catalogos` guarda os
+catálogos: cada um tem uma dona (`distribuidora_id`) e, se for de marca, a marca
+(`marca_id`), de onde vêm nome, logo e cor; sem marca é o personalizado. Produtos do
+catálogo ficam em `distribuidora_produtos` e seções em `catalogo_secoes`, as duas por
+`catalogo_id`. Um catálogo está no ar se estiver ligado, a dona ativa e a marca (se
+houver) ativa. A separação veio na `db/migrations/009_login_por_distribuidora.sql`,
+que guardou a foto de antes em `crm_backup_20260929` (volta: `db/restaurar-backup-20260929.sql`).
+Para ensaiar uma migração com os dados reais sem mudar nada:
+`bun scripts/aplicar-sql.ts --ensaio <arquivo>`.
+
 ## Login
 
-Usuários ficam em `crm.usuarios` (senha bcrypt em `senha_hash`), papéis em
-`crm.user_roles`. Quem cria acesso é o admin, na tela Usuários. As Server Actions em
-`src/server/` conferem a sessão e o papel antes de tocar no banco — exceto as de
-`src/server/publico.ts`, que são o catálogo público (link do vendedor) e são
-propositalmente anônimas, sem sessão.
+Usuários ficam em `crm.usuarios` (senha bcrypt em `senha_hash`, distribuidora em
+`distribuidora_id`), papéis em `crm.user_roles`: `ti`, `admin` e `vendedor`. O login é
+só usuário e senha; a distribuidora vem do cadastro. Admin e vendedor só veem os
+usuários, vendedores, catálogos e pedidos da distribuidora deles; o TI (sem
+distribuidora, dado só pelo banco) escolhe em qual entrar e é o único com a tela
+Distribuidoras. Produtos e clientes são compartilhados. Quem cria acesso é o admin, na
+tela Usuários, e a pessoa nasce na distribuidora dele. As Server Actions em
+`src/server/` conferem sessão, papel e distribuidora no banco antes de tocar em qualquer
+dado — exceto as de `src/server/publico.ts`, que são o catálogo público (link do
+vendedor) e são propositalmente anônimas, sem sessão.
 
 ## Produção
 

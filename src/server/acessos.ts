@@ -43,7 +43,13 @@ type Vendedor = {
  */
 async function criarConta(
   tx: TransactionSql,
-  opts: { nome: string; usuario?: string | undefined; emailContato?: string | undefined },
+  opts: {
+    nome: string;
+    usuario?: string | undefined;
+    emailContato?: string | undefined;
+    /** A conta nasce na distribuidora de quem a criou. */
+    distribuidoraId: string;
+  },
 ) {
   const escolhido = opts.usuario ? normalizarUsuario(opts.usuario) : null;
   const base = escolhido ?? usuarioDeNome(opts.nome);
@@ -66,8 +72,9 @@ async function criarConta(
     // Meta é Record<string, unknown>, mas os valores aqui são sempre JSON-serializáveis
     // (string/boolean); o cast só destrava o tipo genérico do sql.json.
     const [conta] = await tx<{ id: string }[]>`
-      insert into usuarios (email, raw_user_meta_data, senha_hash, email_confirmed_at)
-      values (${emailDeUsuario(usuario)}, ${tx.json(meta as unknown as JSONValue)}, ${hash}, now())
+      insert into usuarios (email, raw_user_meta_data, senha_hash, email_confirmed_at, distribuidora_id)
+      values (${emailDeUsuario(usuario)}, ${tx.json(meta as unknown as JSONValue)}, ${hash}, now(),
+              ${opts.distribuidoraId})
       on conflict do nothing
       returning id`;
     if (conta) return { id: conta.id, usuario, senha };
@@ -77,17 +84,19 @@ async function criarConta(
   throw new Recusa("Não foi possível gerar um usuário livre para esse nome.");
 }
 
+/** Só as contas e vendedores da distribuidora em uso. O TI (sem distribuidora) não aparece. */
 export const listarAcessos = acao(async () => {
-  await exigirAdmin();
+  const s = await exigirAdmin();
   const [contas, vendedores] = await Promise.all([
     sql<
       { id: string; email: string | null; meta: Meta | null; created_at: string; admin: boolean }[]
     >`
       select u.id, u.email, u.raw_user_meta_data as meta, u.created_at,
              exists (select 1 from user_roles r where r.user_id = u.id and r.role = 'admin') as admin
-        from usuarios u order by u.created_at`,
+        from usuarios u where u.distribuidora_id = ${s.dist} order by u.created_at`,
     sql<Vendedor[]>`
-      select id, nome, slug, whatsapp, ativo, user_id, created_at from vendedores order by nome`,
+      select id, nome, slug, whatsapp, ativo, user_id, created_at from vendedores
+       where distribuidora_id = ${s.dist} order by nome`,
   ]);
   const porUsuario = new Map(
     vendedores.flatMap((v) => (v.user_id ? [[v.user_id, v] as const] : [])),
@@ -137,7 +146,7 @@ const novoAcesso = z.object({
 });
 
 export const criarAcesso = acao(async (entrada: z.input<typeof novoAcesso>) => {
-  await exigirAdmin();
+  const s = await exigirAdmin();
   const data = novoAcesso.parse(entrada);
   const tel = somenteDigitos(data.whatsapp ?? "");
   if (data.tipo === "vendedor" && tel.length < 10)
@@ -149,6 +158,7 @@ export const criarAcesso = acao(async (entrada: z.input<typeof novoAcesso>) => {
       nome: data.nome,
       usuario: data.usuario,
       emailContato: data.email || undefined,
+      distribuidoraId: s.dist,
     });
     await tx`
       insert into user_roles (user_id, role) values (${conta.id}, ${data.tipo})
@@ -156,8 +166,8 @@ export const criarAcesso = acao(async (entrada: z.input<typeof novoAcesso>) => {
     if (data.tipo === "vendedor") {
       const slug = `${slugify(data.nome)}-${sortear(ALFABETO_SENHA, 4).join("")}`;
       await tx`
-        insert into vendedores (nome, slug, whatsapp, user_id)
-        values (${data.nome.trim()}, ${slug}, ${tel}, ${conta.id})`;
+        insert into vendedores (nome, slug, whatsapp, user_id, distribuidora_id)
+        values (${data.nome.trim()}, ${slug}, ${tel}, ${conta.id}, ${s.dist})`;
     }
     return { nome: data.nome.trim(), usuario: conta.usuario, senha: conta.senha };
   });
@@ -165,14 +175,15 @@ export const criarAcesso = acao(async (entrada: z.input<typeof novoAcesso>) => {
 
 /** Devolve acesso a um vendedor que ficou sem user_id (cadastro antigo). */
 export const criarAcessoVendedor = acao(async (vendedorId: string) => {
-  await exigirAdmin();
+  const s = await exigirAdmin();
   const id = z.string().uuid().parse(vendedorId);
   return sql.begin(async (tx) => {
     const [vendedor] = await tx<{ nome: string; user_id: string | null }[]>`
-      select nome, user_id from vendedores where id = ${id} for update`;
+      select nome, user_id from vendedores
+       where id = ${id} and distribuidora_id = ${s.dist} for update`;
     if (!vendedor) throw new Recusa("Vendedor não encontrado.");
     if (vendedor.user_id) throw new Recusa("Esse vendedor já tem acesso ao sistema.");
-    const conta = await criarConta(tx, { nome: vendedor.nome });
+    const conta = await criarConta(tx, { nome: vendedor.nome, distribuidoraId: s.dist });
     await tx`
       insert into user_roles (user_id, role) values (${conta.id}, 'vendedor')
       on conflict (user_id, role) do nothing`;
@@ -182,7 +193,7 @@ export const criarAcessoVendedor = acao(async (vendedorId: string) => {
 });
 
 export const resetarSenha = acao(async (usuarioId: string) => {
-  await exigirAdmin();
+  const s = await exigirAdmin();
   const id = z.string().uuid().parse(usuarioId);
   const senha = gerarSenha();
   // Volta a ser provisória: o admin viu essa senha e ela passou pelo WhatsApp.
@@ -191,7 +202,7 @@ export const resetarSenha = acao(async (usuarioId: string) => {
        set senha_hash = ${await bcrypt.hash(senha, 10)},
            raw_user_meta_data = coalesce(raw_user_meta_data, '{}'::jsonb) || '{"senha_provisoria": true}'::jsonb,
            updated_at = now()
-     where id = ${id}
+     where id = ${id} and distribuidora_id = ${s.dist}
     returning email, raw_user_meta_data as meta`;
   if (!conta) throw new Recusa("Usuário não encontrado.");
   const meta = conta.meta ?? {};
@@ -218,18 +229,19 @@ export const excluirAcesso = acao(async (entrada: z.input<typeof alvo>) => {
     const vendedorId = data.vendedorId;
     return sql.begin(async (tx) => {
       const [vendedor] = await tx<{ user_id: string | null }[]>`
-        select user_id from vendedores where id = ${vendedorId}`;
-      if (vendedor?.user_id === s.sub)
+        select user_id from vendedores where id = ${vendedorId} and distribuidora_id = ${s.dist}`;
+      if (!vendedor) throw new Recusa("Vendedor não encontrado.");
+      if (vendedor.user_id === s.sub)
         throw new Recusa("Você não pode excluir a sua própria conta.");
       await tx`delete from vendedores where id = ${vendedorId}`;
-      if (vendedor?.user_id) await tx`delete from usuarios where id = ${vendedor.user_id}`;
+      if (vendedor.user_id) await tx`delete from usuarios where id = ${vendedor.user_id}`;
       return { ok: true as const };
     });
   }
 
   if (!data.usuarioId) throw new Recusa("Nada para excluir.");
   // user_roles sai junto pelo ON DELETE CASCADE.
-  await sql`delete from usuarios where id = ${data.usuarioId}`;
+  await sql`delete from usuarios where id = ${data.usuarioId} and distribuidora_id = ${s.dist}`;
   return { ok: true as const };
 });
 
@@ -247,7 +259,7 @@ const edicao = z.object({
  * do vendedor também não muda — ele está em links de catálogo já enviados a clientes.
  */
 export const atualizarAcesso = acao(async (entrada: z.input<typeof edicao>) => {
-  await exigirAdmin();
+  const s = await exigirAdmin();
   const data = edicao.parse(entrada);
   if (!data.usuarioId && !data.vendedorId) throw new Recusa("Nada para editar.");
   const nome = data.nome.trim();
@@ -262,13 +274,13 @@ export const atualizarAcesso = acao(async (entrada: z.input<typeof edicao>) => {
       update usuarios
          set raw_user_meta_data = coalesce(raw_user_meta_data, '{}'::jsonb) || ${sql.json(patch)},
              updated_at = now()
-       where id = ${data.usuarioId}`;
+       where id = ${data.usuarioId} and distribuidora_id = ${s.dist}`;
   }
   if (data.vendedorId) {
     // WhatsApp em branco mantém o atual.
     await sql`
       update vendedores set nome = ${nome}, whatsapp = coalesce(${tel || null}, whatsapp)
-       where id = ${data.vendedorId}`;
+       where id = ${data.vendedorId} and distribuidora_id = ${s.dist}`;
   }
   return { ok: true as const };
 });

@@ -20,6 +20,7 @@ import {
 
 import { chamar } from "@/lib/chamar";
 import { usuarioDeEmail } from "@/lib/acessos";
+import type { Papel } from "@/lib/sessao-token";
 import { cn } from "@/lib/utils";
 import logoEscuro from "@/assets/abastex/abastex-logo-dark.png";
 import simboloEscuro from "@/assets/abastex/abastex-symbol-dark.png";
@@ -42,7 +43,7 @@ import {
 } from "@/components/ui/sidebar";
 import { sair as encerrarSessao } from "@/server/auth";
 
-type Item = { to: string; label: string; icon: typeof Users; exact?: boolean };
+type Item = { to: string; label: string; icon: typeof Users; exact?: boolean; soTI?: boolean };
 type Grupo = { titulo: string; itens: Item[] };
 
 // Ícones do mapa de navegação do DS Abastex.
@@ -51,7 +52,7 @@ const MENU_ADMIN: Grupo[] = [
     titulo: "Gestão",
     itens: [
       { to: "/admin", label: "Visão geral", icon: LayoutDashboard, exact: true },
-      { to: "/admin/distribuidoras", label: "Distribuidoras", icon: Warehouse },
+      { to: "/admin/distribuidoras", label: "Distribuidoras", icon: Warehouse, soTI: true },
       { to: "/admin/produtos", label: "Produtos", icon: Package },
       { to: "/admin/catalogo", label: "Catálogos", icon: BookOpen },
       { to: "/admin/clientes", label: "Clientes", icon: Store },
@@ -86,11 +87,14 @@ function useTemaEscuro() {
 
 export function AppShell({
   email,
-  admin,
+  papel,
+  distribuidora,
   children,
 }: {
   email: string;
-  admin: boolean;
+  papel: Papel;
+  /** Nome da distribuidora em uso. */
+  distribuidora: string | null;
   children: ReactNode;
 }) {
   const router = useRouter();
@@ -106,7 +110,11 @@ export function AppShell({
   // estado de carregamento por pagina. Nenhuma pagina admin tinha um.
   const buscando = useIsFetching() > 0;
 
-  const grupos = admin ? MENU_ADMIN : MENU_VENDEDOR;
+  const admin = papel !== "vendedor";
+  // Distribuidoras é só do TI; grupo que ficar vazio some.
+  const grupos = (admin ? MENU_ADMIN : MENU_VENDEDOR)
+    .map((g) => ({ ...g, itens: g.itens.filter((i) => !i.soTI || papel === "ti") }))
+    .filter((g) => g.itens.length > 0);
   const usuario = usuarioDeEmail(email);
 
   async function sair() {
@@ -133,6 +141,26 @@ export function AppShell({
         </SidebarHeader>
 
         <SidebarContent className="gap-5 py-4">
+          {distribuidora && (
+            <div className="mx-3 flex items-center justify-between gap-2 rounded-md bg-sidebar-accent px-3 py-2 group-data-[collapsible=icon]:hidden">
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-sidebar-muted">
+                  Distribuidora
+                </p>
+                <p className="truncate text-[13px] font-semibold text-sidebar-foreground">
+                  {distribuidora}
+                </p>
+              </div>
+              {papel === "ti" && (
+                <Link
+                  href="/escolher-distribuidora"
+                  className="shrink-0 text-xs font-semibold text-sidebar-marker hover:underline"
+                >
+                  Trocar
+                </Link>
+              )}
+            </div>
+          )}
           {grupos.map((g) => (
             <SidebarGroup key={g.titulo} className="px-3 py-0">
               <SidebarGroupLabel className="h-auto px-3 pb-2 text-[11px] font-semibold uppercase leading-4 tracking-[0.12em] text-sidebar-muted">
@@ -184,7 +212,7 @@ export function AppShell({
               {usuario}
             </strong>
             <span className="text-xs text-sidebar-muted">
-              {admin ? "Administrador" : "Vendedor"}
+              {papel === "ti" ? "TI" : admin ? "Administrador" : "Vendedor"}
             </span>
           </div>
           <button

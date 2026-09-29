@@ -6,11 +6,9 @@ import mixnorte from "@/assets/logos/mixnorte.png";
 import rotanorte from "@/assets/logos/rotanorte.png";
 import supergiro from "@/assets/logos/supergiro.png";
 
-// ponytail: logo por slug, resolvida em build. A coluna distribuidoras.logo_url
-// apontava para assets internos do Lovable (/__l5e/...) e nunca foi editavel pelo
-// app, entao trocar uma logo sempre exigiu deploy de qualquer forma. Se um dia a
-// logo virar conteudo que o admin edita, ai sim volta pro banco (como a imagem
-// do catalogo, ver src/server/catalogos.ts).
+// ponytail: logo por slug, resolvida em build, das distribuidoras que já existiam
+// antes do cadastro pela tela. Distribuidora nova traz o logo no banco
+// (distribuidoras.logo_url, /imagens/<id>); quem está aqui tem preferência.
 export const LOGOS: Record<string, string | undefined> = {
   dunorte: dunorte.src,
   elonorte: elonorte.src,

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { usuarioDeEmail } from "@/lib/acessos";
+import { areaDe } from "@/lib/sessao-token";
 import { lerSessao } from "@/server/sessao";
 import { FormSenha } from "./form-senha";
 
@@ -14,6 +15,6 @@ export default async function DefinirSenhaPage() {
   const s = await lerSessao();
   if (!s) redirect("/auth");
   // Quem já trocou não volta para cá.
-  if (!s.prov) redirect(s.admin ? "/admin" : "/vendedor");
+  if (!s.prov) redirect(areaDe(s));
   return <FormSenha usuario={usuarioDeEmail(s.email)} />;
 }

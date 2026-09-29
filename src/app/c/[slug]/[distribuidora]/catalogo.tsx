@@ -266,8 +266,8 @@ export function Catalogo() {
   const vendedorQuery = useVendedorPublico(slug);
 
   const distribuidoraQuery = useQuery({
-    queryKey: ["distribuidora", distribuidoraSlug],
-    queryFn: () => chamar(vitrine(distribuidoraSlug)),
+    queryKey: ["distribuidora", slug, distribuidoraSlug],
+    queryFn: () => chamar(vitrine(slug, distribuidoraSlug)),
   });
 
   const vendedor = vendedorQuery.data;
@@ -303,7 +303,7 @@ export function Catalogo() {
     queryFn: ({ pageParam }) =>
       chamar(
         produtosDaVitrine({
-          distribuidoraId: distribuidora!.id,
+          catalogoId: distribuidora!.id,
           secaoId,
           termo,
           pagina: pageParam,
@@ -352,7 +352,7 @@ export function Catalogo() {
       await chamar(
         criarPedido({
           vendedorId: vendedor.id,
-          distribuidoraId: distribuidora.id,
+          catalogoId: distribuidora.id,
           clienteNome: cliente,
           observacao,
           itens: itens.map((i) => ({
@@ -417,6 +417,7 @@ export function Catalogo() {
               cor,
               emoji: distribuidora.emoji,
               imagem_url: distribuidora.imagem_url,
+              logo_url: distribuidora.logo_url,
             }}
             logoClassName="h-10 max-w-[150px]"
             className="text-lg"

@@ -6,7 +6,7 @@ import { z } from "zod";
 import type { CatalogoPublico } from "@/hooks/use-catalogos-publicos";
 import { PAGINA_VITRINE, UNIDADES, type Unidade } from "@/lib/catalogo";
 import { acao, Recusa } from "@/server/acao";
-import { condicaoBusca, sql } from "@/server/db";
+import { camposCatalogo, catalogoNoAr, condicaoBusca, sql } from "@/server/db";
 import { ipDaRequisicao } from "@/server/sessao";
 
 // Tudo aqui é público (cliente sem login): nada de lista de vendedores.
@@ -14,31 +14,39 @@ import { ipDaRequisicao } from "@/server/sessao";
 /** UM vendedor, o do slug do link. Nome e WhatsApp da equipe inteira não são públicos. */
 export const vendedorPorSlug = acao(async (slug: string) => {
   const [v] = await sql<{ id: string; nome: string; whatsapp: string }[]>`
-    select id, nome, whatsapp from vendedores where slug = ${String(slug)} and ativo`;
+    select v.id, v.nome, v.whatsapp
+      from vendedores v join distribuidoras d on d.id = v.distribuidora_id
+     where v.slug = ${String(slug)} and v.ativo and d.ativo`;
   return v ?? null;
 });
 
-export const catalogosPublicos = acao(async () => [
+/** Catálogos no ar da distribuidora do vendedor do link: o de outra dona nunca aparece. */
+export const catalogosDoVendedor = acao(async (vendedorSlug: string) => [
   ...(await sql<CatalogoPublico[]>`
-    select id, nome, slug, cor, emoji, imagem_url, personalizado
-      from distribuidoras where ativo order by nome`),
+    select ${camposCatalogo()}
+      from vendedores v
+      join catalogos c on c.distribuidora_id = v.distribuidora_id
+      left join distribuidoras m on m.id = c.marca_id
+     where v.slug = ${String(vendedorSlug)} and v.ativo and ${catalogoNoAr()}
+     order by nome`),
 ]);
 
 /** Cabeçalho do catálogo e as abas numa ida só: as actions do client rodam uma por vez. */
-export const vitrine = acao(async (distribuidoraSlug: string) => {
-  const [d] = await sql<
-    { id: string; nome: string; cor: string; emoji: string | null; imagem_url: string | null }[]
-  >`
-    select id, nome, cor, emoji, imagem_url
-      from distribuidoras where slug = ${String(distribuidoraSlug)} and ativo`;
-  if (!d) return null;
+export const vitrine = acao(async (vendedorSlug: string, catalogoSlug: string) => {
+  const [c] = await sql<CatalogoPublico[]>`
+    select ${camposCatalogo()}
+      from vendedores v
+      join catalogos c on c.distribuidora_id = v.distribuidora_id and c.slug = ${String(catalogoSlug)}
+      left join distribuidoras m on m.id = c.marca_id
+     where v.slug = ${String(vendedorSlug)} and v.ativo and ${catalogoNoAr()}`;
+  if (!c) return null;
   const secoes = await sql<{ id: string; nome: string }[]>`
-    select id, nome from catalogo_secoes where distribuidora_id = ${d.id} order by ordem, nome`;
-  return { ...d, secoes: [...secoes] };
+    select id, nome from catalogo_secoes where catalogo_id = ${c.id} order by ordem, nome`;
+  return { ...c, secoes: [...secoes] };
 });
 
 const filtroVitrine = z.object({
-  distribuidoraId: z.string().uuid(),
+  catalogoId: z.string().uuid(),
   secaoId: z.string().uuid().or(z.literal("")),
   termo: z.string().max(200),
   pagina: z.number().int().min(0).max(10_000),
@@ -51,8 +59,10 @@ export const produtosDaVitrine = acao(async (entrada: z.input<typeof filtroVitri
       select p.id, p.codigo, p.nome, p.arquivo
         from produtos p
         join distribuidora_produtos dp on dp.produto_id = p.id
-       where dp.distribuidora_id = ${f.distribuidoraId}
+       where dp.catalogo_id = ${f.catalogoId}
          and p.ativo
+         and exists (select 1 from catalogos c left join distribuidoras m on m.id = c.marca_id
+                      where c.id = ${f.catalogoId} and ${catalogoNoAr()})
          ${f.secaoId ? sql`and dp.secao_id = ${f.secaoId}` : sql``}
          ${condicaoBusca(f.termo)}
        -- O ERP repete nome: sem desempate a rolagem repete um card e perde outro.
@@ -64,7 +74,7 @@ export const produtosDaVitrine = acao(async (entrada: z.input<typeof filtroVitri
 // Os limites são os CHECKs do banco: campo gigante não entra.
 const pedidoSchema = z.object({
   vendedorId: z.string().uuid(),
-  distribuidoraId: z.string().uuid(),
+  catalogoId: z.string().uuid(),
   clienteNome: z.string().trim().max(120, "Nome com no máximo 120 caracteres."),
   observacao: z.string().trim().max(500, "Observação com no máximo 500 caracteres."),
   itens: z
@@ -87,6 +97,18 @@ export const criarPedido = acao(async (entrada: z.input<typeof pedidoSchema>) =>
   // virar cadastro de endereço de ninguém. Sem IP (dev local), sem freio.
   const origem = ip ? createHash("md5").update(ip).digest("hex") : null;
 
+  // O catálogo tem que ser da distribuidora do vendedor e estar no ar: uma página
+  // aberta antes de o catálogo sair do ar não grava pedido. Fora da transação: o
+  // fragmento de `sql` não entra numa query de `tx`.
+  const [dona] = await sql<{ distribuidora_id: string }[]>`
+    select c.distribuidora_id
+      from vendedores v
+      join catalogos c on c.id = ${p.catalogoId} and c.distribuidora_id = v.distribuidora_id
+      left join distribuidoras m on m.id = c.marca_id
+     where v.id = ${p.vendedorId} and v.ativo and ${catalogoNoAr()}`;
+  if (!dona)
+    throw new Recusa("Este catálogo não está mais disponível. Peça um novo link ao vendedor.");
+
   return sql.begin(async (tx) => {
     if (origem) {
       // count(*) sem GROUP BY sempre devolve uma linha; noUncheckedIndexedAccess
@@ -99,8 +121,9 @@ export const criarPedido = acao(async (entrada: z.input<typeof pedidoSchema>) =>
     }
     // total_itens é recalculado pelo trigger de pedido_itens; aqui só passa o CHECK > 0.
     const [pedido] = await tx<{ id: string }[]>`
-      insert into pedidos (vendedor_id, distribuidora_id, cliente_nome, observacao, total_itens, origem_hash)
-      values (${p.vendedorId}, ${p.distribuidoraId}, ${p.clienteNome || null},
+      insert into pedidos (vendedor_id, catalogo_id, distribuidora_id, cliente_nome, observacao,
+                           total_itens, origem_hash)
+      values (${p.vendedorId}, ${p.catalogoId}, ${dona.distribuidora_id}, ${p.clienteNome || null},
               ${p.observacao || null}, ${p.itens.reduce((s, i) => s + i.quantidade, 0)}, ${origem})
       returning id`;
     await tx`

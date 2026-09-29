@@ -172,6 +172,9 @@ export function montarMensagem(opts: {
   return linhas.join("\n");
 }
 
+/** Cor com que nasce um catálogo ou distribuidora novo. */
+export const COR_PADRAO = "#501ea1";
+
 /** Tamanho das páginas. Servidor e tela precisam do mesmo número. */
 export const PAGINA_VITRINE = 24;
 export const PAGINA_PRODUTOS = 30;

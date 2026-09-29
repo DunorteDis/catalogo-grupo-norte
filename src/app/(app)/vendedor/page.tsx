@@ -53,7 +53,7 @@ function Rotulo({ children }: { children: React.ReactNode }) {
 
 export default function PainelVendedor() {
   const vendedorQuery = useMeuVendedor();
-  const catalogosQuery = useCatalogosPublicos();
+  const catalogosQuery = useCatalogosPublicos(vendedorQuery.data?.slug);
   const [copiado, copiar] = useCopiado();
 
   const vendedor = vendedorQuery.data;
