@@ -3,12 +3,13 @@ export const FOTO_BASE = "https://api.vmaissistemas.com.br/foto_produtos/";
 /**
  * Foto do produto: o cadastro que vem do ERP guarda só o nome do arquivo, mas
  * produto cadastrado na mão pode apontar para qualquer imagem da internet —
- * quem já é link fica como está.
+ * quem já é link fica como está. Foto enviada ao S3 é caminho do próprio app
+ * (/fotos/<chave>), que assina a URL na hora de servir.
  */
 export function fotoUrl(arquivo?: string | null) {
   const valor = arquivo?.trim();
   if (!valor) return null;
-  if (/^https?:\/\//i.test(valor)) return valor;
+  if (/^(https?:\/\/|\/)/i.test(valor)) return valor;
   return `${FOTO_BASE}${valor}`;
 }
 
@@ -21,6 +22,34 @@ export function whatsappNumero(valor: string) {
   let n = somenteDigitos(valor);
   if (n.length <= 11) n = `55${n}`;
   return n;
+}
+
+/**
+ * DDD + número, só dígitos, sem o 55 nem o 0 da operadora: "+55 (92) 99217-7381"
+ * vira "92992177381". É assim que o contato de cliente fica gravado, para bater
+ * com o número de quem chama no WhatsApp. Null se não parece telefone com DDD.
+ */
+export function numeroNacional(valor: string) {
+  let n = somenteDigitos(valor).replace(/^0+/, "");
+  if (n.length > 11 && n.startsWith("55")) n = n.slice(2);
+  return n.length === 10 || n.length === 11 ? n : null;
+}
+
+/** Tipos do contato de cliente: lista fechada, para o dado sair padronizado. */
+export const TIPOS_CONTATO = [
+  "Dono",
+  "Sócio",
+  "Comprador",
+  "Gerente",
+  "Financeiro",
+  "Funcionário",
+  "Outro",
+] as const;
+
+/** "(92) 99217-7381". O que não parece telefone sai como veio. */
+export function formatarTelefone(valor: string) {
+  const n = numeroNacional(valor);
+  return n ? `(${n.slice(0, 2)}) ${n.slice(2, -4)}-${n.slice(-4)}` : valor;
 }
 
 export function slugify(valor: string) {
@@ -39,19 +68,16 @@ export const MAX_CODIGOS_COLADOS = 2000;
 export const MAX_PALAVRAS_BUSCA = 6;
 
 /**
- * Filtros de busca do PostgREST, um por palavra digitada. Cada palavra precisa
- * aparecer no nome ou no código, e as chamadas de `.or()` se somam com E — é
- * isso que faz "gillette carvao" achar "AP BARB GILLETTE PRESTO3 CARVAO ATV",
- * que o ILIKE do texto inteiro perdia por causa do PRESTO3 no meio.
+ * Palavras da busca, uma condição por palavra no SQL: cada uma precisa aparecer
+ * no nome ou no código, em qualquer ordem — é isso que faz "gillette carvao"
+ * achar "AP BARB GILLETTE PRESTO3 CARVAO ATV", que o ILIKE do texto inteiro
+ * perdia por causa do PRESTO3 no meio.
  *
- * Normalizar aqui também é o que protege a consulta: vírgula, parênteses e `*`
- * são sintaxe do PostgREST e iam direto para dentro do filtro.
+ * O slugify deixa só [a-z0-9]: nenhum `%` ou `_` chega ao ILIKE como curinga.
  */
-export function filtrosBusca(texto: string) {
+export function palavrasBusca(texto: string) {
   const palavras = slugify(texto).split("-").filter(Boolean);
-  return [...new Set(palavras)]
-    .slice(0, MAX_PALAVRAS_BUSCA)
-    .map((palavra) => `nome.ilike.%${palavra}%,codigo.ilike.%${palavra}%`);
+  return [...new Set(palavras)].slice(0, MAX_PALAVRAS_BUSCA);
 }
 
 /**
@@ -145,3 +171,28 @@ export function montarMensagem(opts: {
   }
   return linhas.join("\n");
 }
+
+/** Cor com que nasce um catálogo ou distribuidora novo. */
+export const COR_PADRAO = "#501ea1";
+
+/** Tamanho das páginas. Servidor e tela precisam do mesmo número. */
+export const PAGINA_VITRINE = 24;
+export const PAGINA_PRODUTOS = 30;
+export const PAGINA_CATALOGO = 25;
+export const PAGINA_CLIENTES = 30;
+
+/** Imagem do catálogo personalizado. SVG fica de fora: aberto direto no navegador, roda script. */
+export const TIPOS_IMAGEM = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+export const MAX_IMAGEM = 2 * 1024 * 1024;
+
+/** Foto de produto no S3: mesmos tipos, mas foto de celular passa fácil de 2 MB. */
+export const MAX_FOTO = 5 * 1024 * 1024;
+export const EXTENSAO_FOTO: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
+/** Chave que /fotos aceita assinar: uuid + extensão, nunca um caminho qualquer do bucket. */
+export const CHAVE_FOTO =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|webp|gif)$/;

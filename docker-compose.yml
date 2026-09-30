@@ -1,0 +1,11 @@
+# Sobe com: docker compose up -d --build
+# O banco é externo (PG* no .env); aqui só roda o app.
+services:
+  app:
+    build: .
+    image: abastex
+    # O compose lê .env com aspas do jeito certo; o "docker run --env-file" manteria as aspas no valor.
+    env_file: .env
+    ports:
+      - "5015:8080"
+    restart: unless-stopped

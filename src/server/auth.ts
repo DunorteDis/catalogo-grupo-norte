@@ -1,0 +1,145 @@
+"use server";
+
+import bcrypt from "bcryptjs";
+import { z } from "zod";
+
+import {
+  CHAVE_SENHA_PROVISORIA,
+  loginParaEmail,
+  senhaEhProvisoria,
+  senhaFraca,
+  usuarioDeEmail,
+} from "@/lib/acessos";
+import { areaDe, type Sessao } from "@/lib/sessao-token";
+import { acao, Recusa } from "@/server/acao";
+import { sql } from "@/server/db";
+import {
+  limparErrosLogin,
+  loginBloqueado,
+  MAX_ERROS_POR_USUARIO,
+  registrarErroLogin,
+} from "@/server/freio";
+import {
+  acessoDe,
+  apagarSessao,
+  exigirTI,
+  gravarSessao,
+  ipDaRequisicao,
+  lerSessao,
+} from "@/server/sessao";
+
+// Usuário inexistente também paga um bcrypt: o tempo de resposta não pode
+// entregar quais usuários existem.
+const HASH_FALSO = "$2a$10$69ZGLyCWJgNn5b4KvRZPpOb/YFjnBTW0pFh9BqcUw9qh4qxJQ/DYa";
+
+type Conta = {
+  id: string;
+  email: string;
+  senha_hash: string | null;
+  meta: Record<string, unknown> | null;
+};
+
+export const entrar = acao(async (usuario: string, senha: string) => {
+  const usuarioStr = String(usuario ?? "");
+  const senhaStr = String(senha ?? "");
+  // Teto de tamanho ANTES de tocar no freio ou no banco: cada tentativa errada vira
+  // chave do freio em memória (src/server/freio.ts) contendo o usuário, presa por até
+  // 15 min, e ainda paga um bcrypt.compare — sem teto, um usuário do tamanho do corpo
+  // máximo de uma Server Action (3 MB) esgota memória e CPU num anônimo só.
+  if (usuarioStr.length > 254 || senhaStr.length > 200)
+    throw new Recusa("Usuário ou senha incorretos.");
+
+  const email = loginParaEmail(usuarioStr);
+  // Duas chaves: por IP (rápida, mas o cabeçalho só é confiável atrás de proxy —
+  // ver ipDaRequisicao) e por usuário (não depende de cabeçalho nenhum, pega
+  // quem varia de IP a cada tentativa).
+  const agora = Date.now();
+  const chaveIp = `${email}|${await ipDaRequisicao()}`;
+  if (loginBloqueado(chaveIp, agora) || loginBloqueado(email, agora, MAX_ERROS_POR_USUARIO))
+    throw new Recusa("Muitas tentativas erradas. Espere 15 minutos e tente de novo.");
+
+  // Conta a tentativa já aqui, antes da consulta e do bcrypt: é isso que faz o freio
+  // segurar sob requisições paralelas — contar só depois de falhar deixaria todas
+  // passarem no loginBloqueado acima antes de qualquer uma registrar erro, e o teto
+  // nunca seria atingido.
+  registrarErroLogin(chaveIp, agora);
+  registrarErroLogin(email, agora);
+
+  const [conta] = await sql<Conta[]>`
+    select u.id, u.email, u.senha_hash, u.raw_user_meta_data as meta
+      from usuarios u
+     where lower(u.email) = ${email}`;
+  const confere = await bcrypt.compare(senhaStr, conta?.senha_hash ?? HASH_FALSO);
+  if (!conta?.senha_hash || !confere) {
+    throw new Recusa("Usuário ou senha incorretos.");
+  }
+
+  limparErrosLogin(chaveIp);
+  limparErrosLogin(email);
+  const acesso = await acessoDe(conta.id, null);
+  if (!acesso?.papel) throw new Recusa("Seu acesso está sem papel. Fale com o TI.");
+  if (acesso.papel !== "ti") {
+    if (!acesso.dist)
+      throw new Recusa("Seu acesso não está ligado a uma distribuidora. Fale com o TI.");
+    if (!acesso.ativa) throw new Recusa("Sua distribuidora está desativada. Fale com o TI.");
+  }
+  await sql`update usuarios set last_sign_in_at = now() where id = ${conta.id}`;
+  const sessao: Sessao = {
+    sub: conta.id,
+    email: conta.email,
+    papel: acesso.papel,
+    // O TI escolhe depois, na tela de escolha.
+    dist: acesso.papel === "ti" ? null : acesso.dist,
+    prov: senhaEhProvisoria(conta.meta),
+  };
+  await gravarSessao(sessao);
+  return areaDe(sessao);
+});
+
+export const sair = acao(async () => {
+  await apagarSessao();
+});
+
+export const definirSenha = acao(async (senha: string) => {
+  // lerSessao, não exigirLogin: quem chega aqui é justamente quem tem senha provisória.
+  const s = await lerSessao();
+  if (!s) throw new Recusa("Sua sessão expirou. Entre novamente.");
+  const nova = String(senha ?? "");
+  // A tela já recusa; aqui é a trava de verdade.
+  const problema = senhaFraca(nova, usuarioDeEmail(s.email));
+  if (problema) throw new Recusa(problema);
+
+  // sql.json, não JSON.stringify+::jsonb — ver o comentário em criarConta (src/server/acessos.ts).
+  await sql`
+    update usuarios
+       set senha_hash = ${await bcrypt.hash(nova, 10)},
+           raw_user_meta_data = coalesce(raw_user_meta_data, '{}'::jsonb)
+                                || ${sql.json({ [CHAVE_SENHA_PROVISORIA]: false })},
+           updated_at = now()
+     where id = ${s.sub}`;
+  const sessao = { ...s, prov: false };
+  await gravarSessao(sessao);
+  return areaDe(sessao);
+});
+
+/** Distribuidoras em que o TI pode entrar. */
+export const distribuidorasParaEscolher = acao(async () => {
+  await exigirTI();
+  return [
+    ...(await sql<
+      { id: string; nome: string; slug: string; cor: string; logo_url: string | null }[]
+    >`
+      select id, nome, slug, cor, logo_url from distribuidoras where ativo order by nome`),
+  ];
+});
+
+/** O TI entra numa distribuidora: vale para todas as telas até trocar de novo. */
+export const escolherDistribuidora = acao(async (id: string) => {
+  const s = await exigirTI();
+  const dist = z.string().uuid().parse(id);
+  const [d] = await sql`select 1 from distribuidoras where id = ${dist} and ativo`;
+  if (!d) throw new Recusa("Essa distribuidora não está disponível.");
+  // exigirTI já barrou senha provisória: prov é false aqui.
+  await gravarSessao({ sub: s.sub, email: s.email, papel: "ti", dist, prov: false });
+  return "/admin";
+});

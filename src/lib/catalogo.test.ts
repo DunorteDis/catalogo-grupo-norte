@@ -2,9 +2,12 @@
 import { expect, test } from "bun:test";
 
 import {
-  filtrosBusca,
+  CHAVE_FOTO,
+  formatarTelefone,
   fotoUrl,
   montarMensagem,
+  numeroNacional,
+  palavrasBusca,
   parseCodigos,
   qtdComUnidade,
   slugify,
@@ -19,6 +22,16 @@ test("fotoUrl completa o nome de arquivo do ERP e respeita link colado", () => {
   expect(fotoUrl("  http://exemplo.com/a.jpg  ")).toBe("http://exemplo.com/a.jpg");
   expect(fotoUrl(null)).toBeNull();
   expect(fotoUrl("   ")).toBeNull();
+});
+
+test("fotoUrl deixa o caminho /fotos do S3 para o app assinar", () => {
+  const chave = "3f1c2a9e-0b7d-4c1e-9a2f-6d5e4b3a2c1d.jpg";
+  expect(fotoUrl(`/fotos/${chave}`)).toBe(`/fotos/${chave}`);
+  expect(CHAVE_FOTO.test(chave)).toBe(true);
+  // /fotos só assina foto enviada pelo app, nunca outro caminho do bucket.
+  expect(CHAVE_FOTO.test("../segredo.jpg")).toBe(false);
+  expect(CHAVE_FOTO.test(`outra-pasta/${chave}`)).toBe(false);
+  expect(CHAVE_FOTO.test(chave.replace(".jpg", ".svg"))).toBe(false);
 });
 
 test("parseCodigos aceita qualquer separador de planilha ou lista", () => {
@@ -48,33 +61,27 @@ test("parseCodigos devolve vazio para texto sem código", () => {
   expect(parseCodigos("   \n\n , ; \t ")).toEqual([]);
 });
 
-test("filtrosBusca cobra uma palavra de cada vez, em qualquer ordem", () => {
+test("palavrasBusca cobra uma palavra de cada vez, em qualquer ordem", () => {
   // Sem isso, "gillette carvao" não acha "AP BARB GILLETTE PRESTO3 CARVAO ATV".
-  expect(filtrosBusca("gillette carvao")).toEqual([
-    "nome.ilike.%gillette%,codigo.ilike.%gillette%",
-    "nome.ilike.%carvao%,codigo.ilike.%carvao%",
-  ]);
+  expect(palavrasBusca("gillette carvao")).toEqual(["gillette", "carvao"]);
 });
 
-test("filtrosBusca tira acento, porque o cadastro vem sem", () => {
-  expect(filtrosBusca("carvão")).toEqual(["nome.ilike.%carvao%,codigo.ilike.%carvao%"]);
+test("palavrasBusca tira acento, porque o cadastro vem sem", () => {
+  expect(palavrasBusca("carvão")).toEqual(["carvao"]);
 });
 
-test("filtrosBusca neutraliza a sintaxe do PostgREST digitada na busca", () => {
-  // Vírgula e parênteses separam filtros; se vazassem, a consulta quebrava.
-  expect(filtrosBusca("gillette, carvao (novo)")).toEqual([
-    "nome.ilike.%gillette%,codigo.ilike.%gillette%",
-    "nome.ilike.%carvao%,codigo.ilike.%carvao%",
-    "nome.ilike.%novo%,codigo.ilike.%novo%",
-  ]);
-  expect(filtrosBusca("100%*")).toEqual(["nome.ilike.%100%,codigo.ilike.%100%"]);
+test("palavrasBusca só deixa passar letra e número", () => {
+  // % e _ são curinga do ILIKE; aspas e traços não têm o que fazer numa busca.
+  expect(palavrasBusca("gillette, carvao (novo)")).toEqual(["gillette", "carvao", "novo"]);
+  expect(palavrasBusca("100%*")).toEqual(["100"]);
+  expect(palavrasBusca("a_b' or 1=1 --")).toEqual(["a", "b", "or", "1"]);
 });
 
-test("filtrosBusca ignora repetição, espaço sobrando e excesso de palavras", () => {
-  expect(filtrosBusca("  sabao   sabao ")).toEqual(["nome.ilike.%sabao%,codigo.ilike.%sabao%"]);
-  expect(filtrosBusca("a b c d e f g h")).toHaveLength(6);
-  expect(filtrosBusca("")).toEqual([]);
-  expect(filtrosBusca("   ")).toEqual([]);
+test("palavrasBusca ignora repetição, espaço sobrando e excesso de palavras", () => {
+  expect(palavrasBusca("  sabao   sabao ")).toEqual(["sabao"]);
+  expect(palavrasBusca("a b c d e f g h")).toHaveLength(6);
+  expect(palavrasBusca("")).toEqual([]);
+  expect(palavrasBusca("   ")).toEqual([]);
 });
 
 test("umCadastroPorCodigo prefere a linha que já está no catálogo, senão a primeira", () => {
@@ -121,4 +128,17 @@ test("montarMensagem leva a unidade de cada item e totaliza por unidade", () => 
   expect(texto).toContain("Cód: 123 — Qtd: 3 unidades");
   // Caixa não se soma com unidade: 3 unidades e 7 caixas, nunca "10 itens".
   expect(texto).toContain("Total: 3 unidades e 7 caixas");
+});
+
+test("numeroNacional deixa DDD + número, do jeito que o ERP e o WhatsApp mandarem", () => {
+  expect(numeroNacional("92 99217-7381")).toBe("92992177381");
+  expect(numeroNacional("+55 (92) 99217-7381")).toBe("92992177381");
+  expect(numeroNacional("5592992177381")).toBe("92992177381");
+  expect(numeroNacional("092 3639-8889")).toBe("9236398889");
+  // Sem DDD não identifica ninguém.
+  expect(numeroNacional("99217-7381")).toBeNull();
+  expect(numeroNacional("")).toBeNull();
+  expect(formatarTelefone("92992177381")).toBe("(92) 99217-7381");
+  expect(formatarTelefone("9236398889")).toBe("(92) 3639-8889");
+  expect(formatarTelefone("ramal 12")).toBe("ramal 12");
 });

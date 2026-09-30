@@ -10,11 +10,12 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
-.output
-.vinxi
+.next
+next-env.d.ts
 .tanstack/**
-.nitro
 *.local
+# gerado por "incremental": true no tsconfig (bun run typecheck)
+*.tsbuildinfo
 
 # Vercel
 .vercel
@@ -24,9 +25,17 @@ dist-ssr
 !.vscode/extensions.json
 .idea
 .DS_Store
+# Snapshots do smoke test com Playwright MCP: podem conter usuário/senha de teste.
+.playwright-mcp/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
 .env
+
+abastex-design-system.zip
+print.png
+print1.png
+print2.png
+print3.png
