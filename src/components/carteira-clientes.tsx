@@ -1,21 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Ban,
-  ChevronLeft,
-  ChevronRight,
-  CircleCheck,
-  CirclePause,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
+import { Ban, ChevronRight, CircleCheck, CirclePause, Users, type LucideIcon } from "lucide-react";
 
 import { Badge, SearchInput } from "@/components/abastex";
 import { CondicoesCliente } from "@/components/condicoes-cliente";
-import { Button } from "@/components/ui/button";
+import { Paginacao } from "@/components/paginacao";
 import { iniciais } from "@/lib/acessos";
-import { formatarDocumento, slugify } from "@/lib/catalogo";
+import { formatarDocumento, paginaValida, POR_PAGINA, slugify } from "@/lib/catalogo";
 import { mensagemErro } from "@/lib/erros";
 import { cn } from "@/lib/utils";
 import type { ClienteCarteira, SituacaoCliente } from "@/server/carteira";
@@ -56,7 +48,6 @@ const SITUACAO: Record<
 
 // ponytail: a carteira inteira vem de uma vez (há uma com mais de 8 mil clientes) e
 // busca, filtro e página são no navegador. Paginar no servidor se a carga ficar lenta.
-const POR_PAGINA = 10;
 
 /**
  * Carteira de clientes: contadores coloridos que filtram, busca e a lista. Tocar num
@@ -94,9 +85,7 @@ export function ListaCarteira({
       palavras.every((p) => `${slugify(c.cliente)}-${c.codcli}-${c.cnpj ?? ""}`.includes(p)),
   );
 
-  const paginas = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA));
-  const atual = Math.min(pagina, paginas - 1);
-  const inicio = atual * POR_PAGINA;
+  const inicio = paginaValida(pagina, filtrados.length) * POR_PAGINA;
   const visiveis = filtrados.slice(inicio, inicio + POR_PAGINA);
 
   return (
@@ -188,33 +177,7 @@ export function ListaCarteira({
         })}
       </ul>
 
-      {filtrados.length > 0 && (
-        <div className="flex items-center justify-between gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={atual === 0}
-            onClick={() => setPagina(atual - 1)}
-          >
-            <ChevronLeft />
-            Anterior
-          </Button>
-          <span className="text-center text-xs text-ink-muted tabular-nums">
-            {(inicio + 1).toLocaleString("pt-BR")}–
-            {Math.min(inicio + POR_PAGINA, filtrados.length).toLocaleString("pt-BR")} de{" "}
-            {filtrados.length.toLocaleString("pt-BR")} · página {atual + 1} de {paginas}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={atual >= paginas - 1}
-            onClick={() => setPagina(atual + 1)}
-          >
-            Próxima
-            <ChevronRight />
-          </Button>
-        </div>
-      )}
+      <Paginacao pagina={pagina} total={filtrados.length} onMudar={setPagina} />
       {clientes && filtrados.length === 0 && (
         <p className="py-10 text-center text-sm text-ink-muted">
           {busca ? "Nenhum cliente encontrado." : "Nenhum cliente nessa situação."}

@@ -5,6 +5,7 @@ import {
   CHAVE_FOTO,
   formatarDocumento,
   formatarTelefone,
+  paginaValida,
   fotoUrl,
   montarMensagem,
   numeroNacional,
@@ -14,6 +15,14 @@ import {
   slugify,
   umCadastroPorCodigo,
 } from "./catalogo";
+
+test("paginaValida traz a página de volta quando a lista encolhe", () => {
+  expect(paginaValida(2, 177)).toBe(2);
+  expect(paginaValida(17, 177)).toBe(17);
+  expect(paginaValida(18, 177)).toBe(17); // 177 registros = páginas 0 a 17
+  expect(paginaValida(5, 12)).toBe(1);
+  expect(paginaValida(3, 0)).toBe(0);
+});
 
 test("formatarDocumento mascara CNPJ e CPF e devolve o resto como veio", () => {
   expect(formatarDocumento("04252011000110")).toBe("04.252.011/0001-10");

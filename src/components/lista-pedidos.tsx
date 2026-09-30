@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
 import {
   ChevronDown,
@@ -13,11 +14,12 @@ import {
 import { toast } from "sonner";
 
 import { chamar } from "@/lib/chamar";
-import { fotoUrl, qtdComUnidade } from "@/lib/catalogo";
+import { fotoUrl, paginaValida, POR_PAGINA, qtdComUnidade } from "@/lib/catalogo";
 import { formatarData } from "@/lib/periodo";
 import { baixarPlanilhaDoPedido } from "@/lib/planilha-pedido";
 import { cn } from "@/lib/utils";
 import { Badge, IconTile, KpiCard } from "@/components/abastex";
+import { Paginacao } from "@/components/paginacao";
 import { Button } from "@/components/ui/button";
 import { fotosPorCodigo } from "@/server/pedidos";
 
@@ -46,10 +48,24 @@ export function ListaPedidos({
   /** Na visão do admin os pedidos vêm de vendedores diferentes. */
   mostrarVendedor?: boolean;
 }) {
+  // O período inteiro vem de uma vez: os números do topo somam tudo, a lista pagina.
+  const [pagina, setPagina] = useState(0);
+  // Outro período é outra lista: volta para a primeira página. Assinatura primitiva
+  // porque o pai passa `data ?? []`, um array novo a cada render enquanto carrega.
+  const assinatura = `${pedidos.length}:${pedidos[0]?.id ?? ""}`;
+  const [base, setBase] = useState(assinatura);
+  if (base !== assinatura) {
+    setBase(assinatura);
+    setPagina(0);
+  }
+  const inicio = paginaValida(pagina, pedidos.length) * POR_PAGINA;
+  const visiveis = pedidos.slice(inicio, inicio + POR_PAGINA);
+
   // pedido_itens guarda só codigo/nome/quantidade, então a foto vem de produtos.
   // Não há FK entre as duas (de propósito: apagar um produto não pode derrubar
   // histórico de pedido), por isso o casamento é por código numa consulta à parte.
-  const codigos = [...new Set(pedidos.flatMap((p) => p.pedido_itens.map((i) => i.codigo)))].sort();
+  // Só dos pedidos da página: são os únicos que dá para abrir.
+  const codigos = [...new Set(visiveis.flatMap((p) => p.pedido_itens.map((i) => i.codigo)))].sort();
 
   const fotosQuery = useQuery({
     queryKey: ["fotos-de-produtos", codigos],
@@ -103,7 +119,7 @@ export function ListaPedidos({
 
       {pedidos.length > 0 && (
         <AccordionPrimitive.Root type="single" collapsible className="flex flex-col gap-2">
-          {pedidos.map((pedido) => {
+          {visiveis.map((pedido) => {
             const cliente = pedido.cliente_nome?.trim();
             return (
               <AccordionPrimitive.Item
@@ -214,6 +230,8 @@ export function ListaPedidos({
           })}
         </AccordionPrimitive.Root>
       )}
+
+      <Paginacao pagina={pagina} total={pedidos.length} onMudar={setPagina} />
     </>
   );
 }
