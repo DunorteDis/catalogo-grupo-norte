@@ -9,12 +9,22 @@ import {
   gerarSenha,
   loginParaEmail,
   mensagemAcesso,
+  nomeDoWinthor,
   normalizarUsuario,
   usuarioDeEmail,
   usuarioDeNome,
   validarUsuario,
   senhaFraca,
 } from "./acessos";
+
+test("nome da pcusuari perde o prefixo da empresa e fica só com as iniciais maiúsculas", () => {
+  expect(nomeDoWinthor("ABASTEX - BRENDA VASCONCELOS")).toBe("Brenda Vasconcelos");
+  expect(nomeDoWinthor("ABASTEX-GABRIELLY ANGELIM")).toBe("Gabrielly Angelim");
+  expect(nomeDoWinthor("ABASTEX -  ELCIMARA NASCIMENTO")).toBe("Elcimara Nascimento");
+  expect(nomeDoWinthor("ABASTEX - MATHEUS  FRANCO ")).toBe("Matheus Franco");
+  expect(nomeDoWinthor("JOÃO DA SILVA E SOUZA")).toBe("João da Silva e Souza");
+  expect(nomeDoWinthor("A2 BASE GERAL DE CLIENTES")).toBe("A2 Base Geral de Clientes");
+});
 
 test("usuário sai como primeiro.ultimo, sem acento e sem nome do meio", () => {
   expect(usuarioDeNome("Eduardo Oliveira")).toBe("eduardo.oliveira");

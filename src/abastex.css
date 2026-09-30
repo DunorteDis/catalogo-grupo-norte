@@ -131,6 +131,12 @@
   box-shadow: var(--focus-ring);
 }
 
+/* A busca marca o foco na borda de fora (.ax-search:focus-within); o anel acima no
+   input de dentro desenharia uma segunda caixa. Fora de camada para vencer a regra acima. */
+.ax-search input:focus-visible {
+  box-shadow: none;
+}
+
 @layer components {
   /* Icon tile — a vida de cor do sistema */
   .ax-tile {

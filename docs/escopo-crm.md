@@ -1,4 +1,4 @@
-# Escopo de desenvolvimento — CRM Grupo Norte (Abastex connect)
+# Escopo de desenvolvimento — CRM Grupo Norte (Abastex Connect)
 
 30/09/2026 · Base para construir as funcionalidades do CRM. Cronograma visual em `roadmap_abastex_connect.pdf`.
 
@@ -145,12 +145,15 @@ Quase tudo que o Sharpi mostra sai do histórico de vendas do Winthor. A base do
 | `pcclient` | Cliente, RCA, plano de pagamento, bloqueio, limite | Sim |
 | `pccontato` | Contatos do ERP | Sim |
 | `pcprodut` | Produtos | Sim |
-| `pcusuari` | RCA, para ligar o vendedor do CRM ao `codusur` | Confirmar |
+| `pcusuari` | Vendedores internos (`tipovend = 'I'`) para o cadastro de usuário e o `codusur` | Sim, em uso |
+| `vendedor_interno_carteira` e `vendedor_carteira_cliente` | Carteira pelo `codusur`: internos na primeira, RCA e externos na segunda (sem códigos em comum) | Sim, em uso |
+| `pcclient` (limite e bloqueio) | `limcred`, `bloqueio`, `motivobloq`, `dtbloq`, `vlcredcli`, `codcob`, `codplpag`, `dtultcomp` | Sim, em uso |
+| `portal_vendedor.cliente_pendencias` | Títulos em aberto do cliente; `codcob = 'VERB'` é verba e fica fora da dívida | Sim, em uso |
+| `portal_vendedor.credito_cliente` | Créditos do cliente ainda não usados (`dtdesconto` nulo) | Sim, em uso |
 | `pcpedc` e `pcpedi` | Histórico de pedidos e itens: último preço, mix, atraso, sugeridos, estatísticas | Confirmar |
 | `pctabpr` e `pcpraca` | Preço de tabela pela região do cliente | Confirmar |
 | `pcest` | Estoque e custo por filial (loja e CD), base da margem | Confirmar |
-| `pcplpag` | Planos de pagamento do cabeçalho | Confirmar |
-| `pcprest` | Títulos em aberto, para a validação de crédito | Confirmar |
+| `pcplpag` e `pccob` | Nomes dos planos de pagamento e das cobranças (hoje só aparecem os códigos) | Não existem na cópia |
 
 A cópia é diária (por volta das 02:00), então estoque e preço ficam com um dia de atraso. Serve para começar; se o vendedor precisar de estoque na hora, a carga dessas duas tabelas tem que ficar mais frequente.
 
@@ -177,7 +180,7 @@ Todo módulo novo segue o que já está no repositório; nada de framework, ORM 
 
 - **Next.js 16 (App Router).** Telas em `src/app/(app)/...`, regras em Server Actions em `src/server/*` embrulhadas por `acao()`. O middleware é `src/proxy.ts`. Antes de usar uma API do Next, ler o guia em `node_modules/next/dist/docs/`.
 - **Rotas HTTP só para quem vem de fora.** Webhook do WhatsApp e retorno do ERP entram como route handler (`src/app/api/.../route.ts`), com verificação de assinatura ou token.
-- **Postgres, schema `crm`, SQL direto (postgres.js).** Cada mudança de schema é um arquivo novo em `db/migrations/`, ensaiado com `bun scripts/aplicar-sql.ts --ensaio` antes de aplicar.
+- **Postgres, schema `crm`, SQL direto (postgres.js).** Cada mudança de schema é um arquivo novo em `db/migrations/`, ensaiado com `bun scripts/aplicar-sql.ts --ensaio`; ele entra sozinho quando o servidor sobe (`src/server/migracoes.ts`).
 - **ERP só leitura.** Dados do Winthor vêm do schema `system` (cópia diária das `pc*`); o CRM nunca escreve nele. A gravação do pedido no ERP é uma decisão à parte (veja Dados e integrações).
 - **Isolamento por distribuidora.** Toda consulta filtra por `distribuidora_id`; papéis `ti`, `admin` e `vendedor` conferidos no banco a cada action, como hoje.
 - **Interface Abastex.** Tokens de `src/abastex.css`, componentes de `src/components/abastex.tsx`, nunca cor solta; a cor da distribuidora é dado.

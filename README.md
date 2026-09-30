@@ -32,10 +32,14 @@ e essa rota responde com uma URL assinada que vale 1 hora. A chave precisa de
 ## Banco
 
 Tabelas e dados vivem no schema `crm`. Mudança de schema é um arquivo novo em
-`db/migrations/`, aplicado com:
+`db/migrations/`, numerado depois do último. Ele entra sozinho quando o servidor sobe
+(`bun run dev`, `bun run start` ou o container): `src/instrumentation.ts` chama
+`src/server/migracoes.ts`, que aplica na ordem do nome o que ainda não está em
+`crm.migracoes`, tudo numa transação. Se uma falhar, nenhuma entra e o erro aparece no
+log. Para ver se uma migração passa com os dados reais antes de subir:
 
 ```sh
-bun scripts/aplicar-sql.ts db/migrations/<arquivo>.sql
+bun scripts/aplicar-sql.ts --ensaio db/migrations/<arquivo>.sql
 ```
 
 ### Produtos vêm do ERP

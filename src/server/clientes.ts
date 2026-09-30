@@ -19,6 +19,8 @@ export type Cliente = {
   estent: string | null;
   /** Sem dtexclusao no ERP = ativo. */
   ativo: boolean;
+  /** bloqueio = 'S' no ERP. */
+  bloqueado: boolean;
   /** Do ERP mais os cadastrados aqui. */
   contatos: number;
 };
@@ -44,6 +46,7 @@ export const listarClientes = acao(async (termo: string, situacao: Situacao, pag
       select c.codcli, trim(c.cliente) as cliente,
              coalesce(case when c.fantasia ~ '[A-Za-z]' then trim(c.fantasia) end, trim(c.cliente)) as nome,
              c.cgcent, trim(c.municent) as municent, c.estent, c.dtexclusao is null as ativo,
+             coalesce(c.bloqueio = 'S', false) as bloqueado,
              (select count(*)::int from system.pccontato x where x.codcli = c.codcli)
            + (nullif(trim(c.telent1), '') is not null)::int
            + (select count(*)::int from cliente_contatos k where k.codcli = c.codcli) as contatos

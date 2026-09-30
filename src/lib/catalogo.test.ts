@@ -3,6 +3,7 @@ import { expect, test } from "bun:test";
 
 import {
   CHAVE_FOTO,
+  formatarDocumento,
   formatarTelefone,
   fotoUrl,
   montarMensagem,
@@ -13,6 +14,12 @@ import {
   slugify,
   umCadastroPorCodigo,
 } from "./catalogo";
+
+test("formatarDocumento mascara CNPJ e CPF e devolve o resto como veio", () => {
+  expect(formatarDocumento("04252011000110")).toBe("04.252.011/0001-10");
+  expect(formatarDocumento("12345678901")).toBe("123.456.789-01");
+  expect(formatarDocumento("123")).toBe("123");
+});
 
 test("fotoUrl completa o nome de arquivo do ERP e respeita link colado", () => {
   expect(fotoUrl("7891234567890.jpeg")).toBe(

@@ -15,6 +15,7 @@ import {
   Store,
   Sun,
   Users,
+  WalletCards,
   Warehouse,
 } from "lucide-react";
 
@@ -67,6 +68,7 @@ const MENU_VENDEDOR: Grupo[] = [
     titulo: "Vendas",
     itens: [
       { to: "/vendedor", label: "Meus links", icon: Link2 },
+      { to: "/carteira", label: "Minha carteira", icon: WalletCards },
       { to: "/meus-pedidos", label: "Pedidos", icon: ShoppingBag },
     ],
   },

@@ -38,6 +38,36 @@ export function usuarioDeNome(nome: string) {
   return limpo.length === 1 ? limpo[0]! : `${limpo[0]}.${limpo[limpo.length - 1]}`;
 }
 
+/** "eduardo.oliveira" → "EO"; nome de uma palavra só usa as duas primeiras letras. */
+export function iniciais(nome: string) {
+  const partes = nome
+    .trim()
+    .split(/[\s._-]+/)
+    .filter(Boolean);
+  const primeira = partes[0] ?? "";
+  const ultima = partes.length > 1 ? partes[partes.length - 1]! : "";
+  return ultima ? primeira[0]! + ultima[0]! : primeira.slice(0, 2);
+}
+
+const PARTICULAS = new Set(["da", "das", "de", "do", "dos", "e"]);
+
+/**
+ * Nome do vendedor como vem da pcusuari ("ABASTEX - BRENDA  VASCONCELOS") para o
+ * cadastro: "Brenda Vasconcelos". O que vem antes do primeiro hífen é a empresa.
+ */
+// ponytail: hífen = prefixo da empresa; um nome composto com hífen perde a primeira
+// parte, e o admin corrige no campo, que continua editável.
+export function nomeDoWinthor(nome: string) {
+  const i = nome.indexOf("-");
+  return (i >= 0 ? nome.slice(i + 1) : nome)
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((p, n) => (n > 0 && PARTICULAS.has(p) ? p : p.charAt(0).toUpperCase() + p.slice(1)))
+    .join(" ");
+}
+
 export const USUARIO_MIN = 3;
 export const USUARIO_MAX = 40;
 /** Minúsculas, números e pontos separando blocos. Sem acento, espaço ou ponto solto. */

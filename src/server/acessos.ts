@@ -11,14 +11,15 @@ import {
   USUARIO_REGEX,
   emailDeUsuario,
   gerarSenha,
+  nomeDoWinthor,
   normalizarUsuario,
   sortear,
   usuarioDeEmail,
   usuarioDeNome,
 } from "@/lib/acessos";
-import { slugify, somenteDigitos } from "@/lib/catalogo";
+import { numeroNacional, slugify, somenteDigitos } from "@/lib/catalogo";
 import { acao, Recusa } from "@/server/acao";
-import { sql } from "@/server/db";
+import { carteiraWinthor, sql } from "@/server/db";
 import { exigirAdmin } from "@/server/sessao";
 
 type Meta = Record<string, unknown>;
@@ -27,10 +28,22 @@ type Vendedor = {
   nome: string;
   slug: string;
   whatsapp: string;
+  /** Código do vendedor no Winthor: liga o vendedor à carteira de clientes dele. */
+  codusur: number | null;
+  /** Clientes na carteira; null sem codusur. */
+  clientes: number | null;
   ativo: boolean;
   user_id: string | null;
   created_at: string;
 };
+
+// Vazio desfaz o vínculo com o Winthor; por enquanto o campo não é obrigatório.
+const codusur = z
+  .string()
+  .trim()
+  .regex(/^([1-9]\d{0,4})?$/, "O código do usuário no Winthor tem só números.")
+  .transform((v) => (v ? Number(v) : null))
+  .optional();
 
 /**
  * Com `usuario` informado, respeita a escolha e falha se estiver em uso — quem
@@ -95,8 +108,12 @@ export const listarAcessos = acao(async () => {
              exists (select 1 from user_roles r where r.user_id = u.id and r.role = 'admin') as admin
         from usuarios u where u.distribuidora_id = ${s.dist} order by u.created_at`,
     sql<Vendedor[]>`
-      select id, nome, slug, whatsapp, ativo, user_id, created_at from vendedores
-       where distribuidora_id = ${s.dist} order by nome`,
+      select v.id, v.nome, v.slug, v.whatsapp, v.codusur, v.ativo, v.user_id, v.created_at,
+             case when v.codusur is not null then
+               (select count(*)::int from ${carteiraWinthor()} c where c.codusur = v.codusur)
+             end as clientes
+        from vendedores v
+       where v.distribuidora_id = ${s.dist} order by v.nome`,
   ]);
   const porUsuario = new Map(
     vendedores.flatMap((v) => (v.user_id ? [[v.user_id, v] as const] : [])),
@@ -133,6 +150,43 @@ export const listarAcessos = acao(async () => {
   return [...linhas, ...semAcesso];
 });
 
+/**
+ * Vendedores internos do Winthor (pcusuari, tipovend 'I') para o campo Nome do
+ * cadastro: escolher um preenche nome, e-mail, WhatsApp e codusur. `cadastrado` avisa
+ * quem já tem vendedor com esse codusur nesta distribuidora.
+ */
+export const vendedoresWinthor = acao(async () => {
+  const s = await exigirAdmin();
+  const linhas = await sql<
+    {
+      codusur: number;
+      nome: string;
+      email: string | null;
+      telefone1: string | null;
+      whats: string | null;
+      cadastrado: boolean;
+    }[]
+  >`
+    select u.codusur, u.nome, u.email, u.telefone1, u.psa_telwhats::text as whats,
+           exists (select 1 from vendedores v
+                    where v.codusur = u.codusur and v.distribuidora_id = ${s.dist}) as cadastrado
+      from system.pcusuari u
+     where u.tipovend = 'I'
+     order by u.nome`;
+  return linhas.map((u) => ({
+    codusur: u.codusur,
+    nomeErp: u.nome.trim().replace(/\s+/g, " "),
+    nome: nomeDoWinthor(u.nome),
+    // Às vezes vêm dois e-mails no campo; o formulário aceita um.
+    email: (u.email ?? "")
+      .trim()
+      .split(/[\s;,]+/)[0]!
+      .toLowerCase(),
+    whatsapp: numeroNacional(u.whats ?? "") ?? numeroNacional(u.telefone1 ?? "") ?? "",
+    cadastrado: u.cadastrado,
+  }));
+});
+
 const novoAcesso = z.object({
   tipo: z.enum(["vendedor", "admin"]),
   nome: z.string().min(2, "Informe o nome."),
@@ -143,6 +197,7 @@ const novoAcesso = z.object({
     .regex(USUARIO_REGEX, "Use apenas letras, números e ponto — por exemplo, primeiro.ultimo."),
   email: z.string().email("E-mail inválido.").optional().or(z.literal("")),
   whatsapp: z.string().optional().or(z.literal("")),
+  codusur,
 });
 
 export const criarAcesso = acao(async (entrada: z.input<typeof novoAcesso>) => {
@@ -166,8 +221,8 @@ export const criarAcesso = acao(async (entrada: z.input<typeof novoAcesso>) => {
     if (data.tipo === "vendedor") {
       const slug = `${slugify(data.nome)}-${sortear(ALFABETO_SENHA, 4).join("")}`;
       await tx`
-        insert into vendedores (nome, slug, whatsapp, user_id, distribuidora_id)
-        values (${data.nome.trim()}, ${slug}, ${tel}, ${conta.id}, ${s.dist})`;
+        insert into vendedores (nome, slug, whatsapp, codusur, user_id, distribuidora_id)
+        values (${data.nome.trim()}, ${slug}, ${tel}, ${data.codusur ?? null}, ${conta.id}, ${s.dist})`;
     }
     return { nome: data.nome.trim(), usuario: conta.usuario, senha: conta.senha };
   });
@@ -251,10 +306,11 @@ const edicao = z.object({
   nome: z.string().min(2, "Informe o nome."),
   email: z.string().email("E-mail inválido.").optional().or(z.literal("")),
   whatsapp: z.string().optional().or(z.literal("")),
+  codusur,
 });
 
 /**
- * Edita nome, e-mail de contato e WhatsApp. O `usuario` fica de fora de propósito:
+ * Edita nome, e-mail de contato, WhatsApp e código do usuário no Winthor. O `usuario` fica de fora de propósito:
  * é o login, e trocá-lo derrubaria o acesso de quem já recebeu a senha. O `slug`
  * do vendedor também não muda — ele está em links de catálogo já enviados a clientes.
  */
@@ -277,9 +333,12 @@ export const atualizarAcesso = acao(async (entrada: z.input<typeof edicao>) => {
        where id = ${data.usuarioId} and distribuidora_id = ${s.dist}`;
   }
   if (data.vendedorId) {
-    // WhatsApp em branco mantém o atual.
+    // WhatsApp em branco mantém o atual; codusur em branco desfaz o vínculo, e
+    // ausente (quem chamou nem mandou o campo) não mexe nele.
+    const novoCodusur = data.codusur === undefined ? sql`codusur` : sql`${data.codusur}`;
     await sql`
-      update vendedores set nome = ${nome}, whatsapp = coalesce(${tel || null}, whatsapp)
+      update vendedores set nome = ${nome}, whatsapp = coalesce(${tel || null}, whatsapp),
+             codusur = ${novoCodusur}
        where id = ${data.vendedorId} and distribuidora_id = ${s.dist}`;
   }
   return { ok: true as const };
