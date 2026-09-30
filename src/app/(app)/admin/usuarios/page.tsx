@@ -7,10 +7,14 @@ import {
   Check,
   Contact,
   Copy,
+  ExternalLink,
   KeyRound,
+  Link2,
   Pencil,
   Plus,
   RotateCcw,
+  Store,
+  WalletCards,
   Trash2,
   TriangleAlert,
   UserPlus,
@@ -26,9 +30,17 @@ import { chamar } from "@/lib/chamar";
 import { confirmar } from "@/lib/confirmar";
 import { copiarTexto } from "@/lib/copiar";
 import { mensagemErro } from "@/lib/erros";
-import { mensagemAcesso, normalizarUsuario, usuarioDeNome, validarUsuario } from "@/lib/acessos";
+import {
+  iniciais,
+  mensagemAcesso,
+  normalizarUsuario,
+  usuarioDeNome,
+  validarUsuario,
+} from "@/lib/acessos";
+import { formatarTelefone, slugify, somenteDigitos } from "@/lib/catalogo";
+import { LOGOS } from "@/lib/logos";
 import { cn } from "@/lib/utils";
-import { Badge, Chip, IconTile, PageHeader } from "@/components/abastex";
+import { Badge, IconTile, PageHeader } from "@/components/abastex";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -48,20 +60,12 @@ import {
   excluirAcesso,
   listarAcessos,
   resetarSenha,
+  vendedoresWinthor,
 } from "@/server/acessos";
 
-const CHAVE = ["acessos"];
+import { CarteiraVendedor } from "./carteira";
 
-/** "eduardo.oliveira" → "EO"; nome de uma palavra só usa as duas primeiras letras. */
-function iniciais(nome: string) {
-  const partes = nome
-    .trim()
-    .split(/[\s._-]+/)
-    .filter(Boolean);
-  const primeira = partes[0] ?? "";
-  const ultima = partes.length > 1 ? partes[partes.length - 1]! : "";
-  return ultima ? primeira[0]! + ultima[0]! : primeira.slice(0, 2);
-}
+const CHAVE = ["acessos"];
 
 /** Bloco de campos com cabeçalho, como no modelo de referência. */
 function Secao({
@@ -95,6 +99,182 @@ function Campo({ id, rotulo, children }: { id: string; rotulo: string; children:
   );
 }
 
+type VendedorWinthor = {
+  codusur: number;
+  nomeErp: string;
+  nome: string;
+  email: string;
+  whatsapp: string;
+  cadastrado: boolean;
+};
+
+/**
+ * Campo Nome com sugestões dos vendedores internos do Winthor, por nome ou codusur.
+ * Digitar livre continua valendo: por enquanto dá para cadastrar quem não está lá.
+ * O foco fica no campo; setas, Enter e Esc navegam a lista.
+ */
+function NomeComBusca({
+  valor,
+  onDigitar,
+  opcoes,
+  onEscolher,
+}: {
+  valor: string;
+  onDigitar: (nome: string) => void;
+  opcoes: VendedorWinthor[] | undefined;
+  onEscolher: (v: VendedorWinthor) => void;
+}) {
+  const [aberto, setAberto] = useState(false);
+  const [ativo, setAtivo] = useState(0);
+  const palavras = slugify(valor).split("-").filter(Boolean);
+  const sugestoes =
+    palavras.length === 0
+      ? []
+      : (opcoes ?? [])
+          .filter((o) => {
+            const alvo = `${slugify(o.nomeErp)}-${o.codusur}`;
+            return palavras.every((p) => alvo.includes(p));
+          })
+          .slice(0, 8);
+  const mostrar = aberto && sugestoes.length > 0;
+
+  function escolher(o: VendedorWinthor) {
+    onEscolher(o);
+    setAberto(false);
+  }
+
+  return (
+    <div className="relative">
+      <Input
+        id="nome"
+        value={valor}
+        onChange={(e) => {
+          onDigitar(e.target.value);
+          setAtivo(0);
+          setAberto(true);
+        }}
+        onFocus={() => setAberto(true)}
+        onBlur={() => setAberto(false)}
+        onKeyDown={(e) => {
+          if (!mostrar) return;
+          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            e.preventDefault();
+            const passo = e.key === "ArrowDown" ? 1 : -1;
+            setAtivo((i) => (i + passo + sugestoes.length) % sugestoes.length);
+          } else if (e.key === "Enter") {
+            e.preventDefault();
+            escolher(sugestoes[ativo] ?? sugestoes[0]!);
+          } else if (e.key === "Escape") {
+            setAberto(false);
+          }
+        }}
+        role="combobox"
+        aria-expanded={mostrar}
+        aria-controls="nome-sugestoes"
+        aria-autocomplete="list"
+        aria-activedescendant={mostrar ? `nome-sugestao-${sugestoes[ativo]?.codusur}` : undefined}
+        autoComplete="off"
+        required
+        minLength={2}
+        placeholder="Busque no Winthor ou digite o nome"
+      />
+      {mostrar && (
+        <ul
+          id="nome-sugestoes"
+          role="listbox"
+          className="absolute inset-x-0 top-full z-50 mt-1 max-h-72 overflow-y-auto rounded-xl border bg-popover p-1 shadow-float"
+        >
+          {sugestoes.map((o, i) => (
+            <li
+              key={o.codusur}
+              id={`nome-sugestao-${o.codusur}`}
+              role="option"
+              aria-selected={i === ativo}
+              // mousedown tiraria o foco do campo e fecharia a lista antes do clique
+              onMouseDown={(e) => e.preventDefault()}
+              onMouseEnter={() => setAtivo(i)}
+              onClick={() => escolher(o)}
+              className={cn(
+                "flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-sm",
+                i === ativo && "bg-surface-hover",
+              )}
+            >
+              <span className="min-w-0 flex-1 truncate">{o.nomeErp}</span>
+              {o.cadastrado && <Badge tone="warning">já cadastrado</Badge>}
+              <span className="font-mono text-xs text-ink-muted">{o.codusur}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** Um link do vendedor: faixa e símbolo na cor do catálogo, copiar e abrir. */
+function CartaoLink({
+  titulo,
+  caminho,
+  cor,
+  simbolo,
+  copiado,
+  onCopiar,
+}: {
+  titulo: string;
+  caminho: string;
+  cor: string;
+  simbolo: ReactNode;
+  copiado: boolean;
+  onCopiar: () => void;
+}) {
+  return (
+    <div
+      className="flex items-center gap-3 rounded-xl border bg-card p-3"
+      style={{ borderLeft: `4px solid ${cor}` }}
+    >
+      <span
+        className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-lg text-lg font-bold"
+        style={{ background: `color-mix(in srgb, ${cor} 14%, transparent)`, color: cor }}
+        aria-hidden
+      >
+        {simbolo}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold">{titulo}</p>
+        <p className="truncate font-mono text-xs text-ink-muted">{caminho}</p>
+      </div>
+      <Button
+        size="icon-sm"
+        variant="ghost"
+        aria-label={`Copiar o link de ${titulo}`}
+        title={copiado ? "Copiado" : "Copiar link"}
+        onClick={onCopiar}
+        className={cn(copiado && "text-mint-ink")}
+      >
+        {copiado ? <Check /> : <Copy />}
+      </Button>
+      <Button size="icon-sm" variant="ghost" asChild>
+        <a
+          href={caminho}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`Abrir ${titulo}`}
+          title="Abrir"
+        >
+          <ExternalLink />
+        </a>
+      </Button>
+    </div>
+  );
+}
+
+type LinhaVendedor = {
+  id: string;
+  nome: string;
+  slug: string;
+  whatsapp: string;
+  codusur: number | null;
+};
+
 type Credenciais = { nome: string; usuario: string; senha: string };
 
 type EmEdicao = {
@@ -105,6 +285,7 @@ type EmEdicao = {
   nome: string;
   email: string;
   whatsapp: string;
+  codusur: string;
 };
 
 export default function UsuariosPage() {
@@ -115,6 +296,11 @@ export default function UsuariosPage() {
   const [credenciais, setCredenciais] = useState<Credenciais | null>(null);
   const [editando, setEditando] = useState<EmEdicao | null>(null);
   const [copiado, setCopiado] = useState(false);
+  // O último vendedor fica guardado ao fechar: o conteúdo não some durante a animação.
+  const [links, setLinks] = useState<LinhaVendedor | null>(null);
+  const [linksAberto, setLinksAberto] = useState(false);
+  const [carteira, setCarteira] = useState<LinhaVendedor | null>(null);
+  const [carteiraAberta, setCarteiraAberta] = useState(false);
 
   const [tipo, setTipo] = useState<"vendedor" | "admin">("vendedor");
   const [nome, setNome] = useState("");
@@ -123,11 +309,20 @@ export default function UsuariosPage() {
   // para de ser sobrescrito — a escolha manual vence.
   const [usuarioEditado, setUsuarioEditado] = useState(false);
   const [whatsapp, setWhatsapp] = useState("");
+  const [codusur, setCodusur] = useState("");
   const [email, setEmail] = useState("");
 
   function mudarNome(valor: string) {
     setNome(valor);
     if (!usuarioEditado) setUsuario(valor.trim() ? usuarioDeNome(valor) : "");
+  }
+
+  // Escolher no Winthor sobrescreve só o que o ERP tem; o resto fica como estava.
+  function escolherDoWinthor(v: VendedorWinthor) {
+    mudarNome(v.nome);
+    if (v.email) setEmail(v.email);
+    if (v.whatsapp) setWhatsapp(v.whatsapp);
+    setCodusur(String(v.codusur));
   }
 
   function limpar() {
@@ -136,6 +331,7 @@ export default function UsuariosPage() {
     setUsuario("");
     setUsuarioEditado(false);
     setWhatsapp("");
+    setCodusur("");
     setEmail("");
   }
 
@@ -154,11 +350,19 @@ export default function UsuariosPage() {
   // Mesma lista (e mesmo cache) do painel do vendedor, para o admin copiar
   // qualquer link. Todo vendedor daqui é da mesma distribuidora, então os
   // catálogos no ar de um vendedor ativo valem para todos.
+  // Só busca com o cadastro aberto; a lista é pequena (dezenas) e o filtro é no navegador.
+  const winthor = useQuery({
+    queryKey: ["vendedores-winthor"],
+    queryFn: () => chamar(vendedoresWinthor()),
+    enabled: novoAberto,
+  });
+
   const umVendedorAtivo = linhas?.find((l) => l.vendedor?.ativo)?.vendedor?.slug;
   const { data: catalogos } = useCatalogosPublicos(umVendedorAtivo);
 
   const criar = useMutation({
-    mutationFn: () => chamar(criarAcesso({ tipo, nome, usuario, email: email.trim(), whatsapp })),
+    mutationFn: () =>
+      chamar(criarAcesso({ tipo, nome, usuario, email: email.trim(), whatsapp, codusur })),
     onSuccess: (c) => {
       setNovoAberto(false);
       limpar();
@@ -184,7 +388,7 @@ export default function UsuariosPage() {
       chamar(
         atualizarAcesso({
           ...(e.usuarioId ? { usuarioId: e.usuarioId } : {}),
-          ...(e.vendedorId ? { vendedorId: e.vendedorId } : {}),
+          ...(e.vendedorId ? { vendedorId: e.vendedorId, codusur: e.codusur } : {}),
           nome: e.nome,
           email: e.email.trim(),
           whatsapp: e.whatsapp,
@@ -302,13 +506,61 @@ export default function UsuariosPage() {
                   </p>
                   <p className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-ink-muted">
                     {!semAcesso && <span className="font-mono">{l.usuario}</span>}
-                    {v && <span className="font-mono">/c/{v.slug}</span>}
-                    {v && <span>{v.whatsapp}</span>}
+                    {v && <span>{formatarTelefone(v.whatsapp)}</span>}
+                    {v?.codusur != null && (
+                      <span className="rounded-full bg-info-soft px-2 font-medium text-info">
+                        cód. usuário {v.codusur}
+                      </span>
+                    )}
                     {l.emailContato && <span>{l.emailContato}</span>}
                   </p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-1">
+                  {v && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="bg-info-soft text-info hover:bg-info-soft hover:text-info hover:brightness-95"
+                        onClick={() => {
+                          setLinks(v);
+                          setLinksAberto(true);
+                        }}
+                      >
+                        <Link2 />
+                        Links
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className={cn(
+                          "hover:brightness-95",
+                          v.codusur != null
+                            ? "bg-mint-soft text-mint-ink hover:bg-mint-soft hover:text-mint-ink"
+                            : "bg-surface-sunken text-ink-subtle hover:bg-surface-sunken hover:text-ink-subtle",
+                        )}
+                        onClick={() => {
+                          if (v.codusur == null) {
+                            toast.info(
+                              "Informe o cód. usuário no Winthor em Editar para ver a carteira.",
+                            );
+                            return;
+                          }
+                          setCarteira(v);
+                          setCarteiraAberta(true);
+                        }}
+                      >
+                        <WalletCards />
+                        Carteira
+                        {v.clientes != null && (
+                          <span className="rounded-full bg-mint-ink/15 px-1.5 text-xs tabular-nums">
+                            {v.clientes.toLocaleString("pt-BR")}
+                          </span>
+                        )}
+                      </Button>
+                    </>
+                  )}
                   <Button
                     size="sm"
                     variant="ghost"
@@ -321,6 +573,7 @@ export default function UsuariosPage() {
                         nome: l.nome,
                         email: l.emailContato,
                         whatsapp: v?.whatsapp ?? "",
+                        codusur: v?.codusur != null ? String(v.codusur) : "",
                       })
                     }
                   >
@@ -372,29 +625,6 @@ export default function UsuariosPage() {
                   </Button>
                 </div>
               </div>
-
-              {v && (catalogos ?? []).length > 0 && (
-                <div className="mt-4 flex flex-wrap gap-2 border-t pt-4">
-                  {(catalogos ?? []).map((c) => {
-                    const chaveLink = `${v.id}:${c.id}`;
-                    return (
-                      <Chip
-                        key={c.id}
-                        tone={c.personalizado ? "brand" : "neutral"}
-                        icon={linkCopiado === chaveLink ? Check : Copy}
-                        color={c.personalizado ? undefined : c.cor}
-                        title={`Copiar o link de ${v.nome} para ${c.nome}`}
-                        onClick={() =>
-                          copiarLink(chaveLink, `${window.location.origin}/c/${v.slug}/${c.slug}`)
-                        }
-                        className="h-8 text-xs"
-                      >
-                        {c.emoji ? `${c.emoji} ${c.nome}` : c.nome}
-                      </Chip>
-                    );
-                  })}
-                </div>
-              )}
             </article>
           );
         })}
@@ -408,7 +638,14 @@ export default function UsuariosPage() {
 
       {/* Novo usuário */}
       <Dialog open={novoAberto} onOpenChange={setNovoAberto}>
-        <DialogContent className={cn("sm:max-w-2xl", !ehVendedor && "sm:max-w-md")}>
+        <DialogContent
+          className={cn("sm:max-w-2xl", !ehVendedor && "sm:max-w-md")}
+          // Esc com a lista de sugestões aberta fecha só a lista, não o cadastro.
+          onEscapeKeyDown={(e) => {
+            if (document.activeElement?.getAttribute("aria-expanded") === "true")
+              e.preventDefault();
+          }}
+        >
           <DialogHeader>
             <DialogTitle>Novo usuário</DialogTitle>
             <DialogDescription>
@@ -445,14 +682,22 @@ export default function UsuariosPage() {
               <Secao icone={UserRound} titulo="Identificação">
                 <div className="grid gap-3">
                   <Campo id="nome" rotulo="Nome">
-                    <Input
-                      id="nome"
-                      value={nome}
-                      onChange={(e) => mudarNome(e.target.value)}
-                      required
-                      minLength={2}
-                      placeholder="Nome completo"
+                    <NomeComBusca
+                      valor={nome}
+                      onDigitar={mudarNome}
+                      opcoes={winthor.data}
+                      onEscolher={escolherDoWinthor}
                     />
+                    <p
+                      className={cn(
+                        "text-xs",
+                        winthor.isError ? "text-destructive" : "text-muted-foreground",
+                      )}
+                    >
+                      {winthor.isError
+                        ? "Não foi possível buscar os vendedores do Winthor. Digite o nome."
+                        : "Busque o vendedor interno do Winthor pelo nome ou código, ou digite outro nome."}
+                    </p>
                   </Campo>
                   <Campo id="usuario" rotulo="Usuário (é o login)">
                     <Input
@@ -503,6 +748,20 @@ export default function UsuariosPage() {
                   </Campo>
                   <p className="text-xs text-muted-foreground">
                     O pedido do cliente chega neste número. O link do catálogo é gerado ao salvar.
+                  </p>
+                  <Campo id="codusur" rotulo="Cód. usuário no Winthor (opcional)">
+                    <Input
+                      id="codusur"
+                      value={codusur}
+                      onChange={(e) => setCodusur(somenteDigitos(e.target.value))}
+                      inputMode="numeric"
+                      maxLength={5}
+                      placeholder="Ex.: 123"
+                      className="font-mono"
+                    />
+                  </Campo>
+                  <p className="text-xs text-muted-foreground">
+                    Liga o vendedor à carteira de clientes dele no Winthor.
                   </p>
                 </div>
               </Secao>
@@ -584,6 +843,23 @@ export default function UsuariosPage() {
                     />
                   </Campo>
                 )}
+                {editando?.ehVendedor && (
+                  <Campo id="edit-codusur" rotulo="Cód. usuário no Winthor (opcional)">
+                    <Input
+                      id="edit-codusur"
+                      value={editando.codusur}
+                      onChange={(e) =>
+                        setEditando((v) =>
+                          v ? { ...v, codusur: somenteDigitos(e.target.value) } : v,
+                        )
+                      }
+                      inputMode="numeric"
+                      maxLength={5}
+                      placeholder="Ex.: 123"
+                      className="font-mono"
+                    />
+                  </Campo>
+                )}
               </div>
             </Secao>
           </form>
@@ -603,6 +879,77 @@ export default function UsuariosPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Links do vendedor: a página onde o cliente escolhe o catálogo e um link por catálogo */}
+      <Dialog open={linksAberto} onOpenChange={setLinksAberto}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Links de {links?.nome}</DialogTitle>
+            <DialogDescription>
+              Mande o link para o cliente. O pedido chega no WhatsApp{" "}
+              {links && formatarTelefone(links.whatsapp)}.
+            </DialogDescription>
+          </DialogHeader>
+
+          {links && (
+            <div className="grid gap-4">
+              <CartaoLink
+                titulo="Todos os catálogos"
+                caminho={`/c/${links.slug}`}
+                cor="var(--brand)"
+                simbolo={<Store className="size-5" />}
+                copiado={linkCopiado === `${links.id}:pagina`}
+                onCopiar={() =>
+                  copiarLink(`${links.id}:pagina`, `${window.location.origin}/c/${links.slug}`)
+                }
+              />
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                {(catalogos ?? []).map((c) => (
+                  <CartaoLink
+                    key={c.id}
+                    titulo={c.nome}
+                    caminho={`/c/${links.slug}/${c.slug}`}
+                    cor={c.personalizado || !c.cor ? "var(--brand)" : c.cor}
+                    simbolo={
+                      c.emoji ??
+                      ((LOGOS[c.slug] ?? c.logo_url) ? (
+                        <img
+                          src={LOGOS[c.slug] ?? c.logo_url!}
+                          alt=""
+                          className="size-full object-contain p-1"
+                        />
+                      ) : (
+                        c.nome.charAt(0)
+                      ))
+                    }
+                    copiado={linkCopiado === `${links.id}:${c.id}`}
+                    onCopiar={() =>
+                      copiarLink(
+                        `${links.id}:${c.id}`,
+                        `${window.location.origin}/c/${links.slug}/${c.slug}`,
+                      )
+                    }
+                  />
+                ))}
+              </div>
+
+              {catalogos && catalogos.length === 0 && (
+                <p className="rounded-xl bg-warning-soft p-3 text-sm text-warning">
+                  Nenhum catálogo no ar nesta distribuidora. Ligue um em Catálogos.
+                </p>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <CarteiraVendedor
+        key={carteira?.id}
+        vendedor={carteira}
+        aberto={carteiraAberta}
+        onFechar={() => setCarteiraAberta(false)}
+      />
 
       {/* Credenciais geradas — na criação e no reset */}
       <Dialog open={!!credenciais} onOpenChange={(a) => !a && setCredenciais(null)}>

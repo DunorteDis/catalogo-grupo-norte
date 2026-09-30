@@ -16,6 +16,7 @@ export const config = {
   matcher: [
     "/admin/:path*",
     "/vendedor/:path*",
+    "/carteira/:path*",
     "/meus-pedidos/:path*",
     "/definir-senha",
     "/escolher-distribuidora",

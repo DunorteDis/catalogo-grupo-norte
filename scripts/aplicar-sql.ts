@@ -11,6 +11,12 @@ const ensaio = args.includes("--ensaio");
 const arquivos = args.filter((a) => a !== "--ensaio");
 if (arquivos.length === 0)
   throw new Error("Uso: bun scripts/aplicar-sql.ts [--ensaio] <arquivo.sql>...");
+// Migração aplicada por aqui não fica em crm.migracoes, e o servidor rodaria de novo.
+const migracao = arquivos.find((a) => /db[\\/]migrations[\\/]/.test(a));
+if (!ensaio && migracao)
+  throw new Error(
+    `${migracao} é migração: ela entra sozinha quando o servidor sobe. Aqui, só com --ensaio.`,
+  );
 
 class Desfazer extends Error {}
 

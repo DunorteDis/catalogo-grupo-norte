@@ -48,6 +48,21 @@ export function camposCatalogo() {
     c.emoji, c.imagem_url, m.logo_url`;
 }
 
+/**
+ * Carteira de clientes do Winthor (codusur, codcli, cliente, cnpj, bloqueio, ativo). A de
+ * vendedor interno está na vendedor_interno_carteira; a de RCA e externo, na
+ * vendedor_carteira_cliente. Os codusur não se repetem entre as duas: juntar não duplica.
+ */
+export function carteiraWinthor() {
+  return sql`(
+    select codusur::int, codcli::int, cliente, cnpj, bloqueio, ativo
+      from system.vendedor_interno_carteira
+    union all
+    select codusur::int, codcli::int, cliente, cnpj, bloqueio, ativo
+      from system.vendedor_carteira_cliente
+  )`;
+}
+
 /** No ar para o cliente: catálogo ligado, dona ativa e marca (se houver) ativa. Mesmos aliases. */
 export function catalogoNoAr() {
   return sql`c.ativo and (m.id is null or m.ativo)

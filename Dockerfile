@@ -22,6 +22,8 @@ ENV NODE_ENV=production \
 COPY --from=build --chown=node:node /app/.next/standalone ./
 COPY --from=build --chown=node:node /app/.next/static ./.next/static
 COPY --from=build --chown=node:node /app/public ./public
+# Aplicadas ao subir o servidor (src/instrumentation.ts), lidas desta pasta.
+COPY --from=build --chown=node:node /app/db/migrations ./db/migrations
 USER node
 EXPOSE 8080
 CMD ["node", "server.js"]

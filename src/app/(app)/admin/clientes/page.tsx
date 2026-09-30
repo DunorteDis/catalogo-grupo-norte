@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Contact, Pencil, Store, Trash2 } from "lucide-react";
+import { Ban, Contact, Landmark, Pencil, Store, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { chamar } from "@/lib/chamar";
@@ -15,6 +15,7 @@ import {
   TIPOS_CONTATO,
 } from "@/lib/catalogo";
 import { Badge, FilterTabs, ListRow, PageHeader, SearchInput } from "@/components/abastex";
+import { CondicoesCliente } from "@/components/condicoes-cliente";
 import {
   Dialog,
   DialogContent,
@@ -71,6 +72,9 @@ export default function ClientesPage() {
   const [situacao, setSituacao] = useState<Situacao>("ativos");
   const [pagina, setPagina] = useState(0);
   const [aberto, setAberto] = useState<Cliente | null>(null);
+  // O último cliente fica guardado ao fechar: o conteúdo não some durante a animação.
+  const [condicoes, setCondicoes] = useState<number | null>(null);
+  const [condicoesAbertas, setCondicoesAbertas] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -122,7 +126,16 @@ export default function ClientesPage() {
               inactive={!c.ativo}
               thumb={<Store size={22} aria-hidden />}
               title={c.nome}
-              badge={!c.ativo && <Badge dot>Inativo</Badge>}
+              badge={
+                <>
+                  {!c.ativo && <Badge dot>Inativo</Badge>}
+                  {c.ativo && c.bloqueado && (
+                    <Badge tone="danger" icon={Ban}>
+                      Bloqueado
+                    </Badge>
+                  )}
+                </>
+              }
               meta={
                 <>
                   {c.nome !== c.cliente && <>{c.cliente} · </>}
@@ -130,10 +143,25 @@ export default function ClientesPage() {
                 </>
               }
               actions={
-                <Button variant="outline" size="sm" onClick={() => setAberto(c)}>
-                  <Contact />
-                  {c.contatos === 1 ? "1 contato" : `${c.contatos} contatos`}
-                </Button>
+                <>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="bg-brand-soft text-brand hover:bg-brand-soft hover:text-brand hover:brightness-95"
+                    onClick={() => {
+                      setCondicoes(c.codcli);
+                      setCondicoesAbertas(true);
+                    }}
+                  >
+                    <Landmark />
+                    Condições
+                  </Button>
+                  {/* Largura fixa: "1 contato" e "12 contatos" não empurram o Condições ao lado. */}
+                  <Button variant="outline" size="sm" className="w-32" onClick={() => setAberto(c)}>
+                    <Contact />
+                    {c.contatos === 1 ? "1 contato" : `${c.contatos} contatos`}
+                  </Button>
+                </>
               }
             />
           ))}
@@ -162,6 +190,12 @@ export default function ClientesPage() {
           </Button>
         </div>
       </div>
+
+      <CondicoesCliente
+        codcli={condicoes}
+        aberto={condicoesAbertas}
+        onFechar={() => setCondicoesAbertas(false)}
+      />
 
       <Dialog open={aberto !== null} onOpenChange={(v) => !v && setAberto(null)}>
         <DialogContent className="sm:max-w-lg">

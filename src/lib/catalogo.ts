@@ -52,6 +52,15 @@ export function formatarTelefone(valor: string) {
   return n ? `(${n.slice(0, 2)}) ${n.slice(2, -4)}-${n.slice(-4)}` : valor;
 }
 
+/** CNPJ (14 dígitos) ou CPF (11) com a máscara de sempre; outro formato volta como veio. */
+export function formatarDocumento(valor: string) {
+  const d = somenteDigitos(valor);
+  if (d.length === 14)
+    return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
+  if (d.length === 11) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+  return valor;
+}
+
 export function slugify(valor: string) {
   return (valor || "")
     .normalize("NFD")

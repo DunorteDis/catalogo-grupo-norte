@@ -12,6 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import logoClaro from "@/assets/abastex/abastex-logo.png";
 import logoEscuro from "@/assets/abastex/abastex-logo-dark.png";
+import grupoNorte from "@/assets/logos/gruponorte.png";
+import grupoNorteEscuro from "@/assets/logos/gruponorte-dark.png";
+import nic from "@/assets/nic/nic.png";
+import nicEscuro from "@/assets/nic/nic-dark.png";
 
 const DESTAQUES = [
   { valor: "01", texto: "link por vendedor e distribuidora" },
@@ -123,6 +127,28 @@ export function FormLogin() {
           <p className="mt-6 text-center text-xs text-ink-muted">
             Novos acessos são criados pelo administrador dentro do sistema.
           </p>
+
+          {/* Assinatura: versão escura dos logos no tema escuro, como o do Abastex acima. */}
+          <div className="mt-10 flex flex-col items-center gap-3 border-t pt-6">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-subtle">
+              Desenvolvido por
+            </span>
+            <div className="flex items-center gap-4">
+              <img
+                src={grupoNorte.src}
+                alt="Grupo Norte Distribuição"
+                className="h-8 w-auto dark:hidden"
+              />
+              <img
+                src={grupoNorteEscuro.src}
+                alt="Grupo Norte Distribuição"
+                className="hidden h-8 w-auto dark:block"
+              />
+              <span className="h-7 w-px bg-line-strong" aria-hidden />
+              <img src={nic.src} alt="NIC" className="h-5 w-auto dark:hidden" />
+              <img src={nicEscuro.src} alt="NIC" className="hidden h-5 w-auto dark:block" />
+            </div>
+          </div>
         </div>
       </main>
     </div>
