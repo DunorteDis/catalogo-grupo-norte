@@ -23,6 +23,7 @@ import { codigoPedido } from "@/lib/whatsapp";
 import { Badge, IconTile, KpiCard } from "@/components/abastex";
 import { Paginacao } from "@/components/paginacao";
 import { HistoricoConversa } from "@/components/whatsapp/historico";
+import { useConversas } from "@/hooks/use-conversas";
 import { Button } from "@/components/ui/button";
 import { fotosPorCodigo } from "@/server/pedidos";
 
@@ -85,6 +86,8 @@ export function ListaPedidos({
 }) {
   // O período inteiro vem de uma vez: os números do topo somam tudo, a lista pagina.
   const [pagina, setPagina] = useState(0);
+  // A conversa do pedido faz parte do módulo de Conversas, ainda em desenvolvimento.
+  const conversas = useConversas();
   // Outro período é outra lista: volta para a primeira página. Assinatura primitiva
   // porque o pai passa `data ?? []`, um array novo a cada render enquanto carrega.
   const assinatura = `${pedidos.length}:${pedidos[0]?.id ?? ""}`;
@@ -244,7 +247,7 @@ export function ListaPedidos({
                         );
                       })}
                     </ul>
-                    {pedido.conversa_id && (
+                    {conversas && pedido.conversa_id && (
                       <div className="mt-3 overflow-hidden rounded-xl border">
                         <p className="flex items-center gap-2 bg-(--wa-painel) px-3 py-2 text-xs font-semibold text-(--wa-texto)">
                           <MessageCircle className="size-4 text-(--wa-verde)" aria-hidden />

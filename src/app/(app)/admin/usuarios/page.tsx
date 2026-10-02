@@ -43,6 +43,7 @@ import { LOGOS } from "@/lib/logos";
 import { cn } from "@/lib/utils";
 import { Badge, IconTile, PageHeader } from "@/components/abastex";
 import { ConexaoWhatsapp } from "@/components/whatsapp/conexao";
+import { useConversas } from "@/hooks/use-conversas";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -303,6 +304,8 @@ export default function UsuariosPage() {
   const [linksAberto, setLinksAberto] = useState(false);
   const [carteira, setCarteira] = useState<LinhaVendedor | null>(null);
   const [carteiraAberta, setCarteiraAberta] = useState(false);
+  // Conexão do WhatsApp (W-API): some com o módulo de Conversas em desenvolvimento.
+  const conversas = useConversas();
   const [conexao, setConexao] = useState<LinhaVendedor | null>(null);
   const [conexaoAberta, setConexaoAberta] = useState(false);
 
@@ -562,18 +565,20 @@ export default function UsuariosPage() {
                           </span>
                         )}
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="bg-success-soft text-success hover:bg-success-soft hover:text-success hover:brightness-95"
-                        onClick={() => {
-                          setConexao(v);
-                          setConexaoAberta(true);
-                        }}
-                      >
-                        <MessageCircle />
-                        WhatsApp
-                      </Button>
+                      {conversas && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="bg-success-soft text-success hover:bg-success-soft hover:text-success hover:brightness-95"
+                          onClick={() => {
+                            setConexao(v);
+                            setConexaoAberta(true);
+                          }}
+                        >
+                          <MessageCircle />
+                          WhatsApp
+                        </Button>
+                      )}
                     </>
                   )}
                   <Button

@@ -8,6 +8,7 @@ import {
   type MensagemWhatsapp,
 } from "@/lib/whatsapp";
 import { Recusa } from "@/server/acao";
+import type { Papel } from "@/lib/sessao-token";
 import { carteiraWinthor, sql } from "@/server/db";
 import { guardarArquivoWhatsapp } from "@/server/s3";
 import { exigirLogin } from "@/server/sessao";
@@ -15,6 +16,23 @@ import { exigirLogin } from "@/server/sessao";
 // Sem "use server": nada daqui pode virar action chamável pelo navegador.
 
 const BASE = "https://api.w-api.app/v1";
+
+/**
+ * Conversas pelo WhatsApp ainda em desenvolvimento. Só o TI e o vendedor piloto (com número
+ * cadastrado na W-API) veem o módulo, o aviso de desconexão, a conexão em Usuários e a
+ * conversa dentro do pedido. Catálogo, pedidos e carteira funcionam sem ele.
+ * ponytail: liberar para todos é trocar para true.
+ */
+export const CONVERSAS_LIBERADAS = false;
+
+export async function veConversas(userId: string, papel: Papel) {
+  if (CONVERSAS_LIBERADAS || papel === "ti") return true;
+  if (papel !== "vendedor") return false;
+  const [n] = await sql<{ ok: boolean }[]>`
+    select exists (select 1 from whatsapp_numeros n join vendedores v on v.id = n.vendedor_id
+                    where v.user_id = ${userId}) as ok`;
+  return !!n?.ok;
+}
 
 export type NumeroWhatsapp = { instancia: string; token: string };
 

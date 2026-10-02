@@ -5,6 +5,7 @@ import { AppShell } from "@/components/app-shell";
 import { destinoDoAcesso, distEmUso } from "@/lib/sessao-token";
 import { sql } from "@/server/db";
 import { acessoDe, lerSessao } from "@/server/sessao";
+import { veConversas } from "@/server/whatsapp";
 
 export default async function AreaLogada({ children }: { children: ReactNode }) {
   const s = await lerSessao();
@@ -16,10 +17,13 @@ export default async function AreaLogada({ children }: { children: ReactNode }) 
   const destino = destinoDoAcesso(a, s.prov);
   if (!a?.papel || !destino) redirect("/auth");
   if (destino === "/definir-senha" || destino === "/escolher-distribuidora") redirect(destino);
-  const [d] = await sql<{ nome: string }[]>`
-    select nome from distribuidoras where id = ${distEmUso({ ...a, papel: a.papel })}`;
+  const [[d], conversas] = await Promise.all([
+    sql<{ nome: string }[]>`
+      select nome from distribuidoras where id = ${distEmUso({ ...a, papel: a.papel })}`,
+    veConversas(s.sub, a.papel),
+  ]);
   return (
-    <AppShell email={s.email} papel={a.papel} distribuidora={d?.nome ?? null}>
+    <AppShell email={s.email} papel={a.papel} distribuidora={d?.nome ?? null} conversas={conversas}>
       {children}
     </AppShell>
   );

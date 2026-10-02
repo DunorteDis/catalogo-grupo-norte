@@ -29,6 +29,7 @@ import logoEscuro from "@/assets/abastex/abastex-logo-dark.png";
 import simboloEscuro from "@/assets/abastex/abastex-symbol-dark.png";
 import { Button } from "@/components/ui/button";
 import { AvisoWhatsapp } from "@/components/whatsapp/conexao";
+import { ConversasContexto } from "@/hooks/use-conversas";
 import {
   Sidebar,
   SidebarContent,
@@ -48,7 +49,15 @@ import {
 } from "@/components/ui/sidebar";
 import { sair as encerrarSessao } from "@/server/auth";
 
-type Item = { to: string; label: string; icon: typeof Users; exact?: boolean; soTI?: boolean };
+type Item = {
+  to: string;
+  label: string;
+  icon: typeof Users;
+  exact?: boolean;
+  soTI?: boolean;
+  /** Módulo de Conversas, ainda em desenvolvimento (veConversas). */
+  conversas?: boolean;
+};
 type Grupo = { titulo: string; itens: Item[] };
 
 // Ícones do mapa de navegação do DS Abastex.
@@ -72,7 +81,7 @@ const MENU_VENDEDOR: Grupo[] = [
     titulo: "Vendas",
     itens: [
       { to: "/vendedor", label: "Meus links", icon: Link2 },
-      { to: "/conversas", label: "Conversas", icon: MessageCircle },
+      { to: "/conversas", label: "Conversas", icon: MessageCircle, conversas: true },
       { to: "/carteira", label: "Minha carteira", icon: WalletCards },
       { to: "/meus-pedidos", label: "Pedidos", icon: ShoppingBag },
     ],
@@ -130,12 +139,15 @@ export function AppShell({
   email,
   papel,
   distribuidora,
+  conversas,
   children,
 }: {
   email: string;
   papel: Papel;
   /** Nome da distribuidora em uso. */
   distribuidora: string | null;
+  /** Vê o módulo de Conversas (em desenvolvimento: só TI e vendedor piloto). */
+  conversas: boolean;
   children: ReactNode;
 }) {
   const router = useRouter();
@@ -156,7 +168,10 @@ export function AppShell({
   const admin = papel !== "vendedor";
   // Distribuidoras é só do TI; grupo que ficar vazio some.
   const grupos = (admin ? MENU_ADMIN : MENU_VENDEDOR)
-    .map((g) => ({ ...g, itens: g.itens.filter((i) => !i.soTI || papel === "ti") }))
+    .map((g) => ({
+      ...g,
+      itens: g.itens.filter((i) => (!i.soTI || papel === "ti") && (!i.conversas || conversas)),
+    }))
     .filter((g) => g.itens.length > 0);
   const usuario = usuarioDeEmail(email);
   const estaEm = (i: Item) =>
@@ -296,7 +311,7 @@ export function AppShell({
               {distribuidora && (
                 <li className="hidden shrink-0 items-center gap-1.5 text-ink-muted sm:flex">
                   {distribuidora}
-                  <ChevronRight aria-hidden className="size-4 text-ink-subtle" />
+                  {atual && <ChevronRight aria-hidden className="size-4 text-ink-subtle" />}
                 </li>
               )}
               {atual && (
@@ -316,11 +331,13 @@ export function AppShell({
             {escuro ? <Sun /> : <Moon />}
           </Button>
         </header>
-        {montado && <AvisoWhatsapp />}
+        {montado && conversas && <AvisoWhatsapp />}
         {/* Largura máxima: em monitor grande o conteúdo não se espalha de ponta a ponta. */}
         <main className="flex-1">
           <div className="mx-auto w-full max-w-360 px-4 pb-10 pt-5 sm:px-6 lg:px-8 lg:pt-6">
-            {montado ? children : null}
+            <ConversasContexto.Provider value={conversas}>
+              {montado ? children : null}
+            </ConversasContexto.Provider>
           </div>
         </main>
       </SidebarInset>

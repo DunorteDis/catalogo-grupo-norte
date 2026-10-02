@@ -18,6 +18,7 @@ import { Badge, SearchInput } from "@/components/abastex";
 import { CondicoesCliente } from "@/components/condicoes-cliente";
 import { BotaoConexao } from "@/components/whatsapp/conexao";
 import { HistoricoConversa } from "@/components/whatsapp/historico";
+import { useConversas } from "@/hooks/use-conversas";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -84,7 +85,23 @@ function Avatar({ conversa, className }: { conversa: ConversaDaLista; className:
 }
 
 /** Conversas do WhatsApp do vendedor, no formato do WhatsApp Web: lista à esquerda, conversa à direita. */
+/** Fora do piloto a página não abre nem consulta nada: o módulo está em desenvolvimento. */
 export default function ConversasPage() {
+  if (!useConversas())
+    return (
+      <div className="flex flex-col items-center gap-3 py-20 text-center">
+        <MessageCircle className="size-12 text-ink-subtle" aria-hidden />
+        <h1 className="text-xl font-semibold">Conversas em desenvolvimento</h1>
+        <p className="max-w-sm text-sm text-ink-muted">
+          Em breve você atende os clientes pelo WhatsApp por aqui. Os links do catálogo, os pedidos
+          e a carteira continuam funcionando normalmente.
+        </p>
+      </div>
+    );
+  return <Conversas />;
+}
+
+function Conversas() {
   const [abertaId, setAbertaId] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
   const [condicoes, setCondicoes] = useState(false);
