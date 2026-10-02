@@ -4,6 +4,7 @@ import * as AccordionPrimitive from "@radix-ui/react-accordion";
 import {
   ChevronDown,
   FileSpreadsheet,
+  MessageCircle,
   Package,
   ShoppingBag,
   ShoppingCart,
@@ -20,6 +21,7 @@ import { baixarPlanilhaDoPedido } from "@/lib/planilha-pedido";
 import { cn } from "@/lib/utils";
 import { Badge, IconTile, KpiCard } from "@/components/abastex";
 import { Paginacao } from "@/components/paginacao";
+import { HistoricoConversa } from "@/components/whatsapp/historico";
 import { Button } from "@/components/ui/button";
 import { fotosPorCodigo } from "@/server/pedidos";
 
@@ -32,6 +34,8 @@ export type PedidoDaLista = {
   distribuidoras: { nome: string; cor: string } | null;
   vendedores?: { nome: string } | null;
   pedido_itens: { codigo: string; nome: string; quantidade: number; unidade: string }[];
+  /** Conversa do WhatsApp em que o pedido chegou (pelo código "Pedido #..." da mensagem). */
+  conversa_id?: string | null;
 };
 
 const num = (n: number) => n.toLocaleString("pt-BR");
@@ -203,6 +207,15 @@ export function ListaPedidos({
                         );
                       })}
                     </ul>
+                    {pedido.conversa_id && (
+                      <div className="mt-3 overflow-hidden rounded-xl border">
+                        <p className="flex items-center gap-2 bg-(--wa-painel) px-3 py-2 text-xs font-semibold text-(--wa-texto)">
+                          <MessageCircle className="size-4 text-(--wa-verde)" aria-hidden />
+                          Conversa do WhatsApp
+                        </p>
+                        <HistoricoConversa conversaId={pedido.conversa_id} className="h-96" />
+                      </div>
+                    )}
                     {pedido.observacao && (
                       <p className="border-t border-dashed pt-3 text-[13px] text-ink-muted">
                         <span className="font-semibold text-ink">Observação:</span>{" "}

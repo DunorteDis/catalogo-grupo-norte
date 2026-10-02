@@ -53,6 +53,16 @@
   --shadow-md: 0 4px 12px #501ea114, 0 2px 4px #1b14280d;
   --shadow-primary: 0 4px 14px #501ea140;
   --focus-ring: 0 0 0 2px #ffffff, 0 0 0 4px #501ea1;
+  /* Conversas: as cores do WhatsApp, para o vendedor se sentir em casa */
+  --wa-fundo: #efeae2;
+  --wa-painel: #f0f2f5;
+  --wa-entrada: #ffffff;
+  --wa-saida: #d9fdd3;
+  --wa-texto: #111b21;
+  --wa-hora: #667781;
+  --wa-verde: #00a884;
+  --wa-lido: #53bdeb;
+  --wa-linha: #e9edef;
 }
 
 [data-theme="dark"] {
@@ -102,6 +112,15 @@
   --shadow-md: 0 8px 24px #00000099;
   --shadow-primary: 0 4px 14px #6a3bd059;
   --focus-ring: 0 0 0 2px #0f0a1a, 0 0 0 4px #16e692;
+  --wa-fundo: #0b141a;
+  --wa-painel: #202c33;
+  --wa-entrada: #202c33;
+  --wa-saida: #005c4b;
+  --wa-texto: #e9edef;
+  --wa-hora: #8696a0;
+  --wa-verde: #00a884;
+  --wa-lido: #53bdeb;
+  --wa-linha: #222d34;
   color-scheme: dark;
 }
 

@@ -43,3 +43,45 @@ export function assinarFoto(chave: string, segundos: number) {
     expiresIn: segundos,
   });
 }
+
+/** Arquivos que chegam pelo WhatsApp (fotos, áudios, documentos das conversas). */
+const PASTA_WHATSAPP = "whatsapp/";
+
+export async function guardarArquivoWhatsapp(chave: string, corpo: Buffer, tipo: string) {
+  await s3().send(
+    new PutObjectCommand({
+      Bucket: bucket(),
+      Key: PASTA_WHATSAPP + chave,
+      Body: corpo,
+      ContentType: tipo,
+      CacheControl: "private, max-age=31536000, immutable",
+    }),
+  );
+}
+
+/** O arquivo em si, para o CRM repassar com o tamanho (a tela mostra o progresso). */
+export async function lerArquivoWhatsapp(chave: string) {
+  const r = await s3().send(
+    new GetObjectCommand({ Bucket: bucket(), Key: PASTA_WHATSAPP + chave }),
+  );
+  return {
+    corpo: r.Body!.transformToWebStream(),
+    tamanho: r.ContentLength ?? null,
+    tipo: r.ContentType ?? "application/octet-stream",
+  };
+}
+
+/** URL assinada; com `nome`, o navegador abre/salva o documento com o nome original. */
+export function assinarArquivoWhatsapp(chave: string, segundos: number, nome: string | null) {
+  return getSignedUrl(
+    s3(),
+    new GetObjectCommand({
+      Bucket: bucket(),
+      Key: PASTA_WHATSAPP + chave,
+      ...(nome
+        ? { ResponseContentDisposition: `inline; filename*=UTF-8''${encodeURIComponent(nome)}` }
+        : {}),
+    }),
+    { expiresIn: segundos },
+  );
+}

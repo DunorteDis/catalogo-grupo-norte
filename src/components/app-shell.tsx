@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   Link2,
   LogOut,
+  MessageCircle,
   Moon,
   Package,
   ShoppingBag,
@@ -26,6 +27,7 @@ import { cn } from "@/lib/utils";
 import logoEscuro from "@/assets/abastex/abastex-logo-dark.png";
 import simboloEscuro from "@/assets/abastex/abastex-symbol-dark.png";
 import { Button } from "@/components/ui/button";
+import { AvisoWhatsapp } from "@/components/whatsapp/conexao";
 import {
   Sidebar,
   SidebarContent,
@@ -68,6 +70,7 @@ const MENU_VENDEDOR: Grupo[] = [
     titulo: "Vendas",
     itens: [
       { to: "/vendedor", label: "Meus links", icon: Link2 },
+      { to: "/conversas", label: "Conversas", icon: MessageCircle },
       { to: "/carteira", label: "Minha carteira", icon: WalletCards },
       { to: "/meus-pedidos", label: "Pedidos", icon: ShoppingBag },
     ],
@@ -110,7 +113,9 @@ export function AppShell({
   useEffect(() => setMontado(true), []);
   // ponytail: uma barra no shell cobre toda tela que busca dados, em vez de um
   // estado de carregamento por pagina. Nenhuma pagina admin tinha um.
-  const buscando = useIsFetching() > 0;
+  // Só o que a tela ainda não tem: a atualização de fundo (a cada 5 s nas Conversas)
+  // acenderia a barra o tempo todo e a página pareceria piscar.
+  const buscando = useIsFetching({ predicate: (q) => q.state.status === "pending" }) > 0;
 
   const admin = papel !== "vendedor";
   // Distribuidoras é só do TI; grupo que ficar vazio some.
@@ -251,6 +256,7 @@ export function AppShell({
             {escuro ? <Sun /> : <Moon />}
           </Button>
         </header>
+        {montado && <AvisoWhatsapp />}
         <main className="flex-1 px-4 pb-8 pt-6 md:px-8">{montado ? children : null}</main>
       </SidebarInset>
     </SidebarProvider>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import {
   AlarmClock,
   Ban,
@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 
 import { Badge } from "@/components/abastex";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { iniciais } from "@/lib/acessos";
 import { formatarDocumento } from "@/lib/catalogo";
 import { chamar } from "@/lib/chamar";
@@ -43,8 +43,8 @@ const COR_TITULO = {
 } as const;
 
 /**
- * Crédito, títulos e bloqueio do cliente, para decidir a venda a prazo. Usada na
- * carteira do vendedor, na carteira vista pelo admin e na tela de Clientes.
+ * Crédito, títulos e bloqueio do cliente, para decidir a venda a prazo, num drawer à direita.
+ * Usada na carteira do vendedor, na carteira vista pelo admin, em Clientes e nas Conversas.
  */
 export function CondicoesCliente({
   codcli,
@@ -61,27 +61,113 @@ export function CondicoesCliente({
     enabled: aberto && codcli != null,
   });
 
+  const [largura, alca] = useLarguraArrastavel();
+
   return (
-    <Dialog open={aberto} onOpenChange={(a) => !a && onFechar()}>
-      <DialogContent className="max-h-[92vh] gap-0 overflow-y-auto p-0 sm:max-w-3xl">
-        {data ? (
-          <Conteudo dados={data} />
-        ) : (
-          <div className="p-6">
-            <DialogTitle>Condições do cliente</DialogTitle>
-            <DialogDescription className="mt-1">
-              {isLoading ? "Buscando crédito, títulos e bloqueio no Winthor..." : null}
-            </DialogDescription>
-            {error && (
-              <p className="mt-4 rounded-xl bg-danger-soft p-4 text-sm text-danger">
-                {mensagemErro(error)}
-              </p>
-            )}
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
+    <Sheet open={aberto} onOpenChange={(a) => !a && onFechar()}>
+      <SheetContent
+        className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-none"
+        style={{ width: largura, maxWidth: "100vw" }}
+      >
+        {alca}
+        {/* @container: os cartões se arrumam pela largura do drawer, não da tela. */}
+        <div className="@container min-h-0 flex-1 overflow-y-auto">
+          {data ? (
+            <Conteudo dados={data} />
+          ) : (
+            <div className="p-6">
+              <SheetTitle>Condições do cliente</SheetTitle>
+              <SheetDescription className="mt-1">
+                {isLoading ? "Buscando crédito, títulos e bloqueio no Winthor..." : null}
+              </SheetDescription>
+              {error && (
+                <p className="mt-4 rounded-xl bg-danger-soft p-4 text-sm text-danger">
+                  {mensagemErro(error)}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
   );
+}
+
+const LARGURA_MINIMA = 420;
+const LARGURA_PADRAO = 576;
+const CHAVE_LARGURA = "condicoes-cliente:largura";
+
+const limitar = (px: number) =>
+  Math.round(Math.max(LARGURA_MINIMA, Math.min(px, window.innerWidth * 0.95)));
+
+/**
+ * Largura do drawer puxando a borda esquerda com o mouse (setas no teclado; duplo clique
+ * volta ao padrão). Fica guardada no navegador para a próxima vez.
+ */
+function useLarguraArrastavel() {
+  const [largura, setLargura] = useState(() => {
+    try {
+      return Number(localStorage.getItem(CHAVE_LARGURA)) || LARGURA_PADRAO;
+    } catch {
+      return LARGURA_PADRAO;
+    }
+  });
+  const atual = useRef(largura);
+  const mudar = (px: number) => {
+    atual.current = limitar(px);
+    setLargura(atual.current);
+  };
+  const guardar = () => {
+    try {
+      localStorage.setItem(CHAVE_LARGURA, String(atual.current));
+    } catch {
+      // Navegador sem armazenamento (aba anônima): a largura só não fica guardada.
+    }
+  };
+
+  function arrastar(e: React.PointerEvent) {
+    e.preventDefault();
+    const mover = (ev: PointerEvent) => mudar(window.innerWidth - ev.clientX);
+    const soltar = () => {
+      window.removeEventListener("pointermove", mover);
+      window.removeEventListener("pointerup", soltar);
+      document.body.style.removeProperty("cursor");
+      document.body.style.removeProperty("user-select");
+      guardar();
+    };
+    // Enquanto arrasta, o cursor não pisca e o texto não fica selecionado.
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("pointermove", mover);
+    window.addEventListener("pointerup", soltar);
+  }
+
+  const alca = (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Largura do painel: arraste ou use as setas"
+      aria-valuenow={largura}
+      tabIndex={0}
+      onPointerDown={arrastar}
+      onDoubleClick={() => {
+        mudar(LARGURA_PADRAO);
+        guardar();
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+        e.preventDefault();
+        mudar(atual.current + (e.key === "ArrowLeft" ? 40 : -40));
+        guardar();
+      }}
+      title="Arraste para mudar a largura · duplo clique volta ao padrão"
+      className="group absolute inset-y-0 left-0 z-10 hidden w-3 -translate-x-1/2 cursor-col-resize outline-none sm:block"
+    >
+      <span className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 transition-colors group-hover:bg-brand group-focus-visible:bg-brand" />
+      <span className="absolute top-1/2 left-1/2 h-10 w-1.5 -translate-1/2 rounded-full bg-line-strong transition-colors group-hover:bg-brand group-focus-visible:bg-brand" />
+    </div>
+  );
+  return [largura, alca] as const;
 }
 
 function Conteudo({ dados }: { dados: Dados }) {
@@ -123,13 +209,13 @@ function Conteudo({ dados }: { dados: Dados }) {
             {iniciais(c.nome)}
           </span>
           <div className="min-w-0 flex-1">
-            <DialogTitle className="text-lg leading-tight">{c.nome}</DialogTitle>
+            <SheetTitle className="text-lg leading-tight">{c.nome}</SheetTitle>
             {c.razao !== c.nome && <p className="truncate text-sm text-ink-muted">{c.razao}</p>}
-            <DialogDescription className="mt-1 text-xs">
+            <SheetDescription className="mt-1 text-xs">
               Cód. {c.codcli}
               {c.cnpj && ` · ${formatarDocumento(c.cnpj)}`}
               {c.cidade && ` · ${c.cidade}${c.uf ? `/${c.uf}` : ""}`}
-            </DialogDescription>
+            </SheetDescription>
           </div>
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -156,7 +242,7 @@ function Conteudo({ dados }: { dados: Dados }) {
       </header>
 
       <div className="flex flex-col gap-5 px-6 py-5">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 @2xl:grid-cols-4">
           <Numero
             icone={Landmark}
             cor="bg-brand-soft text-brand"
@@ -246,7 +332,7 @@ function Conteudo({ dados }: { dados: Dados }) {
           </section>
         )}
 
-        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <dl className="grid grid-cols-2 gap-3 @2xl:grid-cols-4">
           <Dado icone={Wallet} rotulo="Cobrança" valor={c.cobranca ?? "—"} />
           <Dado
             icone={CalendarClock}

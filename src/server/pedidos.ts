@@ -25,7 +25,7 @@ async function listaPedidos(
   const [de, ate] = periodo.parse([inicio, fim]);
   return [
     ...(await sql<PedidoDaLista[]>`
-      select p.id, p.cliente_nome, p.observacao, p.total_itens, p.created_at,
+      select p.id, p.cliente_nome, p.observacao, p.total_itens, p.created_at, p.conversa_id,
              case when v.id is null then null else json_build_object('nome', v.nome) end as vendedores,
              case when c.id is null then null
                   else json_build_object('nome', coalesce(m.nome, c.nome), 'cor', coalesce(m.cor, c.cor))

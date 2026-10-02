@@ -10,6 +10,7 @@ import {
   ExternalLink,
   KeyRound,
   Link2,
+  MessageCircle,
   Pencil,
   Plus,
   RotateCcw,
@@ -41,6 +42,7 @@ import { formatarTelefone, slugify, somenteDigitos } from "@/lib/catalogo";
 import { LOGOS } from "@/lib/logos";
 import { cn } from "@/lib/utils";
 import { Badge, IconTile, PageHeader } from "@/components/abastex";
+import { ConexaoWhatsapp } from "@/components/whatsapp/conexao";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -301,6 +303,8 @@ export default function UsuariosPage() {
   const [linksAberto, setLinksAberto] = useState(false);
   const [carteira, setCarteira] = useState<LinhaVendedor | null>(null);
   const [carteiraAberta, setCarteiraAberta] = useState(false);
+  const [conexao, setConexao] = useState<LinhaVendedor | null>(null);
+  const [conexaoAberta, setConexaoAberta] = useState(false);
 
   const [tipo, setTipo] = useState<"vendedor" | "admin">("vendedor");
   const [nome, setNome] = useState("");
@@ -558,6 +562,18 @@ export default function UsuariosPage() {
                             {v.clientes.toLocaleString("pt-BR")}
                           </span>
                         )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="bg-success-soft text-success hover:bg-success-soft hover:text-success hover:brightness-95"
+                        onClick={() => {
+                          setConexao(v);
+                          setConexaoAberta(true);
+                        }}
+                      >
+                        <MessageCircle />
+                        WhatsApp
                       </Button>
                     </>
                   )}
@@ -941,6 +957,19 @@ export default function UsuariosPage() {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* WhatsApp do vendedor: instância da W-API, QR code e estado da conexão */}
+      <Dialog open={conexaoAberta} onOpenChange={setConexaoAberta}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>WhatsApp de {conexao?.nome}</DialogTitle>
+            <DialogDescription>
+              As conversas desse número aparecem no CRM do vendedor e no histórico dos pedidos.
+            </DialogDescription>
+          </DialogHeader>
+          {conexao && <ConexaoWhatsapp key={conexao.id} vendedorId={conexao.id} />}
         </DialogContent>
       </Dialog>
 

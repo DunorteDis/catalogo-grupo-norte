@@ -140,6 +140,10 @@ test("montarMensagem leva a unidade de cada item e totaliza por unidade", () => 
       { ...item, codigo: "456", nome: "AMACIANTE", quantidade: 2, unidade: "CX" },
     ],
   });
+  expect(texto.startsWith("*Novo pedido - Dunorte*")).toBe(true);
+  expect(montarMensagem({ distribuidora: "Dunorte", codigo: "A1B2C3D4", itens: [] })).toContain(
+    "*Novo pedido #A1B2C3D4 - Dunorte*",
+  );
   expect(texto).toContain("Cód: 789 — Qtd: 5 caixas");
   expect(texto).toContain("Cód: 123 — Qtd: 3 unidades");
   // Caixa não se soma com unidade: 3 unidades e 7 caixas, nunca "10 itens".

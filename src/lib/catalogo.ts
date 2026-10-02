@@ -160,12 +160,14 @@ export function totalPorUnidade(itens: Pick<ItemCarrinho, "quantidade" | "unidad
 
 export function montarMensagem(opts: {
   distribuidora: string;
+  /** Código do pedido (codigoPedido): é por ele que o CRM liga o pedido à conversa. */
+  codigo?: string;
   clienteNome?: string;
   observacao?: string;
   itens: ItemCarrinho[];
 }) {
   const linhas: string[] = [];
-  linhas.push(`*Novo pedido - ${opts.distribuidora}*`);
+  linhas.push(`*Novo pedido${opts.codigo ? ` #${opts.codigo}` : ""} - ${opts.distribuidora}*`);
   if (opts.clienteNome?.trim()) linhas.push(`Cliente: ${opts.clienteNome.trim()}`);
   linhas.push("");
   opts.itens.forEach((item, i) => {

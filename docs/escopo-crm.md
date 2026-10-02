@@ -29,13 +29,15 @@ Oportunidades → Contatado → Aberto → Cotado → (Aprovação) → Lançado
 
 O menu do Sharpi também tem Agendamentos, Pedidos, Métricas e Configurações, que não apareceram na demonstração. Na reunião, o Sharpi disse usar uma API não oficial do WhatsApp com infraestrutura própria e sugeriu que a gente use um serviço pronto.
 
-## Fases e datas (roadmap de 30/09/2026)
+## Fases e datas (roadmap de 01/10/2026)
+
+O WhatsApp veio para antes das negociações: com ele o cliente chega identificado pelo celular e o pedido se liga à conversa, e as negociações dependem de tabelas de preço e estoque que ainda não estão na cópia do Winthor.
 
 | Fase | Período | Entrega | O que entra | Status |
 | --- | --- | --- | --- | --- |
 | 0 · Base de dados e carteira | 28/09 a 02/10 | 02/10/2026 | Módulo 1 | Iniciada |
-| 1 · Negociações com preço | 05/10 a 16/10 | 16/10/2026 | Módulo 2 e as regras básicas do módulo 3 | Não iniciada |
-| 2 · Conversas no WhatsApp | 19/10 a 23/10 | 23/10/2026 | Módulo 4 | Não iniciada |
+| 1 · Conversas no WhatsApp | 05/10 a 09/10 | 09/10/2026 | Módulo 4 | Iniciada |
+| 2 · Negociações com preço | 12/10 a 23/10 | 23/10/2026 | Módulo 2 e as regras básicas do módulo 3 | Não iniciada |
 | 3 · Copiloto de pedido (IA) | 26/10 a 30/10 | 30/10/2026 | Módulo 5 | Não iniciada |
 | 4 · Oportunidades e recompra | 02/11 a 06/11 | 06/11/2026 | Módulo 6 | Não iniciada |
 | 5 · ERP, regras e métricas | 09/11 a 13/11 | 13/11/2026 | Lançamento direto no Venda Mais, resto do módulo 3 e módulo 7 | Não iniciada |
@@ -150,7 +152,8 @@ Quase tudo que o Sharpi mostra sai do histórico de vendas do Winthor. A base do
 | `pcclient` (limite e bloqueio) | `limcred`, `bloqueio`, `motivobloq`, `dtbloq`, `vlcredcli`, `codcob`, `codplpag`, `dtultcomp` | Sim, em uso |
 | `portal_vendedor.cliente_pendencias` | Títulos em aberto do cliente; `codcob = 'VERB'` é verba e fica fora da dívida | Sim, em uso |
 | `portal_vendedor.credito_cliente` | Créditos do cliente ainda não usados (`dtdesconto` nulo) | Sim, em uso |
-| `pcpedc` e `pcpedi` | Histórico de pedidos e itens: último preço, mix, atraso, sugeridos, estatísticas | Confirmar |
+| `score.faturamento_por_cliente` | Pedidos do ERP por cliente, RCA e produto: duas linhas por produto (a do pedido, com `vlr_tot_pedido`; a do faturamento, com nota, `qtd_faturado_liq` e `vlr_tot_faturado_venda`), `posicao_ped` e entrega. Atualiza com 1 dia de atraso (depois, 2 horas). Base do histórico do cliente (últimos pedidos, mix, último preço). Índice por cliente, RCA e data, não por pedido | Sim, ainda não usada |
+| `pcpedc` e `pcpedi` | Histórico de pedidos e itens (coberto em boa parte pela linha acima) | Não existem na cópia |
 | `pctabpr` e `pcpraca` | Preço de tabela pela região do cliente | Confirmar |
 | `pcest` | Estoque e custo por filial (loja e CD), base da margem | Confirmar |
 | `pcplpag` e `pccob` | Nomes dos planos de pagamento e das cobranças (hoje só aparecem os códigos) | Não existem na cópia |
@@ -170,9 +173,9 @@ A cópia é diária (por volta das 02:00), então estoque e preço ficam com um 
 
 | Integração | Proposta | Observação |
 | --- | --- | --- |
-| WhatsApp | Serviço pronto, recebendo mensagens por webhook e enviando por API | Oficial (Meta) ou não oficial: decisão em aberto, ver última seção |
+| WhatsApp | W-API (não oficial, `api.w-api.app`): uma instância por número de vendedor (`crm.whatsapp_numeros`: `instanceId` e token). Recebe por webhook em `/api/whatsapp?chave=WAPI_WEBHOOK_CHAVE` e envia por `/v1/message/send-text`. Mensagens em `crm.conversas` e `crm.mensagens` (corpo bruto em `jsonb`); o cliente sai do celular (`crm.chave_telefone`: DDD + 8 últimos dígitos) e o pedido do catálogo se liga à conversa pelo "Pedido #XXXXXXXX" da mensagem | Piloto: usuário "vendedor" (92981219124). Mídia (foto, áudio, PDF) ainda só aparece como rótulo |
 | IA | API da Anthropic (Claude) para ler o pedido na mensagem, casar produtos e escrever mensagens | O casamento de produto começa com busca por texto no banco (`pg_trgm`) filtrada pelo histórico do cliente; a IA só escolhe entre os candidatos |
-| Lançar no ERP | Até a Fase 5: planilha 9816-2 que já existe. Fase 5: lançamento direto no Venda Mais, com o número do pedido voltando para o CRM | Confirmar como o Venda Mais recebe o pedido |
+| Lançar no ERP | O pedido só vai ao Winthor quando o vendedor manda, por uma rota de integração (ainda não existe). A rota devolve o número do pedido no Winthor, que fica gravado no pedido do CRM. Até lá, planilha 9816-2 | Nunca ligar pedido do CRM ao do ERP por semelhança de produtos: o vínculo nasce do envio |
 
 ## Padrões técnicos
 
@@ -202,10 +205,10 @@ Fica de fora desta versão o que o Sharpi não demonstrou ou o que depende de um
 
 **Decisões em aberto**
 
-- [ ] WhatsApp oficial (Meta, por um parceiro) ou não oficial (serviço que conecta o WhatsApp do vendedor por QR code)? O oficial não corre risco de bloqueio, mas exige modelo aprovado para puxar conversa e cobra por conversa. O não oficial usa o número atual do vendedor, mas pode ser bloqueado. O Sharpi usa o não oficial.
+- [x] WhatsApp oficial ou não oficial? Não oficial, pela W-API, com o usuário "vendedor" de piloto. Quem vê: o vendedor vê as conversas dele (módulo Conversas e no pedido); o admin vê a conversa ligada ao pedido, só leitura.
 - [ ] O CRM substitui a plataforma de atendimento que a equipe usa hoje ou convive com ela? A Angela e o Helder levantaram juntar as duas. Substituir traz para o escopo as regras de redirecionamento (distribuir clientes entre vendedores, repassar a conversa de quem está de férias), o que soma cerca de duas semanas.
 - [ ] Transcrever todos os áudios dos clientes? Ajuda o vendedor e a IA, mas o próprio Sharpi disse que é caro.
 - [ ] Quem mantém a carga do schema `system` e pode incluir as tabelas novas?
-- [ ] Lançamento direto no Venda Mais: como ele recebe o pedido (API, tabelas de integração ou arquivo)?
+- [ ] Rota de envio do pedido ao Winthor: quando fica pronta, o que ela recebe (cliente, plano, itens, preços) e como devolve o número do pedido?
 - [ ] Quais regras comerciais do Winthor valem na primeira versão? A lista precisa sair de uma conversa com o comercial.
 - [ ] Aceitar a oferta do Sharpi de uma conversa semanal de 10 a 15 minutos para revisar a evolução.

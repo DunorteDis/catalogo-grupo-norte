@@ -9,6 +9,7 @@ import { toast } from "sonner";
 
 import { chamar } from "@/lib/chamar";
 import { mensagemErro } from "@/lib/erros";
+import { codigoPedido } from "@/lib/whatsapp";
 import { criarPedido, produtosDaVitrine, vitrine } from "@/server/publico";
 import { useVendedorPublico } from "@/hooks/use-vendedor-publico";
 import { MarcaCatalogo } from "@/components/marca-catalogo";
@@ -349,7 +350,7 @@ export function Catalogo() {
     if (!vendedor || !distribuidora || itens.length === 0) return;
     setEnviando(true);
     try {
-      await chamar(
+      const pedidoId = await chamar(
         criarPedido({
           vendedorId: vendedor.id,
           catalogoId: distribuidora.id,
@@ -365,6 +366,7 @@ export function Catalogo() {
       );
       const texto = montarMensagem({
         distribuidora: distribuidora.nome,
+        codigo: codigoPedido(pedidoId),
         clienteNome: cliente,
         observacao,
         itens,

@@ -96,11 +96,16 @@ export type CondicoesCliente = {
 export const condicoesCliente = acao(async (entrada: number): Promise<CondicoesCliente> => {
   const s = await exigirLogin();
   const codcli = z.number().int().positive().parse(entrada);
+  // Vendedor vê os da carteira e os que conversam com ele pelo WhatsApp (quem escreve
+  // pode não ser da carteira).
   if (s.papel === "vendedor") {
     const [dono] = await sql<{ ok: boolean }[]>`
       select exists (
         select 1 from vendedores v join ${carteiraWinthor()} k on k.codusur = v.codusur
-         where v.user_id = ${s.sub} and k.codcli = ${codcli}) as ok`;
+         where v.user_id = ${s.sub} and k.codcli = ${codcli}
+        union all
+        select 1 from vendedores v join conversas c on c.vendedor_id = v.id
+         where v.user_id = ${s.sub} and c.codcli = ${codcli}) as ok`;
     if (!dono?.ok) throw new Recusa("Esse cliente não está na sua carteira.");
   }
 
