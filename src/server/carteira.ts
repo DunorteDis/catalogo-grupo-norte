@@ -1,5 +1,6 @@
 "use server";
 
+import { randomBytes } from "node:crypto";
 import { z } from "zod";
 
 import { acao, Recusa } from "@/server/acao";
@@ -53,6 +54,47 @@ export const minhaCarteira = acao(async () => {
   return { nome: v.nome, codusur: v.codusur, clientes: await clientesDaCarteira(v.codusur) };
 });
 
+/**
+ * Vendedor só mexe em cliente da própria carteira ou de quem conversa com ele pelo
+ * WhatsApp (quem escreve pode não ser da carteira).
+ */
+async function exigirClienteDoVendedor(userId: string, codcli: number) {
+  const [dono] = await sql<{ ok: boolean }[]>`
+    select exists (
+      select 1 from vendedores v join ${carteiraWinthor()} k on k.codusur = v.codusur
+       where v.user_id = ${userId} and k.codcli = ${codcli}
+      union all
+      select 1 from vendedores v join conversas c on c.vendedor_id = v.id
+       where v.user_id = ${userId} and c.codcli = ${codcli}) as ok`;
+  if (!dono?.ok) throw new Recusa("Esse cliente não está na sua carteira.");
+}
+
+/**
+ * Chave do cliente para o link do catálogo (/c/<vendedor>/<catálogo>?c=<chave>): o pedido
+ * feito por ele chega identificado. Vale para qualquer catálogo do vendedor; o catálogo
+ * quem escolhe é o vendedor, na tela. A chave é a mesma toda vez; `novo` sorteia outra e
+ * a antiga para de valer (link que vazou).
+ */
+export const chaveDoCliente = acao(async (entrada: number, novoLink?: boolean) => {
+  const s = await exigirLogin();
+  const codcli = z.number().int().positive().parse(entrada);
+  const novo = novoLink === true;
+  const [v] = await sql<{ id: string }[]>`
+    select id from vendedores where user_id = ${s.sub} and ativo`;
+  if (!v)
+    throw new Recusa("O link do catálogo é do vendedor: seu acesso não tem cadastro de vendedor.");
+  await exigirClienteDoVendedor(s.sub, codcli);
+  const chave = randomBytes(9).toString("base64url");
+  const [link] = await sql<{ chave: string }[]>`
+    insert into links_cliente (chave, vendedor_id, codcli)
+    values (${chave}, ${v.id}, ${codcli})
+    on conflict (vendedor_id, codcli) do update
+      set chave = case when ${novo}::boolean then excluded.chave else links_cliente.chave end,
+          criado_em = case when ${novo}::boolean then now() else links_cliente.criado_em end
+    returning chave`;
+  return link!.chave;
+});
+
 export type CondicoesCliente = {
   cliente: {
     codcli: number;
@@ -96,18 +138,7 @@ export type CondicoesCliente = {
 export const condicoesCliente = acao(async (entrada: number): Promise<CondicoesCliente> => {
   const s = await exigirLogin();
   const codcli = z.number().int().positive().parse(entrada);
-  // Vendedor vê os da carteira e os que conversam com ele pelo WhatsApp (quem escreve
-  // pode não ser da carteira).
-  if (s.papel === "vendedor") {
-    const [dono] = await sql<{ ok: boolean }[]>`
-      select exists (
-        select 1 from vendedores v join ${carteiraWinthor()} k on k.codusur = v.codusur
-         where v.user_id = ${s.sub} and k.codcli = ${codcli}
-        union all
-        select 1 from vendedores v join conversas c on c.vendedor_id = v.id
-         where v.user_id = ${s.sub} and c.codcli = ${codcli}) as ok`;
-    if (!dono?.ok) throw new Recusa("Esse cliente não está na sua carteira.");
-  }
+  if (s.papel === "vendedor") await exigirClienteDoVendedor(s.sub, codcli);
 
   const [clientes, titulos, creditos] = await Promise.all([
     sql<CondicoesCliente["cliente"][]>`

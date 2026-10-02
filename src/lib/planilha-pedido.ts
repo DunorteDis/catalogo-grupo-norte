@@ -2,7 +2,8 @@ import type * as XLSX from "xlsx";
 
 import { slugify } from "@/lib/catalogo";
 
-type ItemPlanilha = { codigo: string; quantidade: number };
+/** `codigo` é o EAN (ou o codprod, se o produto não tem EAN); `codprod`, o código no Winthor. */
+type ItemPlanilha = { codigo: string; codprod?: number | null; quantidade: number };
 type PedidoPlanilha = {
   cliente_nome: string | null;
   created_at: string;
@@ -13,11 +14,15 @@ type PedidoPlanilha = {
  * Layout do modelo 9816-2.xls, que o sistema de destino importa: uma aba, coluna
  * A "Cód.Prod ou EAN" e B "Qde", uma linha por item, tudo como texto (no modelo
  * as duas colunas são texto; código como texto também preserva zero à esquerda).
+ * Vai o código do produto no Winthor; o EAN só quando o item não tem esse código.
  * A unidade (UN/CX) fica de fora de propósito, igual ao modelo — decisão do
  * negócio: quem importa usa a unidade padrão do produto.
  */
 export function linhasPlanilha(itens: ItemPlanilha[]) {
-  return [["Cód.Prod ou EAN", "Qde"], ...itens.map((i) => [i.codigo, String(i.quantidade)])];
+  return [
+    ["Cód.Prod ou EAN", "Qde"],
+    ...itens.map((i) => [i.codprod != null ? String(i.codprod) : i.codigo, String(i.quantidade)]),
+  ];
 }
 
 /** pedido-maria-silva-2026-09-28-14h05.xls, na hora local de quem baixa. */

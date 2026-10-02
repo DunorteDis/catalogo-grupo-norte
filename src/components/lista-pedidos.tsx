@@ -19,6 +19,7 @@ import { fotoUrl, paginaValida, POR_PAGINA, qtdComUnidade } from "@/lib/catalogo
 import { formatarData } from "@/lib/periodo";
 import { baixarPlanilhaDoPedido } from "@/lib/planilha-pedido";
 import { cn } from "@/lib/utils";
+import { codigoPedido } from "@/lib/whatsapp";
 import { Badge, IconTile, KpiCard } from "@/components/abastex";
 import { Paginacao } from "@/components/paginacao";
 import { HistoricoConversa } from "@/components/whatsapp/historico";
@@ -33,12 +34,42 @@ export type PedidoDaLista = {
   created_at: string;
   distribuidoras: { nome: string; cor: string } | null;
   vendedores?: { nome: string } | null;
-  pedido_itens: { codigo: string; nome: string; quantidade: number; unidade: string }[];
+  pedido_itens: {
+    /** EAN do produto, ou o codprod quando ele não tem EAN. */
+    codigo: string;
+    /** Código do produto no Winthor; nulo quando o item não achou o produto. */
+    codprod: number | null;
+    nome: string;
+    quantidade: number;
+    unidade: string;
+  }[];
   /** Conversa do WhatsApp em que o pedido chegou (pelo código "Pedido #..." da mensagem). */
   conversa_id?: string | null;
 };
 
 const num = (n: number) => n.toLocaleString("pt-BR");
+
+/**
+ * Código do Winthor e EAN, cada um com o nome. Produto sem EAN tem o próprio codprod no
+ * `codigo`: aí só o do Winthor aparece. Item que não achou o produto mostra o código como veio.
+ */
+function CodigosDoItem({ codigo, codprod }: { codigo: string; codprod: number | null }) {
+  const temEan = codprod == null || codigo !== String(codprod);
+  return (
+    <p className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-ink-muted">
+      {codprod != null && (
+        <span>
+          Cód. Winthor <code className="font-mono font-semibold text-ink">{codprod}</code>
+        </span>
+      )}
+      {temEan && (
+        <span>
+          {codprod != null ? "EAN" : "Código"} <code className="font-mono">{codigo}</code>
+        </span>
+      )}
+    </p>
+  );
+}
 
 export function ListaPedidos({
   pedidos,
@@ -139,13 +170,19 @@ export function ListaPedidos({
                       size="sm"
                     />
                     <div className="min-w-0 flex-1">
-                      <p
-                        className={cn(
-                          "truncate",
-                          cliente ? "font-semibold" : "font-medium italic text-ink-muted",
-                        )}
-                      >
-                        {cliente || "Cliente não identificado"}
+                      <p className="flex min-w-0 flex-col sm:flex-row sm:items-baseline sm:gap-2">
+                        {/* O mesmo código que vai na mensagem do WhatsApp ("Novo pedido #..."). */}
+                        <code className="shrink-0 font-mono text-xs font-semibold text-brand">
+                          #{codigoPedido(pedido.id)}
+                        </code>
+                        <span
+                          className={cn(
+                            "truncate",
+                            cliente ? "font-semibold" : "font-medium italic text-ink-muted",
+                          )}
+                        >
+                          {cliente || "Cliente não identificado"}
+                        </span>
                       </p>
                       <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-ink-muted">
                         {mostrarVendedor && pedido.vendedores?.nome && (
@@ -198,9 +235,7 @@ export function ListaPedidos({
                               <p className="text-[0.8125rem] font-medium leading-snug">
                                 {item.nome}
                               </p>
-                              <p className="mt-0.5 font-mono text-xs text-ink-muted">
-                                {item.codigo}
-                              </p>
+                              <CodigosDoItem codigo={item.codigo} codprod={item.codprod} />
                             </div>
                             <b className="shrink-0 text-[0.8125rem] tabular-nums">
                               {qtdComUnidade(item.quantidade, item.unidade)}

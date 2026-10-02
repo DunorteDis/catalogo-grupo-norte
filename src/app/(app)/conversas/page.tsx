@@ -257,6 +257,7 @@ export default function ConversasPage() {
               conversaId={aberta.id}
               podeResponder
               contato={titulo(aberta)}
+              codcli={aberta.codcli}
               className="flex-1"
             />
           </>
@@ -274,6 +275,7 @@ export default function ConversasPage() {
 
       <CondicoesCliente
         codcli={aberta?.codcli ?? null}
+        comLink
         aberto={condicoes}
         onFechar={() => setCondicoes(false)}
       />

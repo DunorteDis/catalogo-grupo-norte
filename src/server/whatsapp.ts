@@ -187,10 +187,12 @@ export async function guardarMensagem(vendedorId: string, m: MensagemWhatsapp, b
         foto_em = case when ${m.foto}::text is not null then now() else foto_em end
       where id = ${conversaId}`;
 
+    // O pedido ganha também o cliente da conversa, se não veio com um pelo link.
     const codigo = m.deMim ? null : codigoNaMensagem(m.texto);
     if (codigo)
       await tx`
-        update pedidos set conversa_id = ${conversaId}
+        update pedidos set conversa_id = ${conversaId},
+               codcli = coalesce(codcli, (select codcli from conversas where id = ${conversaId}))
          where vendedor_id = ${vendedorId} and conversa_id is null
            and created_at > now() - interval '7 days'
            and replace(id::text, '-', '') like ${`${codigo.toLowerCase()}%`}`;

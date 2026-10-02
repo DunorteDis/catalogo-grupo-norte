@@ -25,6 +25,19 @@ test("gera um .xls que abre com o layout do modelo 9816-2.xls", () => {
   expect(aba["B2"]?.t).toBe("s");
 });
 
+test("linhas: vai o código do Winthor; o EAN só quando ele falta", () => {
+  expect(
+    linhasPlanilha([
+      { codigo: "7896064445214", codprod: 4821, quantidade: 3 },
+      { codigo: "7891000100103", codprod: null, quantidade: 1 },
+    ]),
+  ).toEqual([
+    ["Cód.Prod ou EAN", "Qde"],
+    ["4821", "3"],
+    ["7891000100103", "1"],
+  ]);
+});
+
 test("linhas: cabeçalho do modelo e uma linha por item", () => {
   expect(linhasPlanilha([])).toEqual([["Cód.Prod ou EAN", "Qde"]]);
   expect(linhasPlanilha(ITENS)).toHaveLength(3);

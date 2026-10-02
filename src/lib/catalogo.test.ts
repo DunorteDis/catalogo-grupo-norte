@@ -146,6 +146,23 @@ test("montarMensagem leva a unidade de cada item e totaliza por unidade", () => 
   );
   expect(texto).toContain("Cód: 789 — Qtd: 5 caixas");
   expect(texto).toContain("Cód: 123 — Qtd: 3 unidades");
+  // Com o código do produto gravado no pedido: código e EAN, cada um com o nome.
+  const comCodigo = montarMensagem({
+    distribuidora: "Dunorte",
+    itens: [
+      {
+        ...item,
+        codigo: "7891000100103",
+        codprod: 4821,
+        nome: "SABAO",
+        quantidade: 1,
+        unidade: "UN",
+      },
+      { ...item, codigo: "4822", codprod: 4822, nome: "SEM EAN", quantidade: 2, unidade: "CX" },
+    ],
+  });
+  expect(comCodigo).toContain("Cód: 4821 — EAN: 7891000100103 — Qtd: 1 unidade");
+  expect(comCodigo).toContain("Cód: 4822 — Qtd: 2 caixas");
   // Caixa não se soma com unidade: 3 unidades e 7 caixas, nunca "10 itens".
   expect(texto).toContain("Total: 3 unidades e 7 caixas");
 });

@@ -12,6 +12,7 @@ import {
   Reply,
   SendHorizontal,
   Sticker,
+  Store,
   Video,
   X,
   type LucideIcon,
@@ -28,6 +29,7 @@ import {
   mensagensDaConversa,
   type MensagemDaConversa,
 } from "@/server/conversas";
+import { MenuLinkCatalogo } from "@/components/link-catalogo";
 
 const TIPO: Partial<Record<TipoMensagem, [LucideIcon, string]>> = {
   imagem: [ImageIcon, "Foto"],
@@ -59,10 +61,13 @@ export function HistoricoConversa({
   conversaId,
   podeResponder = false,
   contato,
+  codcli = null,
   className,
 }: {
   conversaId: string;
   podeResponder?: boolean;
+  /** Cliente da conversa: com ele, a caixa de texto oferece o link do catálogo. */
+  codcli?: number | null;
   /** Nome de quem conversa com o vendedor, para o trecho citado nas respostas. */
   contato?: string;
   className?: string;
@@ -237,6 +242,7 @@ export function HistoricoConversa({
       {podeResponder && (
         <CaixaDeTexto
           conversaId={conversaId}
+          codcli={codcli}
           respondendo={respondendo}
           autor={respondendo ? autor(respondendo.deMim) : ""}
           onCancelarResposta={() => setRespondendo(null)}
@@ -549,11 +555,13 @@ function Documento({ m }: { m: MensagemDaConversa }) {
 
 function CaixaDeTexto({
   conversaId,
+  codcli,
   respondendo,
   autor,
   onCancelarResposta,
 }: {
   conversaId: string;
+  codcli: number | null;
   respondendo: MensagemDaConversa | null;
   autor: string;
   onCancelarResposta: () => void;
@@ -578,6 +586,12 @@ function CaixaDeTexto({
   const mandar = () => {
     if (texto.trim() && !enviar.isPending) enviar.mutate(texto);
   };
+  // Link do catálogo já com o cliente: entra na caixa para o vendedor revisar e enviar.
+  const inserirLink = (url: string, catalogo: string) => {
+    const frase = `Faça seu pedido pelo catálogo ${catalogo}: ${url}`;
+    setTexto((t) => (t.trim() ? `${t.trimEnd()}\n${frase}` : frase));
+    campo.current?.focus();
+  };
 
   return (
     <div className="bg-(--wa-painel)">
@@ -601,6 +615,18 @@ function CaixaDeTexto({
         }}
         className="flex items-end gap-2 px-3 py-2"
       >
+        {codcli != null && (
+          <MenuLinkCatalogo codcli={codcli} onLink={inserirLink}>
+            <button
+              type="button"
+              aria-label="Inserir o link do catálogo do cliente"
+              title="Inserir o link do catálogo do cliente: o pedido feito por ele chega identificado"
+              className="grid size-10 shrink-0 cursor-pointer place-items-center rounded-full text-(--wa-hora) transition hover:bg-(--wa-texto)/5 hover:text-(--wa-texto)"
+            >
+              <Store className="size-5" />
+            </button>
+          </MenuLinkCatalogo>
+        )}
         <textarea
           ref={campo}
           value={texto}

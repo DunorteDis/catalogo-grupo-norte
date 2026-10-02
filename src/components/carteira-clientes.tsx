@@ -58,10 +58,13 @@ export function ListaCarteira({
   clientes,
   carregando,
   erro,
+  comLink = false,
 }: {
   clientes: ClienteCarteira[] | undefined;
   carregando: boolean;
   erro: unknown;
+  /** Carteira do próprio vendedor: as condições oferecem o link do catálogo do cliente. */
+  comLink?: boolean;
 }) {
   const [filtro, setFiltro] = useState<Filtro>("todos");
   const [busca, setBusca] = useState("");
@@ -184,7 +187,12 @@ export function ListaCarteira({
         </p>
       )}
 
-      <CondicoesCliente codcli={codcli} aberto={aberto} onFechar={() => setAberto(false)} />
+      <CondicoesCliente
+        codcli={codcli}
+        comLink={comLink}
+        aberto={aberto}
+        onFechar={() => setAberto(false)}
+      />
     </div>
   );
 }

@@ -1,29 +1,37 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState, type ReactNode } from "react";
 import {
   AlarmClock,
   Ban,
   CalendarClock,
   CalendarPlus,
+  ChevronDown,
   CircleCheck,
   CirclePause,
   HandCoins,
   Info,
   Landmark,
+  Link2,
   PiggyBank,
   ReceiptText,
+  RefreshCw,
   ShoppingCart,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
 
+import { toast } from "sonner";
+
 import { Badge } from "@/components/abastex";
+import { MenuLinkCatalogo } from "@/components/link-catalogo";
+import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { iniciais } from "@/lib/acessos";
 import { formatarDocumento } from "@/lib/catalogo";
 import { chamar } from "@/lib/chamar";
+import { copiarTexto } from "@/lib/copiar";
 import {
   diasDesde,
   formatarDia,
@@ -34,7 +42,11 @@ import {
 } from "@/lib/credito";
 import { mensagemErro } from "@/lib/erros";
 import { cn } from "@/lib/utils";
-import { condicoesCliente, type CondicoesCliente as Dados } from "@/server/carteira";
+import {
+  condicoesCliente,
+  chaveDoCliente,
+  type CondicoesCliente as Dados,
+} from "@/server/carteira";
 
 const COR_TITULO = {
   vencido: { borda: "border-l-danger", pill: "bg-danger-soft text-danger" },
@@ -48,10 +60,13 @@ const COR_TITULO = {
  */
 export function CondicoesCliente({
   codcli,
+  comLink = false,
   aberto,
   onFechar,
 }: {
   codcli: number | null;
+  /** Vendedor olhando o próprio cliente: mostra o link do catálogo dele. */
+  comLink?: boolean;
   aberto: boolean;
   onFechar: () => void;
 }) {
@@ -73,7 +88,7 @@ export function CondicoesCliente({
         {/* @container: os cartões se arrumam pela largura do drawer, não da tela. */}
         <div className="@container min-h-0 flex-1 overflow-y-auto">
           {data ? (
-            <Conteudo dados={data} />
+            <Conteudo dados={data} comLink={comLink} />
           ) : (
             <div className="p-6">
               <SheetTitle>Condições do cliente</SheetTitle>
@@ -90,6 +105,64 @@ export function CondicoesCliente({
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+/**
+ * Link do catálogo já com o cliente, para mandar por fora das Conversas: o vendedor escolhe
+ * o catálogo no menu. "Gerar novo link" é para link que foi parar com outra pessoa: os
+ * links já mandados a este cliente param de funcionar.
+ */
+function LinkCatalogo({ codcli }: { codcli: number }) {
+  // O último copiado fica à vista: o aviso some e o vendedor perde a certeza de qual foi.
+  const [copiado, setCopiado] = useState<{ url: string; catalogo: string } | null>(null);
+  const copiar = async (url: string, catalogo: string) => {
+    if (await copiarTexto(url)) {
+      setCopiado({ url, catalogo });
+      toast.success(`Link do catálogo ${catalogo} copiado.`);
+    } else toast.error("Não foi possível copiar o link. Tente de novo.");
+  };
+  const renovar = useMutation({
+    mutationFn: () => chamar(chaveDoCliente(codcli, true)),
+    onSuccess: () => {
+      setCopiado(null);
+      toast.success("Link novo gerado. Os que você já mandou a este cliente pararam de funcionar.");
+    },
+    onError: (e: Error) => toast.error(mensagemErro(e)),
+  });
+  return (
+    <div className="mt-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <MenuLinkCatalogo codcli={codcli} onLink={copiar}>
+          <Button size="sm" variant="outline" className="bg-card">
+            <Link2 />
+            Copiar link do catálogo
+            <ChevronDown />
+          </Button>
+        </MenuLinkCatalogo>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={renovar.isPending}
+          title="Use se o link foi parar com outra pessoa: os já mandados param de funcionar"
+          onClick={() => renovar.mutate()}
+        >
+          <RefreshCw />
+          Gerar novo link
+        </Button>
+      </div>
+      {copiado && (
+        <div className="mt-3 rounded-xl bg-card px-3 py-2 text-sm">
+          <p className="flex items-center gap-1.5 font-medium text-mint-ink">
+            <CircleCheck className="size-4 shrink-0" aria-hidden />
+            Copiado: catálogo {copiado.catalogo}
+          </p>
+          <p className="mt-0.5 truncate text-xs text-ink-muted" title={copiado.url}>
+            {copiado.url}
+          </p>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -177,7 +250,7 @@ function useLarguraArrastavel() {
   return [largura, alca] as const;
 }
 
-function Conteudo({ dados }: { dados: Dados }) {
+function Conteudo({ dados, comLink }: { dados: Dados; comLink: boolean }) {
   const { cliente: c, titulos, creditos } = dados;
   const r = resumoCredito(c.limite, titulos);
 
@@ -246,6 +319,7 @@ function Conteudo({ dados }: { dados: Dados }) {
             <b>Motivo:</b> {c.motivoBloqueio}
           </p>
         )}
+        {comLink && <LinkCatalogo key={c.codcli} codcli={c.codcli} />}
       </header>
 
       <div className="flex flex-col gap-5 px-6 py-5">

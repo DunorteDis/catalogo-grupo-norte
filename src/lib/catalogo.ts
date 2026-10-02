@@ -164,7 +164,8 @@ export function montarMensagem(opts: {
   codigo?: string;
   clienteNome?: string;
   observacao?: string;
-  itens: ItemCarrinho[];
+  /** `codprod`: código do produto no ERP, que o pedido gravou; o `codigo` é o EAN. */
+  itens: (ItemCarrinho & { codprod?: number | null })[];
 }) {
   const linhas: string[] = [];
   linhas.push(`*Novo pedido${opts.codigo ? ` #${opts.codigo}` : ""} - ${opts.distribuidora}*`);
@@ -172,7 +173,16 @@ export function montarMensagem(opts: {
   linhas.push("");
   opts.itens.forEach((item, i) => {
     linhas.push(`${i + 1}. ${item.nome}`);
-    linhas.push(`   Cód: ${item.codigo} — Qtd: ${qtdComUnidade(item.quantidade, item.unidade)}`);
+    // Código do produto e EAN; produto sem EAN tem o próprio código no `codigo` e não repete.
+    const codigos =
+      item.codprod == null
+        ? [`Cód: ${item.codigo}`]
+        : [
+            `Cód: ${item.codprod}`,
+            ...(item.codigo !== String(item.codprod) ? [`EAN: ${item.codigo}`] : []),
+          ];
+    const qtd = `Qtd: ${qtdComUnidade(item.quantidade, item.unidade)}`;
+    linhas.push(`   ${[...codigos, qtd].join(" — ")}`);
   });
   linhas.push("");
   linhas.push(`Total: ${totalPorUnidade(opts.itens)}`);

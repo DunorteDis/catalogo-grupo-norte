@@ -218,6 +218,10 @@ export const identificarCliente = acao(async (conversaId: string, entrada: numbe
          where codcli = ${antes.codcli}
            and crm.chave_telefone(celular) = crm.chave_telefone(${antes.telefone})`;
     await tx`update conversas set codcli = ${codcli} where id = ${c.id}`;
+    // Pedido que chegou nesta conversa sem cliente ganha o escolhido agora. Pedido que já
+    // tem cliente não muda: trocar o cliente da conversa não reescreve o passado.
+    if (codcli)
+      await tx`update pedidos set codcli = ${codcli} where conversa_id = ${c.id} and codcli is null`;
     if (codcli && /^[0-9]{10,11}$/.test(antes.telefone))
       await tx`
         insert into cliente_contatos (codcli, nome, celular)
