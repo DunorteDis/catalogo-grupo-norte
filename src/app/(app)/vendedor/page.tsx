@@ -45,7 +45,7 @@ function CartaoLink({
 
 function Rotulo({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-[11px] font-semibold uppercase leading-4 tracking-[0.08em] text-ink-muted">
+    <h2 className="text-[0.6875rem] font-semibold uppercase leading-4 tracking-[0.08em] text-ink-muted">
       {children}
     </h2>
   );
@@ -94,7 +94,6 @@ export default function PainelVendedor() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        crumbs={["Abastex", "Meus links"]}
         icon={Link2}
         tone="rose"
         title={`Olá, ${vendedor.nome}`}

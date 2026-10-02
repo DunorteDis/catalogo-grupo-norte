@@ -106,8 +106,10 @@ export default function ConversasPage() {
   );
 
   return (
-    // Altura da tela menos o cabeçalho (4rem) e as margens da área (3.5rem).
-    <div className="flex h-[calc(100dvh-7.5rem)] min-h-112 overflow-hidden rounded-2xl border bg-card shadow-card">
+    // No celular ocupa a tela toda abaixo da barra (3.5rem), como o WhatsApp; a partir
+    // de 640px vira o painel com moldura. A altura desconta a barra (3.5rem; 4rem a partir
+    // de 768px), o espaço de cima da área (1.25rem; 1.5rem a partir de 1024px) e 1rem embaixo.
+    <div className="-mx-4 -mb-10 -mt-5 flex h-[calc(100dvh-3.5rem)] min-h-112 overflow-hidden bg-card sm:mx-0 sm:-mb-6 sm:mt-0 sm:h-[calc(100dvh-5.75rem)] sm:rounded-2xl sm:border sm:shadow-card md:h-[calc(100dvh-6.25rem)] lg:h-[calc(100dvh-6.5rem)]">
       <aside
         className={cn(
           "w-full shrink-0 flex-col border-r md:flex md:w-90",
@@ -178,12 +180,12 @@ export default function ConversasPage() {
                       <span className="truncate">{c.ultima_mensagem}</span>
                     </p>
                     {!c.codcli && (
-                      <span className="shrink-0 rounded-full bg-warning-soft px-2 text-[11px] font-semibold text-warning">
+                      <span className="shrink-0 rounded-full bg-warning-soft px-2 text-[0.6875rem] font-semibold text-warning">
                         sem cliente
                       </span>
                     )}
                     {c.nao_lidas > 0 && (
-                      <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-(--wa-verde) px-1.5 text-[11px] font-bold text-primary-foreground">
+                      <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-(--wa-verde) px-1.5 text-[0.6875rem] font-bold text-primary-foreground">
                         {c.nao_lidas}
                       </span>
                     )}

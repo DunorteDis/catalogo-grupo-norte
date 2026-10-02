@@ -6,11 +6,11 @@ import { acessoDe, lerSessao } from "@/server/sessao";
 import { FormLogin } from "./form-login";
 
 export const metadata: Metadata = {
-  title: "Entrar — Abastex",
-  description: "Acesso ao Abastex, a plataforma de catálogo do Grupo Norte.",
+  title: "Entrar — Abastex Connect",
+  description: "Acesso ao Abastex Connect, o CRM de vendas pelo WhatsApp do Grupo Norte.",
   openGraph: {
-    title: "Entrar — Abastex",
-    description: "Acesso ao Abastex, a plataforma de catálogo do Grupo Norte.",
+    title: "Entrar — Abastex Connect",
+    description: "Acesso ao Abastex Connect, o CRM de vendas pelo WhatsApp do Grupo Norte.",
     type: "website",
   },
   twitter: { card: "summary_large_image" },

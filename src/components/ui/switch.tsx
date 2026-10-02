@@ -17,7 +17,7 @@ const Switch = React.forwardRef<
     {...props}
     ref={ref}
   >
-    <SwitchPrimitives.Thumb className="group pointer-events-none grid size-[18px] place-items-center rounded-full bg-white text-primary shadow-sm transition-transform duration-150 data-[state=checked]:translate-x-[19px] data-[state=unchecked]:translate-x-[3px]">
+    <SwitchPrimitives.Thumb className="group pointer-events-none grid size-4.5 place-items-center rounded-full bg-white text-primary shadow-sm transition-transform duration-150 data-[state=checked]:translate-x-[1.1875rem] data-[state=unchecked]:translate-x-[0.1875rem]">
       <Check className="hidden size-3 [stroke-width:3] group-data-[state=checked]:block" />
     </SwitchPrimitives.Thumb>
   </SwitchPrimitives.Root>

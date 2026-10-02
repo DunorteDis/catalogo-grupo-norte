@@ -166,7 +166,7 @@ export function HistoricoConversa({
               onClick={() => setRespondendo(m)}
               aria-label="Responder"
               title="Responder"
-              className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-full bg-(--wa-entrada) text-(--wa-hora) opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+              className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-full bg-(--wa-entrada) text-(--wa-hora) opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:pointer-events-none [@media(hover:none)]:group-focus-within:pointer-events-auto [@media(hover:none)]:group-focus-within:opacity-100"
             >
               <Reply className="size-4" />
             </button>
@@ -175,7 +175,7 @@ export function HistoricoConversa({
             <Fragment key={m.id}>
               {novoDia && (
                 <div className="my-3 flex justify-center">
-                  <span className="rounded-lg bg-(--wa-entrada) px-3 py-1 text-[12.5px] text-(--wa-hora) shadow-sm">
+                  <span className="rounded-lg bg-(--wa-entrada) px-3 py-1 text-[0.7813rem] text-(--wa-hora) shadow-sm">
                     {rotuloDia(m.enviadaEm)}
                   </span>
                 </div>
@@ -189,8 +189,10 @@ export function HistoricoConversa({
               >
                 {m.deMim && responder}
                 <div
+                  // No toque não há hover: tocar no balão o foca e mostra o Responder só dele.
+                  tabIndex={podeResponder ? -1 : undefined}
                   className={cn(
-                    "relative max-w-[78%] rounded-lg px-2.5 pb-1.5 pt-1.5 text-[14px] leading-[19px] text-(--wa-texto) shadow-sm",
+                    "relative max-w-[78%] rounded-lg px-2.5 pb-1.5 pt-1.5 text-[0.875rem] leading-4.75 text-(--wa-texto) shadow-sm outline-none",
                     m.deMim ? "bg-(--wa-saida)" : "bg-(--wa-entrada)",
                     !seguida && (m.deMim ? "rounded-tr-none" : "rounded-tl-none"),
                   )}
@@ -200,7 +202,7 @@ export function HistoricoConversa({
                       viewBox="0 0 8 13"
                       aria-hidden
                       className={cn(
-                        "absolute top-0 h-[13px] w-2",
+                        "absolute top-0 h-3.25 w-2",
                         m.deMim ? "-right-2 text-(--wa-saida)" : "-left-2 text-(--wa-entrada)",
                       )}
                     >
@@ -220,7 +222,7 @@ export function HistoricoConversa({
                   {m.texto && m.texto !== m.nomeArquivo && (
                     <span className="whitespace-pre-wrap wrap-break-word">{m.texto}</span>
                   )}
-                  <span className="float-right ml-3 mt-1.5 flex translate-y-1 items-center gap-0.5 text-[11px] leading-none text-(--wa-hora)">
+                  <span className="float-right ml-3 mt-1.5 flex translate-y-1 items-center gap-0.5 text-[0.6875rem] leading-none text-(--wa-hora)">
                     {hora(m.enviadaEm)}
                     {m.deMim && <Check className="size-3.5" aria-label="Enviada" />}
                   </span>
@@ -257,7 +259,7 @@ function Citacao({
   return (
     <div
       className={cn(
-        "mb-1 min-w-0 rounded-md border-l-4 bg-(--wa-texto)/5 px-2 py-1 text-[13px] leading-4.5",
+        "mb-1 min-w-0 rounded-md border-l-4 bg-(--wa-texto)/5 px-2 py-1 text-[0.8125rem] leading-4.5",
         citada.deMim ? "border-(--wa-verde)" : "border-(--wa-lido)",
         className,
       )}
@@ -288,12 +290,12 @@ function IconeArquivo({ extensao }: { extensao: string }) {
     // Folha com o canto dobrado e a faixa com a extensão.
     <span
       aria-hidden
-      className={cn("relative h-10 w-8 shrink-0 rounded-xs rounded-tr-[9px]", fundo)}
+      className={cn("relative h-10 w-8 shrink-0 rounded-xs rounded-tr-[0.5625rem]", fundo)}
     >
       {extensao && (
         <span
           className={cn(
-            "absolute inset-x-0.5 bottom-1.5 truncate rounded-xs text-center text-[8px] font-bold uppercase leading-2.75 text-surface",
+            "absolute inset-x-0.5 bottom-1.5 truncate rounded-xs text-center text-[0.5rem] font-bold uppercase leading-2.75 text-surface",
             faixa,
           )}
         >
@@ -615,7 +617,7 @@ function CaixaDeTexto({
           rows={1}
           placeholder="Digite uma mensagem"
           aria-label="Mensagem"
-          className="max-h-32 min-h-10 flex-1 resize-none rounded-lg bg-(--wa-entrada) px-3 py-2.5 text-[14px] text-(--wa-texto) outline-none placeholder:text-(--wa-hora) field-sizing-content"
+          className="max-h-32 min-h-10 flex-1 resize-none rounded-lg bg-(--wa-entrada) px-3 py-2.5 text-[0.875rem] text-(--wa-texto) outline-none placeholder:text-(--wa-hora) field-sizing-content"
         />
         <button
           type="submit"

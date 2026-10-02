@@ -93,12 +93,19 @@ export function CondicoesCliente({
   );
 }
 
-const LARGURA_MINIMA = 420;
-const LARGURA_PADRAO = 576;
 const CHAVE_LARGURA = "condicoes-cliente:largura";
 
+// Em rem (26,25 e 36): com a base de 90% do notebook, o drawer encolhe junto com o conteúdo.
+const emPx = (rem: number) =>
+  rem *
+  (typeof document === "undefined"
+    ? 16
+    : parseFloat(getComputedStyle(document.documentElement).fontSize) || 16);
+const LARGURA_MINIMA = () => emPx(26.25);
+const LARGURA_PADRAO = () => emPx(36);
+
 const limitar = (px: number) =>
-  Math.round(Math.max(LARGURA_MINIMA, Math.min(px, window.innerWidth * 0.95)));
+  Math.round(Math.max(LARGURA_MINIMA(), Math.min(px, window.innerWidth * 0.95)));
 
 /**
  * Largura do drawer puxando a borda esquerda com o mouse (setas no teclado; duplo clique
@@ -107,9 +114,9 @@ const limitar = (px: number) =>
 function useLarguraArrastavel() {
   const [largura, setLargura] = useState(() => {
     try {
-      return Number(localStorage.getItem(CHAVE_LARGURA)) || LARGURA_PADRAO;
+      return Number(localStorage.getItem(CHAVE_LARGURA)) || LARGURA_PADRAO();
     } catch {
-      return LARGURA_PADRAO;
+      return LARGURA_PADRAO();
     }
   });
   const atual = useRef(largura);
@@ -151,7 +158,7 @@ function useLarguraArrastavel() {
       tabIndex={0}
       onPointerDown={arrastar}
       onDoubleClick={() => {
-        mudar(LARGURA_PADRAO);
+        mudar(LARGURA_PADRAO());
         guardar();
       }}
       onKeyDown={(e) => {

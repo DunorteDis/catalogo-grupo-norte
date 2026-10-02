@@ -18,7 +18,6 @@ export default function MinhaCarteira() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        crumbs={["Abastex", "Minha carteira"]}
         icon={WalletCards}
         tone="accent"
         title="Minha carteira"

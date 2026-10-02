@@ -421,11 +421,13 @@ export function Catalogo() {
               imagem_url: distribuidora.imagem_url,
               logo_url: distribuidora.logo_url,
             }}
-            logoClassName="h-10 max-w-[150px]"
+            logoClassName="h-10 max-w-37.5"
             className="text-lg"
           />
           <div className="ml-auto text-right">
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Vendedor</p>
+            <p className="text-[0.6875rem] uppercase tracking-wide text-muted-foreground">
+              Vendedor
+            </p>
             <p className="text-sm font-semibold leading-tight">{vendedor.nome}</p>
           </div>
         </div>
@@ -502,7 +504,7 @@ export function Catalogo() {
                   </div>
                   <div className="flex flex-1 flex-col gap-2 p-3">
                     <p className="line-clamp-3 text-xs font-semibold leading-snug">{p.nome}</p>
-                    <p className="text-[11px] text-muted-foreground">Cód. {p.codigo}</p>
+                    <p className="text-[0.6875rem] text-muted-foreground">Cód. {p.codigo}</p>
                     {/* span, não button: o card inteiro já é o botão que abre o painel. */}
                     {item ? (
                       <span
@@ -628,7 +630,9 @@ export function Catalogo() {
                         <div className="flex items-start gap-2">
                           <div className="min-w-0 flex-1">
                             <p className="line-clamp-2 text-xs font-semibold">{i.nome}</p>
-                            <p className="text-[11px] text-muted-foreground">Cód. {i.codigo}</p>
+                            <p className="text-[0.6875rem] text-muted-foreground">
+                              Cód. {i.codigo}
+                            </p>
                           </div>
                           <Button
                             size="icon"
@@ -722,7 +726,7 @@ export function Catalogo() {
               </p>
             </div>
             <div className="w-full rounded-2xl bg-card p-4 text-left shadow-card">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
+              <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-ink-muted">
                 Resumo do pedido
               </p>
               <ul className="mt-1 divide-y">

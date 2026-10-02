@@ -94,12 +94,22 @@
     border-color: var(--line);
   }
 
+  /* Notebook e desktop com mouse: a interface fica 10% mais compacta, como o zoom de 90%
+     do Chrome. As medidas são em rem, então texto, espaçamento e larguras acompanham;
+     celular e tablet de toque ficam em 100% (área de toque). Os breakpoints não mudam:
+     media query em rem usa a base do navegador, não a do html. */
+  @media (min-width: 1024px) and (pointer: fine) {
+    html {
+      font-size: 90%;
+    }
+  }
+
   body {
     background-color: var(--bg);
     color: var(--ink);
     font-family: var(--font-sans);
-    font-size: 14px;
-    line-height: 20px;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
     -webkit-font-smoothing: antialiased;
   }
 

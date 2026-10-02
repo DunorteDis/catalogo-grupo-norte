@@ -152,7 +152,6 @@ export default function ProdutosPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        crumbs={["Abastex", "Produtos"]}
         icon={Package}
         tone="warning"
         title="Produtos"

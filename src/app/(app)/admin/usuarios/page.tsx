@@ -436,7 +436,6 @@ export default function UsuariosPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        crumbs={["Abastex", "Usuários"]}
         icon={Users}
         tone="brand"
         title="Usuários"
@@ -495,7 +494,7 @@ export default function UsuariosPage() {
                   {iniciais(nomeExibido)}
                 </span>
 
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-[1_1_240px]">
                   <p className="flex flex-wrap items-center gap-2 font-semibold">
                     <span className="truncate">{nomeExibido}</span>
                     {semAcesso ? (
@@ -520,7 +519,7 @@ export default function UsuariosPage() {
                   </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-1">
+                <div className="ml-auto flex flex-wrap items-center gap-1">
                   {v && (
                     <>
                       <Button

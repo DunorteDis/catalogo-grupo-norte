@@ -95,7 +95,6 @@ export default function ClientesPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        crumbs={["Abastex", "Clientes"]}
         icon={Store}
         tone="info"
         title="Clientes"

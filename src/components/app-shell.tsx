@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   BookOpen,
+  ChevronRight,
   LayoutDashboard,
   Link2,
   LogOut,
@@ -43,6 +44,7 @@ import {
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { sair as encerrarSessao } from "@/server/auth";
 
@@ -90,6 +92,40 @@ function useTemaEscuro() {
   return [!!escuro, (v: boolean) => setEscuro(v)] as const;
 }
 
+/**
+ * Comportamento do menu conforme a tela: no celular fecha ao navegar; no tablet
+ * (768–1023px) começa recolhido em ícones, para sobrar espaço para o conteúdo.
+ */
+function ControleDoMenu() {
+  const { isMobile, setOpenMobile, setOpen } = useSidebar();
+  const pathname = usePathname();
+  useEffect(() => {
+    if (isMobile) setOpenMobile(false);
+  }, [pathname, isMobile, setOpenMobile]);
+  useEffect(() => {
+    const tablet = window.matchMedia("(min-width: 768px) and (max-width: 1023px)");
+    const ajustar = () => setOpen(!tablet.matches);
+    ajustar();
+    tablet.addEventListener("change", ajustar);
+    return () => tablet.removeEventListener("change", ajustar);
+  }, [setOpen]);
+  return null;
+}
+
+/** Abre o menu no celular; no computador recolhe/expande. O nome diz o que vai acontecer. */
+function BotaoMenu() {
+  const { isMobile, open, openMobile } = useSidebar();
+  const rotulo = isMobile ? "Abrir menu" : open ? "Recolher menu" : "Expandir menu";
+  return (
+    <SidebarTrigger
+      className="size-9"
+      aria-label={rotulo}
+      title={rotulo}
+      aria-expanded={isMobile ? openMobile : open}
+    />
+  );
+}
+
 export function AppShell({
   email,
   papel,
@@ -123,6 +159,13 @@ export function AppShell({
     .map((g) => ({ ...g, itens: g.itens.filter((i) => !i.soTI || papel === "ti") }))
     .filter((g) => g.itens.length > 0);
   const usuario = usuarioDeEmail(email);
+  const estaEm = (i: Item) =>
+    i.exact ? pathname === i.to : pathname === i.to || pathname.startsWith(`${i.to}/`);
+  // A página atual, para a barra do topo; a mais específica vence (/admin/x e não /admin).
+  const atual = grupos
+    .flatMap((g) => g.itens)
+    .filter(estaEm)
+    .sort((a, b) => b.to.length - a.to.length)[0];
 
   async function sair() {
     await queryClient.cancelQueries();
@@ -138,7 +181,7 @@ export function AppShell({
           <img
             src={logoEscuro.src}
             alt="Abastex"
-            className="h-[26px] w-auto group-data-[collapsible=icon]:hidden"
+            className="h-6.5 w-auto group-data-[collapsible=icon]:hidden"
           />
           <img
             src={simboloEscuro.src}
@@ -151,10 +194,10 @@ export function AppShell({
           {distribuidora && (
             <div className="mx-3 flex items-center justify-between gap-2 rounded-md bg-sidebar-accent px-3 py-2 group-data-[collapsible=icon]:hidden">
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-sidebar-muted">
+                <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-sidebar-muted">
                   Distribuidora
                 </p>
-                <p className="truncate text-[13px] font-semibold text-sidebar-foreground">
+                <p className="truncate text-[0.8125rem] font-semibold text-sidebar-foreground">
                   {distribuidora}
                 </p>
               </div>
@@ -170,15 +213,13 @@ export function AppShell({
           )}
           {grupos.map((g) => (
             <SidebarGroup key={g.titulo} className="px-3 py-0">
-              <SidebarGroupLabel className="h-auto px-3 pb-2 text-[11px] font-semibold uppercase leading-4 tracking-[0.12em] text-sidebar-muted">
+              <SidebarGroupLabel className="h-auto px-3 pb-2 text-[0.6875rem] font-semibold uppercase leading-4 tracking-[0.12em] text-sidebar-muted">
                 {g.titulo}
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
                   {g.itens.map((i) => {
-                    const ativo = i.exact
-                      ? pathname === i.to
-                      : pathname === i.to || pathname.startsWith(`${i.to}/`);
+                    const ativo = estaEm(i);
                     return (
                       <SidebarMenuItem key={i.to}>
                         {ativo && (
@@ -191,7 +232,7 @@ export function AppShell({
                           asChild
                           isActive={ativo}
                           tooltip={i.label}
-                          className="h-10 gap-3 px-3 font-medium text-sidebar-foreground transition-colors duration-150 hover:bg-sidebar-accent hover:text-sidebar-foreground data-[active=true]:bg-sidebar-primary data-[active=true]:font-semibold data-[active=true]:text-sidebar-foreground group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:!p-[11px] [&>svg]:size-[18px] [&>svg]:text-sidebar-muted data-[active=true]:[&>svg]:text-sidebar-marker"
+                          className="h-10 gap-3 px-3 font-medium text-sidebar-foreground transition-colors duration-150 hover:bg-sidebar-accent hover:text-sidebar-foreground data-[active=true]:bg-sidebar-primary data-[active=true]:font-semibold data-[active=true]:text-sidebar-foreground group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:!p-[0.6875rem] [&>svg]:size-4.5 [&>svg]:text-sidebar-muted data-[active=true]:[&>svg]:text-sidebar-marker"
                         >
                           <Link href={i.to} aria-current={ativo ? "page" : undefined}>
                             <i.icon />
@@ -209,13 +250,13 @@ export function AppShell({
 
         <SidebarFooter className="flex-row items-center gap-3 border-t border-sidebar-border px-5 py-4 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:px-0">
           <span
-            className="grid size-9 shrink-0 place-items-center rounded-full bg-mint text-[13px] font-bold uppercase text-on-mint"
+            className="grid size-9 shrink-0 place-items-center rounded-full bg-mint text-[0.8125rem] font-bold uppercase text-on-mint"
             title={usuario}
           >
             {usuario.slice(0, 2)}
           </span>
           <div className="flex min-w-0 flex-1 flex-col group-data-[collapsible=icon]:hidden">
-            <strong className="truncate text-[13px] font-semibold text-sidebar-foreground">
+            <strong className="truncate text-[0.8125rem] font-semibold text-sidebar-foreground">
               {usuario}
             </strong>
             <span className="text-xs text-sidebar-muted">
@@ -229,14 +270,18 @@ export function AppShell({
             aria-label="Sair"
             className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-md text-sidebar-muted transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
           >
-            <LogOut className="size-[18px]" />
+            <LogOut className="size-4.5" />
           </button>
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>
 
-      <SidebarInset>
-        <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-3 border-b bg-card px-4 md:px-8">
+      {/* min-w-0: sem ele a área principal cresce até caber o conteúdo mais largo e a
+          página inteira ganha rolagem horizontal (tablet em Clientes e Produtos). */}
+      <SidebarInset className="min-w-0">
+        <ControleDoMenu />
+        {/* Barra do topo: onde a pessoa está e as ações que valem em qualquer tela. */}
+        <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b bg-card px-3 sm:gap-3 sm:px-6 md:h-16 lg:px-8">
           <span
             aria-hidden
             className={cn(
@@ -244,20 +289,40 @@ export function AppShell({
               buscando ? "animate-pulse opacity-100" : "opacity-0",
             )}
           />
-          <SidebarTrigger className="size-8" aria-label="Recolher menu" />
-          <span className="flex-1" />
+          <BotaoMenu />
+          <span aria-hidden className="h-5 w-px shrink-0 bg-line" />
+          <nav aria-label="Você está em" className="min-w-0 flex-1">
+            <ol className="flex min-w-0 items-center gap-1.5 text-sm">
+              {distribuidora && (
+                <li className="hidden shrink-0 items-center gap-1.5 text-ink-muted sm:flex">
+                  {distribuidora}
+                  <ChevronRight aria-hidden className="size-4 text-ink-subtle" />
+                </li>
+              )}
+              {atual && (
+                <li aria-current="page" className="truncate font-semibold text-ink">
+                  {atual.label}
+                </li>
+              )}
+            </ol>
+          </nav>
           <Button
             variant="ghost"
-            size="icon-sm"
+            size="icon"
             onClick={() => setEscuro(!escuro)}
-            aria-label={escuro ? "Modo claro" : "Modo escuro"}
+            aria-label={escuro ? "Usar modo claro" : "Usar modo escuro"}
             title={escuro ? "Modo claro" : "Modo escuro"}
           >
             {escuro ? <Sun /> : <Moon />}
           </Button>
         </header>
         {montado && <AvisoWhatsapp />}
-        <main className="flex-1 px-4 pb-8 pt-6 md:px-8">{montado ? children : null}</main>
+        {/* Largura máxima: em monitor grande o conteúdo não se espalha de ponta a ponta. */}
+        <main className="flex-1">
+          <div className="mx-auto w-full max-w-360 px-4 pb-10 pt-5 sm:px-6 lg:px-8 lg:pt-6">
+            {montado ? children : null}
+          </div>
+        </main>
       </SidebarInset>
     </SidebarProvider>
   );

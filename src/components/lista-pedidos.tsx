@@ -87,7 +87,7 @@ export function ListaPedidos({
       {/* classes literais: o Tailwind não enxerga nome de classe montado em runtime */}
       <div
         className={cn(
-          "grid gap-4 sm:grid-cols-2",
+          "grid grid-cols-2 gap-3 sm:gap-4",
           mostrarVendedor ? "lg:grid-cols-4" : "lg:grid-cols-3",
         )}
       >
@@ -172,11 +172,11 @@ export function ListaPedidos({
                     <Badge tone="brand">
                       {num(pedido.total_itens)} {pedido.total_itens === 1 ? "item" : "itens"}
                     </Badge>
-                    <ChevronDown className="size-[18px] shrink-0 text-ink-subtle transition-transform duration-150 group-data-[state=open]:rotate-180 group-data-[state=open]:text-brand" />
+                    <ChevronDown className="size-4.5 shrink-0 text-ink-subtle transition-transform duration-150 group-data-[state=open]:rotate-180 group-data-[state=open]:text-brand" />
                   </AccordionPrimitive.Trigger>
                 </AccordionPrimitive.Header>
                 <AccordionPrimitive.Content className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
-                  <div className="border-t bg-surface-sunken px-4 pb-3 pt-1 sm:pl-[68px]">
+                  <div className="border-t bg-surface-sunken px-4 pb-3 pt-1 sm:pl-17">
                     <ul className="divide-y divide-dashed">
                       {pedido.pedido_itens.map((item, idx) => {
                         const foto = fotoUrl(fotosQuery.data?.[item.codigo]);
@@ -195,12 +195,14 @@ export function ListaPedidos({
                               )}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="text-[13px] font-medium leading-snug">{item.nome}</p>
+                              <p className="text-[0.8125rem] font-medium leading-snug">
+                                {item.nome}
+                              </p>
                               <p className="mt-0.5 font-mono text-xs text-ink-muted">
                                 {item.codigo}
                               </p>
                             </div>
-                            <b className="shrink-0 text-[13px] tabular-nums">
+                            <b className="shrink-0 text-[0.8125rem] tabular-nums">
                               {qtdComUnidade(item.quantidade, item.unidade)}
                             </b>
                           </li>
@@ -217,7 +219,7 @@ export function ListaPedidos({
                       </div>
                     )}
                     {pedido.observacao && (
-                      <p className="border-t border-dashed pt-3 text-[13px] text-ink-muted">
+                      <p className="border-t border-dashed pt-3 text-[0.8125rem] text-ink-muted">
                         <span className="font-semibold text-ink">Observação:</span>{" "}
                         {pedido.observacao}
                       </p>

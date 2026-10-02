@@ -47,7 +47,6 @@ export default function MeusPedidosPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        crumbs={["Abastex", "Pedidos"]}
         icon={ShoppingBag}
         tone="accent"
         title="Pedidos recebidos"
