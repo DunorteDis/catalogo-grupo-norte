@@ -25,12 +25,12 @@ async function listaPedidos(
   const [de, ate] = periodo.parse([inicio, fim]);
   return [
     ...(await sql<PedidoDaLista[]>`
-      select p.id, p.cliente_nome, p.observacao, p.total_itens, p.created_at,
+      select p.id, p.cliente_nome, p.observacao, p.total_itens, p.created_at, p.conversa_id,
              case when v.id is null then null else json_build_object('nome', v.nome) end as vendedores,
              case when c.id is null then null
                   else json_build_object('nome', coalesce(m.nome, c.nome), 'cor', coalesce(m.cor, c.cor))
              end as distribuidoras,
-             coalesce((select json_agg(json_build_object('codigo', i.codigo, 'nome', i.nome,
+             coalesce((select json_agg(json_build_object('codigo', i.codigo, 'codprod', i.codprod, 'nome', i.nome,
                                                          'quantidade', i.quantidade, 'unidade', i.unidade)
                                        order by i.created_at, i.id)
                          from pedido_itens i where i.pedido_id = p.id), '[]'::json) as pedido_itens

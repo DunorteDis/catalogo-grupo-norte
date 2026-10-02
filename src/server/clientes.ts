@@ -121,5 +121,15 @@ export const salvarContato = acao(async (entrada: z.input<typeof contatoSchema>)
 /** Só os cadastrados aqui: a pccontato não é tocada. */
 export const excluirContato = acao(async (id: string) => {
   await exigirAdmin();
-  await sql`delete from cliente_contatos where id = ${z.string().uuid().parse(id)}`;
+  await sql.begin(async (tx) => {
+    const [k] = await tx<{ codcli: number; celular: string }[]>`
+      delete from cliente_contatos where id = ${z.string().uuid().parse(id)}
+      returning codcli, celular`;
+    // A conversa do WhatsApp identificada por esse número deixa de ser desse cliente.
+    if (k)
+      await tx`
+        update conversas set codcli = null
+         where codcli = ${k.codcli}
+           and crm.chave_telefone(telefone) = crm.chave_telefone(${k.celular})`;
+  });
 });

@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
  * de texto das ações de linha, `destructive` o cheio do "Excluir" num diálogo.
  */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border border-transparent text-sm font-semibold cursor-pointer transition-[background-color,border-color,color,box-shadow,transform] duration-150 active:translate-y-px focus-visible:outline-none disabled:pointer-events-none disabled:opacity-45 disabled:shadow-none disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:size-[18px] [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border border-transparent text-sm font-semibold cursor-pointer transition-[background-color,border-color,color,box-shadow,transform] duration-150 active:translate-y-px focus-visible:outline-none disabled:pointer-events-none disabled:opacity-45 disabled:shadow-none disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:size-4.5 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -27,7 +27,7 @@ const buttonVariants = cva(
       },
       size: {
         default: "h-10 px-4",
-        sm: "h-8 px-3 text-[13px] [&_svg]:size-4",
+        sm: "h-8 px-3 text-[0.8125rem] [&_svg]:size-4",
         lg: "h-11 px-6",
         icon: "size-10",
         "icon-sm": "size-8 [&_svg]:size-4",

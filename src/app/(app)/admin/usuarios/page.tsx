@@ -10,6 +10,7 @@ import {
   ExternalLink,
   KeyRound,
   Link2,
+  MessageCircle,
   Pencil,
   Plus,
   RotateCcw,
@@ -41,6 +42,8 @@ import { formatarTelefone, slugify, somenteDigitos } from "@/lib/catalogo";
 import { LOGOS } from "@/lib/logos";
 import { cn } from "@/lib/utils";
 import { Badge, IconTile, PageHeader } from "@/components/abastex";
+import { ConexaoWhatsapp } from "@/components/whatsapp/conexao";
+import { useConversas } from "@/hooks/use-conversas";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -301,6 +304,10 @@ export default function UsuariosPage() {
   const [linksAberto, setLinksAberto] = useState(false);
   const [carteira, setCarteira] = useState<LinhaVendedor | null>(null);
   const [carteiraAberta, setCarteiraAberta] = useState(false);
+  // Conexão do WhatsApp (W-API): some com o módulo de Conversas em desenvolvimento.
+  const conversas = useConversas();
+  const [conexao, setConexao] = useState<LinhaVendedor | null>(null);
+  const [conexaoAberta, setConexaoAberta] = useState(false);
 
   const [tipo, setTipo] = useState<"vendedor" | "admin">("vendedor");
   const [nome, setNome] = useState("");
@@ -432,7 +439,6 @@ export default function UsuariosPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        crumbs={["Abastex", "Usuários"]}
         icon={Users}
         tone="brand"
         title="Usuários"
@@ -491,7 +497,7 @@ export default function UsuariosPage() {
                   {iniciais(nomeExibido)}
                 </span>
 
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-[1_1_240px]">
                   <p className="flex flex-wrap items-center gap-2 font-semibold">
                     <span className="truncate">{nomeExibido}</span>
                     {semAcesso ? (
@@ -516,7 +522,7 @@ export default function UsuariosPage() {
                   </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-1">
+                <div className="ml-auto flex flex-wrap items-center gap-1">
                   {v && (
                     <>
                       <Button
@@ -559,6 +565,20 @@ export default function UsuariosPage() {
                           </span>
                         )}
                       </Button>
+                      {conversas && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="bg-success-soft text-success hover:bg-success-soft hover:text-success hover:brightness-95"
+                          onClick={() => {
+                            setConexao(v);
+                            setConexaoAberta(true);
+                          }}
+                        >
+                          <MessageCircle />
+                          WhatsApp
+                        </Button>
+                      )}
                     </>
                   )}
                   <Button
@@ -941,6 +961,19 @@ export default function UsuariosPage() {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* WhatsApp do vendedor: instância da W-API, QR code e estado da conexão */}
+      <Dialog open={conexaoAberta} onOpenChange={setConexaoAberta}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>WhatsApp de {conexao?.nome}</DialogTitle>
+            <DialogDescription>
+              As conversas desse número aparecem no CRM do vendedor e no histórico dos pedidos.
+            </DialogDescription>
+          </DialogHeader>
+          {conexao && <ConexaoWhatsapp key={conexao.id} vendedorId={conexao.id} />}
         </DialogContent>
       </Dialog>
 

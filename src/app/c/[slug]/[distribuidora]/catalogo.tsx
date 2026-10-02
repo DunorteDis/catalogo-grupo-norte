@@ -4,12 +4,19 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { Check, Loader2, Minus, Plus, Search, ShoppingCart, Trash2, X } from "lucide-react";
+import { Check, Loader2, Minus, Plus, Search, ShoppingCart, Star, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { chamar } from "@/lib/chamar";
 import { mensagemErro } from "@/lib/erros";
-import { criarPedido, produtosDaVitrine, vitrine } from "@/server/publico";
+import { codigoPedido } from "@/lib/whatsapp";
+import {
+  clienteDoLink,
+  criarPedido,
+  maisVendidos,
+  produtosDaVitrine,
+  vitrine,
+} from "@/server/publico";
 import { useVendedorPublico } from "@/hooks/use-vendedor-publico";
 import { MarcaCatalogo } from "@/components/marca-catalogo";
 import { Button } from "@/components/ui/button";
@@ -37,6 +44,9 @@ import {
 import { cn } from "@/lib/utils";
 
 type Produto = { id: string; codigo: string; nome: string; arquivo: string | null };
+
+/** Aba dos mais vendidos: não é seção do catálogo, a lista vem pronta do servidor. */
+const MAIS_VENDIDOS = "mais-vendidos";
 
 /**
  * Quantidade do item: dá para usar os botões − e + ou digitar direto. Quem pede
@@ -228,7 +238,7 @@ function Aba({
   );
 }
 
-export function Catalogo() {
+export function Catalogo({ chave }: { chave: string | null }) {
   const { slug, distribuidora: distribuidoraSlug } = useParams<{
     slug: string;
     distribuidora: string;
@@ -270,6 +280,14 @@ export function Catalogo() {
     queryFn: () => chamar(vitrine(slug, distribuidoraSlug)),
   });
 
+  // Link do cliente: o pedido vai no nome dele e ninguém digita nada. Chave que não vale
+  // mais (o vendedor gerou outra) cai no link genérico, com o campo de nome.
+  const { data: clienteLink } = useQuery({
+    queryKey: ["cliente-do-link", slug, chave],
+    queryFn: () => chamar(clienteDoLink(slug, chave!)),
+    enabled: !!chave,
+  });
+
   const vendedor = vendedorQuery.data;
   const distribuidora = distribuidoraQuery.data;
 
@@ -297,12 +315,14 @@ export function Catalogo() {
   }, [carrinho, storageKey]);
 
   const produtosQuery = useInfiniteQuery({
-    queryKey: ["catalogo", distribuidora?.id, secaoId, termo],
-    enabled: !!distribuidora?.id,
+    queryKey: ["catalogo", distribuidora?.id, chave, secaoId, termo],
+    enabled: !!distribuidora?.id && secaoId !== MAIS_VENDIDOS,
     initialPageParam: 0,
     queryFn: ({ pageParam }) =>
       chamar(
         produtosDaVitrine({
+          vendedorSlug: slug,
+          chave,
           catalogoId: distribuidora!.id,
           secaoId,
           termo,
@@ -312,7 +332,23 @@ export function Catalogo() {
     getNextPageParam: (last, pages) => (last.length === PAGINA_VITRINE ? pages.length : undefined),
   });
 
-  const produtos = useMemo(() => produtosQuery.data?.pages.flat() ?? [], [produtosQuery.data]);
+  // Mais vendidos (do cliente do link, ou de todos): selo no cartão e uma aba só com eles.
+  const destaqueQuery = useQuery({
+    queryKey: ["mais-vendidos", slug, distribuidora?.id, chave],
+    enabled: !!distribuidora?.id,
+    queryFn: () => chamar(maisVendidos(slug, distribuidora!.id, chave)),
+  });
+  const destaque = destaqueQuery.data;
+  const emDestaque = useMemo(() => new Set(destaque?.produtos.map((p) => p.id)), [destaque]);
+  const seloDestaque = destaque?.doCliente ? "Você sempre compra" : "Mais vendido";
+  const abaDestaque = secaoId === MAIS_VENDIDOS;
+
+  const vitrineProdutos = useMemo(
+    () => produtosQuery.data?.pages.flat() ?? [],
+    [produtosQuery.data],
+  );
+  const produtos = abaDestaque ? (destaque?.produtos ?? []) : vitrineProdutos;
+  const carregandoProdutos = abaDestaque ? destaqueQuery.isLoading : produtosQuery.isLoading;
   const itens = Object.values(carrinho);
   const totalItens = itens.reduce((s, i) => s + i.quantidade, 0);
   const cor = distribuidora?.cor || "#501ea1";
@@ -349,11 +385,12 @@ export function Catalogo() {
     if (!vendedor || !distribuidora || itens.length === 0) return;
     setEnviando(true);
     try {
-      await chamar(
+      const { id: pedidoId, codprods } = await chamar(
         criarPedido({
           vendedorId: vendedor.id,
           catalogoId: distribuidora.id,
           clienteNome: cliente,
+          chave: clienteLink ? chave : null,
           observacao,
           itens: itens.map((i) => ({
             codigo: i.codigo,
@@ -365,9 +402,10 @@ export function Catalogo() {
       );
       const texto = montarMensagem({
         distribuidora: distribuidora.nome,
-        clienteNome: cliente,
+        codigo: codigoPedido(pedidoId),
+        clienteNome: clienteLink ?? cliente,
         observacao,
-        itens,
+        itens: itens.map((i) => ({ ...i, codprod: codprods[i.codigo] ?? null })),
       });
       const url = `https://wa.me/${whatsappNumero(vendedor.whatsapp)}?text=${encodeURIComponent(texto)}`;
       // Quem volta do WhatsApp cai na tela de confirmação, não no carrinho vazio.
@@ -419,11 +457,13 @@ export function Catalogo() {
               imagem_url: distribuidora.imagem_url,
               logo_url: distribuidora.logo_url,
             }}
-            logoClassName="h-10 max-w-[150px]"
+            logoClassName="h-10 max-w-37.5"
             className="text-lg"
           />
           <div className="ml-auto text-right">
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Vendedor</p>
+            <p className="text-[0.6875rem] uppercase tracking-wide text-muted-foreground">
+              Vendedor
+            </p>
             <p className="text-sm font-semibold leading-tight">{vendedor.nome}</p>
           </div>
         </div>
@@ -439,12 +479,17 @@ export function Catalogo() {
           </div>
         </div>
 
-        {secoes.length > 0 && (
+        {(secoes.length > 0 || !!destaque?.produtos.length) && (
           <div className="mx-auto max-w-5xl overflow-x-auto px-4 pb-3">
             <div className="flex w-max gap-2">
               <Aba ativa={!secaoId} cor={cor} onClick={() => setSecaoId("")}>
                 Todos
               </Aba>
+              {!!destaque?.produtos.length && (
+                <Aba ativa={abaDestaque} cor={cor} onClick={() => setSecaoId(MAIS_VENDIDOS)}>
+                  {destaque.doCliente ? "Você sempre compra" : "Mais vendidos"}
+                </Aba>
+              )}
               {secoes.map((s) => (
                 <Aba key={s.id} ativa={secaoId === s.id} cor={cor} onClick={() => setSecaoId(s.id)}>
                   {s.nome}
@@ -456,7 +501,7 @@ export function Catalogo() {
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-4">
-        {produtosQuery.isLoading ? (
+        {carregandoProdutos ? (
           <div className="flex justify-center py-16">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
@@ -497,10 +542,19 @@ export function Catalogo() {
                         Sem foto
                       </span>
                     )}
+                    {emDestaque.has(p.id) && (
+                      <span
+                        className="absolute left-2 top-2 inline-flex max-w-[calc(100%-1rem)] items-center gap-1 rounded-full px-2 py-0.5 text-[0.6875rem] font-bold text-white shadow-sm"
+                        style={{ backgroundColor: cor }}
+                      >
+                        <Star className="size-3 shrink-0 fill-current" aria-hidden />
+                        <span className="truncate">{seloDestaque}</span>
+                      </span>
+                    )}
                   </div>
                   <div className="flex flex-1 flex-col gap-2 p-3">
                     <p className="line-clamp-3 text-xs font-semibold leading-snug">{p.nome}</p>
-                    <p className="text-[11px] text-muted-foreground">Cód. {p.codigo}</p>
+                    <p className="text-[0.6875rem] text-muted-foreground">Cód. {p.codigo}</p>
                     {/* span, não button: o card inteiro já é o botão que abre o painel. */}
                     {item ? (
                       <span
@@ -527,7 +581,7 @@ export function Catalogo() {
           </div>
         )}
 
-        {produtosQuery.hasNextPage && (
+        {!abaDestaque && produtosQuery.hasNextPage && (
           <div className="flex justify-center py-6">
             <Button
               variant="outline"
@@ -626,7 +680,9 @@ export function Catalogo() {
                         <div className="flex items-start gap-2">
                           <div className="min-w-0 flex-1">
                             <p className="line-clamp-2 text-xs font-semibold">{i.nome}</p>
-                            <p className="text-[11px] text-muted-foreground">Cód. {i.codigo}</p>
+                            <p className="text-[0.6875rem] text-muted-foreground">
+                              Cód. {i.codigo}
+                            </p>
                           </div>
                           <Button
                             size="icon"
@@ -674,13 +730,19 @@ export function Catalogo() {
             )}
 
             <div className="mt-4 space-y-3">
-              <Input
-                value={cliente}
-                onChange={(e) => setCliente(e.target.value)}
-                placeholder="Seu nome (opcional)"
-                maxLength={120}
-                className="h-12 rounded-xl"
-              />
+              {clienteLink ? (
+                <p className="rounded-xl border bg-muted/40 px-4 py-3 text-sm">
+                  Pedido para <strong>{clienteLink}</strong>
+                </p>
+              ) : (
+                <Input
+                  value={cliente}
+                  onChange={(e) => setCliente(e.target.value)}
+                  placeholder="Seu nome (opcional)"
+                  maxLength={120}
+                  className="h-12 rounded-xl"
+                />
+              )}
               <Textarea
                 value={observacao}
                 onChange={(e) => setObservacao(e.target.value)}
@@ -720,7 +782,7 @@ export function Catalogo() {
               </p>
             </div>
             <div className="w-full rounded-2xl bg-card p-4 text-left shadow-card">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
+              <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-ink-muted">
                 Resumo do pedido
               </p>
               <ul className="mt-1 divide-y">

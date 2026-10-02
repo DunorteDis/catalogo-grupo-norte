@@ -17,6 +17,7 @@ export const config = {
     "/admin/:path*",
     "/vendedor/:path*",
     "/carteira/:path*",
+    "/conversas/:path*",
     "/meus-pedidos/:path*",
     "/definir-senha",
     "/escolher-distribuidora",

@@ -16,6 +16,7 @@ import {
 } from "@/lib/catalogo";
 import { Badge, FilterTabs, ListRow, PageHeader, SearchInput } from "@/components/abastex";
 import { CondicoesCliente } from "@/components/condicoes-cliente";
+import { Paginacao } from "@/components/paginacao";
 import {
   Dialog,
   DialogContent,
@@ -94,7 +95,6 @@ export default function ClientesPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        crumbs={["Abastex", "Clientes"]}
         icon={Store}
         tone="info"
         title="Clientes"
@@ -172,23 +172,7 @@ export default function ClientesPage() {
           )}
         </div>
 
-        <div className="flex items-center justify-between">
-          <Button
-            variant="outline"
-            disabled={pagina === 0}
-            onClick={() => setPagina((p) => Math.max(0, p - 1))}
-          >
-            Anterior
-          </Button>
-          <span className="text-xs text-ink-muted">Página {pagina + 1}</span>
-          <Button
-            variant="outline"
-            disabled={linhas.length < PAGE}
-            onClick={() => setPagina((p) => p + 1)}
-          >
-            Próxima
-          </Button>
-        </div>
+        <Paginacao pagina={pagina} total={data?.total ?? 0} porPagina={PAGE} onMudar={setPagina} />
       </div>
 
       <CondicoesCliente

@@ -517,7 +517,6 @@ export default function CatalogoPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        crumbs={["Abastex", "Catálogos"]}
         icon={BookOpen}
         tone="rose"
         title="Catálogos"
@@ -601,7 +600,7 @@ export default function CatalogoPage() {
 
         {catalogo && (
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            <label className="mr-2 inline-flex items-center gap-2 text-[13px] font-semibold">
+            <label className="mr-2 inline-flex items-center gap-2 text-[0.8125rem] font-semibold">
               {catalogo.ativo ? "Ativo" : "Inativo"}
               <Switch
                 checked={catalogo.ativo}
@@ -663,7 +662,7 @@ export default function CatalogoPage() {
               type="button"
               disabled={mexendoNaSecao}
               onClick={abrirNovaSecao}
-              className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-full border border-dashed border-line-strong px-3 text-[13px] font-semibold text-brand transition-colors hover:bg-brand-soft disabled:cursor-not-allowed disabled:opacity-45"
+              className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-full border border-dashed border-line-strong px-3 text-[0.8125rem] font-semibold text-brand transition-colors hover:bg-brand-soft disabled:cursor-not-allowed disabled:opacity-45"
             >
               <Plus className="size-3.5" />
               Nova seção
@@ -1174,7 +1173,7 @@ export default function CatalogoPage() {
               <p className="text-xs font-semibold text-destructive">
                 {naoEncontrados.length} código(s) sem cadastro de produto:
               </p>
-              <p className="mt-1 max-h-24 overflow-y-auto break-all font-mono text-[11px] text-muted-foreground">
+              <p className="mt-1 max-h-24 overflow-y-auto break-all font-mono text-[0.6875rem] text-muted-foreground">
                 {naoEncontrados.join(", ")}
               </p>
               <Button

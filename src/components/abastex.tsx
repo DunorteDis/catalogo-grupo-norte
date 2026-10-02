@@ -3,7 +3,7 @@
  * portados de components/bundle.js do pacote. Botão e switch são os do
  * shadcn já no visual do DS (src/components/ui).
  */
-import { Fragment, type CSSProperties, type InputHTMLAttributes, type ReactNode } from "react";
+import type { CSSProperties, InputHTMLAttributes, ReactNode } from "react";
 import { ArrowDownRight, ArrowRight, ArrowUpRight, Search, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -30,15 +30,14 @@ export function IconTile({
   );
 }
 
+/** Título da tela. Onde a pessoa está (distribuidora › página) fica na barra do topo. */
 export function PageHeader({
-  crumbs,
   icon,
   tone = "brand",
   title,
   subtitle,
   actions,
 }: {
-  crumbs?: string[];
   icon?: LucideIcon;
   tone?: Tom;
   title: string;
@@ -49,16 +48,6 @@ export function PageHeader({
     <header className="ax-page">
       {icon && <IconTile icon={icon} tone={tone} size="lg" />}
       <div className="ax-page__text">
-        {crumbs && (
-          <nav className="ax-page__crumbs" aria-label="Você está em">
-            {crumbs.map((c, i) => (
-              <Fragment key={i}>
-                {i > 0 && <span aria-hidden>/</span>}
-                <span className={i === crumbs.length - 1 ? "is-current" : undefined}>{c}</span>
-              </Fragment>
-            ))}
-          </nav>
-        )}
         <h1 className="ax-page__title">{title}</h1>
         {subtitle && <p className="ax-page__sub">{subtitle}</p>}
       </div>
@@ -335,7 +324,7 @@ export function DistributorCard({
           {color}
         </span>
         {meta && <span className="ax-dist__meta">{meta}</span>}
-        <label className="inline-flex items-center gap-2 text-[13px] font-semibold">
+        <label className="inline-flex items-center gap-2 text-[0.8125rem] font-semibold">
           {active ? "Ativa" : "Inativa"}
           <Switch
             checked={active}

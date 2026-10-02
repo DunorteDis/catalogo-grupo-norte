@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
 import {
   ChevronDown,
   FileSpreadsheet,
+  MessageCircle,
   Package,
   ShoppingBag,
   ShoppingCart,
@@ -13,11 +15,15 @@ import {
 import { toast } from "sonner";
 
 import { chamar } from "@/lib/chamar";
-import { fotoUrl, qtdComUnidade } from "@/lib/catalogo";
+import { fotoUrl, paginaValida, POR_PAGINA, qtdComUnidade } from "@/lib/catalogo";
 import { formatarData } from "@/lib/periodo";
 import { baixarPlanilhaDoPedido } from "@/lib/planilha-pedido";
 import { cn } from "@/lib/utils";
+import { codigoPedido } from "@/lib/whatsapp";
 import { Badge, IconTile, KpiCard } from "@/components/abastex";
+import { Paginacao } from "@/components/paginacao";
+import { HistoricoConversa } from "@/components/whatsapp/historico";
+import { useConversas } from "@/hooks/use-conversas";
 import { Button } from "@/components/ui/button";
 import { fotosPorCodigo } from "@/server/pedidos";
 
@@ -29,10 +35,42 @@ export type PedidoDaLista = {
   created_at: string;
   distribuidoras: { nome: string; cor: string } | null;
   vendedores?: { nome: string } | null;
-  pedido_itens: { codigo: string; nome: string; quantidade: number; unidade: string }[];
+  pedido_itens: {
+    /** EAN do produto, ou o codprod quando ele não tem EAN. */
+    codigo: string;
+    /** Código do produto no Winthor; nulo quando o item não achou o produto. */
+    codprod: number | null;
+    nome: string;
+    quantidade: number;
+    unidade: string;
+  }[];
+  /** Conversa do WhatsApp em que o pedido chegou (pelo código "Pedido #..." da mensagem). */
+  conversa_id?: string | null;
 };
 
 const num = (n: number) => n.toLocaleString("pt-BR");
+
+/**
+ * Código do Winthor e EAN, cada um com o nome. Produto sem EAN tem o próprio codprod no
+ * `codigo`: aí só o do Winthor aparece. Item que não achou o produto mostra o código como veio.
+ */
+function CodigosDoItem({ codigo, codprod }: { codigo: string; codprod: number | null }) {
+  const temEan = codprod == null || codigo !== String(codprod);
+  return (
+    <p className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-ink-muted">
+      {codprod != null && (
+        <span>
+          Cód. Winthor <code className="font-mono font-semibold text-ink">{codprod}</code>
+        </span>
+      )}
+      {temEan && (
+        <span>
+          {codprod != null ? "EAN" : "Código"} <code className="font-mono">{codigo}</code>
+        </span>
+      )}
+    </p>
+  );
+}
 
 export function ListaPedidos({
   pedidos,
@@ -46,10 +84,26 @@ export function ListaPedidos({
   /** Na visão do admin os pedidos vêm de vendedores diferentes. */
   mostrarVendedor?: boolean;
 }) {
+  // O período inteiro vem de uma vez: os números do topo somam tudo, a lista pagina.
+  const [pagina, setPagina] = useState(0);
+  // A conversa do pedido faz parte do módulo de Conversas, ainda em desenvolvimento.
+  const conversas = useConversas();
+  // Outro período é outra lista: volta para a primeira página. Assinatura primitiva
+  // porque o pai passa `data ?? []`, um array novo a cada render enquanto carrega.
+  const assinatura = `${pedidos.length}:${pedidos[0]?.id ?? ""}`;
+  const [base, setBase] = useState(assinatura);
+  if (base !== assinatura) {
+    setBase(assinatura);
+    setPagina(0);
+  }
+  const inicio = paginaValida(pagina, pedidos.length) * POR_PAGINA;
+  const visiveis = pedidos.slice(inicio, inicio + POR_PAGINA);
+
   // pedido_itens guarda só codigo/nome/quantidade, então a foto vem de produtos.
   // Não há FK entre as duas (de propósito: apagar um produto não pode derrubar
   // histórico de pedido), por isso o casamento é por código numa consulta à parte.
-  const codigos = [...new Set(pedidos.flatMap((p) => p.pedido_itens.map((i) => i.codigo)))].sort();
+  // Só dos pedidos da página: são os únicos que dá para abrir.
+  const codigos = [...new Set(visiveis.flatMap((p) => p.pedido_itens.map((i) => i.codigo)))].sort();
 
   const fotosQuery = useQuery({
     queryKey: ["fotos-de-produtos", codigos],
@@ -67,7 +121,7 @@ export function ListaPedidos({
       {/* classes literais: o Tailwind não enxerga nome de classe montado em runtime */}
       <div
         className={cn(
-          "grid gap-4 sm:grid-cols-2",
+          "grid grid-cols-2 gap-3 sm:gap-4",
           mostrarVendedor ? "lg:grid-cols-4" : "lg:grid-cols-3",
         )}
       >
@@ -103,7 +157,7 @@ export function ListaPedidos({
 
       {pedidos.length > 0 && (
         <AccordionPrimitive.Root type="single" collapsible className="flex flex-col gap-2">
-          {pedidos.map((pedido) => {
+          {visiveis.map((pedido) => {
             const cliente = pedido.cliente_nome?.trim();
             return (
               <AccordionPrimitive.Item
@@ -119,13 +173,19 @@ export function ListaPedidos({
                       size="sm"
                     />
                     <div className="min-w-0 flex-1">
-                      <p
-                        className={cn(
-                          "truncate",
-                          cliente ? "font-semibold" : "font-medium italic text-ink-muted",
-                        )}
-                      >
-                        {cliente || "Cliente não identificado"}
+                      <p className="flex min-w-0 flex-col sm:flex-row sm:items-baseline sm:gap-2">
+                        {/* O mesmo código que vai na mensagem do WhatsApp ("Novo pedido #..."). */}
+                        <code className="shrink-0 font-mono text-xs font-semibold text-brand">
+                          #{codigoPedido(pedido.id)}
+                        </code>
+                        <span
+                          className={cn(
+                            "truncate",
+                            cliente ? "font-semibold" : "font-medium italic text-ink-muted",
+                          )}
+                        >
+                          {cliente || "Cliente não identificado"}
+                        </span>
                       </p>
                       <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-ink-muted">
                         {mostrarVendedor && pedido.vendedores?.nome && (
@@ -152,11 +212,11 @@ export function ListaPedidos({
                     <Badge tone="brand">
                       {num(pedido.total_itens)} {pedido.total_itens === 1 ? "item" : "itens"}
                     </Badge>
-                    <ChevronDown className="size-[18px] shrink-0 text-ink-subtle transition-transform duration-150 group-data-[state=open]:rotate-180 group-data-[state=open]:text-brand" />
+                    <ChevronDown className="size-4.5 shrink-0 text-ink-subtle transition-transform duration-150 group-data-[state=open]:rotate-180 group-data-[state=open]:text-brand" />
                   </AccordionPrimitive.Trigger>
                 </AccordionPrimitive.Header>
                 <AccordionPrimitive.Content className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
-                  <div className="border-t bg-surface-sunken px-4 pb-3 pt-1 sm:pl-[68px]">
+                  <div className="border-t bg-surface-sunken px-4 pb-3 pt-1 sm:pl-17">
                     <ul className="divide-y divide-dashed">
                       {pedido.pedido_itens.map((item, idx) => {
                         const foto = fotoUrl(fotosQuery.data?.[item.codigo]);
@@ -175,20 +235,29 @@ export function ListaPedidos({
                               )}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="text-[13px] font-medium leading-snug">{item.nome}</p>
-                              <p className="mt-0.5 font-mono text-xs text-ink-muted">
-                                {item.codigo}
+                              <p className="text-[0.8125rem] font-medium leading-snug">
+                                {item.nome}
                               </p>
+                              <CodigosDoItem codigo={item.codigo} codprod={item.codprod} />
                             </div>
-                            <b className="shrink-0 text-[13px] tabular-nums">
+                            <b className="shrink-0 text-[0.8125rem] tabular-nums">
                               {qtdComUnidade(item.quantidade, item.unidade)}
                             </b>
                           </li>
                         );
                       })}
                     </ul>
+                    {conversas && pedido.conversa_id && (
+                      <div className="mt-3 overflow-hidden rounded-xl border">
+                        <p className="flex items-center gap-2 bg-(--wa-painel) px-3 py-2 text-xs font-semibold text-(--wa-texto)">
+                          <MessageCircle className="size-4 text-(--wa-verde)" aria-hidden />
+                          Conversa do WhatsApp
+                        </p>
+                        <HistoricoConversa conversaId={pedido.conversa_id} className="h-96" />
+                      </div>
+                    )}
                     {pedido.observacao && (
-                      <p className="border-t border-dashed pt-3 text-[13px] text-ink-muted">
+                      <p className="border-t border-dashed pt-3 text-[0.8125rem] text-ink-muted">
                         <span className="font-semibold text-ink">Observação:</span>{" "}
                         {pedido.observacao}
                       </p>
@@ -214,6 +283,8 @@ export function ListaPedidos({
           })}
         </AccordionPrimitive.Root>
       )}
+
+      <Paginacao pagina={pagina} total={pedidos.length} onMudar={setPagina} />
     </>
   );
 }

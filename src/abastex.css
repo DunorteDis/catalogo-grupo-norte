@@ -53,6 +53,16 @@
   --shadow-md: 0 4px 12px #501ea114, 0 2px 4px #1b14280d;
   --shadow-primary: 0 4px 14px #501ea140;
   --focus-ring: 0 0 0 2px #ffffff, 0 0 0 4px #501ea1;
+  /* Conversas: as cores do WhatsApp, para o vendedor se sentir em casa */
+  --wa-fundo: #efeae2;
+  --wa-painel: #f0f2f5;
+  --wa-entrada: #ffffff;
+  --wa-saida: #d9fdd3;
+  --wa-texto: #111b21;
+  --wa-hora: #667781;
+  --wa-verde: #00a884;
+  --wa-lido: #53bdeb;
+  --wa-linha: #e9edef;
 }
 
 [data-theme="dark"] {
@@ -102,22 +112,31 @@
   --shadow-md: 0 8px 24px #00000099;
   --shadow-primary: 0 4px 14px #6a3bd059;
   --focus-ring: 0 0 0 2px #0f0a1a, 0 0 0 4px #16e692;
+  --wa-fundo: #0b141a;
+  --wa-painel: #202c33;
+  --wa-entrada: #202c33;
+  --wa-saida: #005c4b;
+  --wa-texto: #e9edef;
+  --wa-hora: #8696a0;
+  --wa-verde: #00a884;
+  --wa-lido: #53bdeb;
+  --wa-linha: #222d34;
   color-scheme: dark;
 }
 
 :root {
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
-  --space-12: 48px;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
-  --radius-full: 9999px;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 1rem;
+  --radius-full: 624.9375rem;
   --font-sans: "Outfit", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 }
@@ -129,6 +148,27 @@
   ):focus-visible {
   outline: 2px solid transparent;
   box-shadow: var(--focus-ring);
+}
+
+/* Campo de texto marca o foco na própria borda (2px da marca, para dentro): o anel de
+   fora encostava no rótulo logo acima. */
+:where(input, textarea, select):not([tabindex="-1"]):focus-visible {
+  box-shadow: inset 0 0 0 1px var(--brand);
+}
+:where(input, textarea, select)[aria-invalid="true"]:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--danger);
+}
+
+/* Quem pede menos movimento no sistema não vê animação de entrada, pulso nem deslize. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* A busca marca o foco na borda de fora (.ax-search:focus-within); o anel acima no
@@ -143,18 +183,18 @@
     display: inline-grid;
     place-items: center;
     flex: none;
-    width: 36px;
-    height: 36px;
+    width: 2.25rem;
+    height: 2.25rem;
     border-radius: var(--radius-md);
   }
   .ax-tile--sm {
-    width: 32px;
-    height: 32px;
+    width: 2rem;
+    height: 2rem;
     border-radius: var(--radius-sm);
   }
   .ax-tile--lg {
-    width: 48px;
-    height: 48px;
+    width: 3rem;
+    height: 3rem;
     border-radius: var(--radius-lg);
   }
   .ax-tile--brand {
@@ -187,19 +227,19 @@
     display: inline-flex;
     align-items: center;
     gap: var(--space-1);
-    height: 24px;
-    padding: 0 10px;
+    height: 1.5rem;
+    padding: 0 0.625rem;
     border-radius: var(--radius-full);
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 600;
-    line-height: 16px;
+    line-height: 1rem;
     white-space: nowrap;
     background: var(--surface-sunken);
     color: var(--ink-muted);
   }
   .ax-badge__dot {
-    width: 6px;
-    height: 6px;
+    width: 0.375rem;
+    height: 0.375rem;
     border-radius: 50%;
     background: currentColor;
   }
@@ -236,12 +276,12 @@
   /* Chip */
   .ax-chip {
     font: inherit;
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 600;
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
-    height: 36px;
+    height: 2.25rem;
     padding: 0 var(--space-3);
     border-radius: var(--radius-full);
     border: 1px solid var(--line);
@@ -257,8 +297,8 @@
     background: var(--surface-hover);
   }
   .ax-chip__swatch {
-    width: 10px;
-    height: 10px;
+    width: 0.625rem;
+    height: 0.625rem;
     border-radius: 50%;
     flex: none;
     box-shadow: 0 0 0 1px var(--line);
@@ -303,7 +343,7 @@
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
-    height: 32px;
+    height: 2rem;
     padding: 0 var(--space-4);
     border: 0;
     border-radius: var(--radius-full);
@@ -329,14 +369,14 @@
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    height: 40px;
+    height: 2.5rem;
     padding: 0 var(--space-3);
     border-radius: var(--radius-md);
     border: 1px solid var(--line-strong);
     background: var(--surface);
     color: var(--ink-subtle);
     width: 100%;
-    max-width: 440px;
+    max-width: 27.5rem;
     box-sizing: border-box;
     transition:
       border-color 0.15s,
@@ -377,14 +417,14 @@
   }
   .ax-card__title {
     margin: 0;
-    font-size: 16px;
-    line-height: 22px;
+    font-size: 1rem;
+    line-height: 1.375rem;
     font-weight: 600;
   }
   .ax-card__sub {
-    margin: 2px 0 0;
-    font-size: 12px;
-    line-height: 16px;
+    margin: 0.125rem 0 0;
+    font-size: 0.75rem;
+    line-height: 1rem;
     color: var(--ink-muted);
   }
   .ax-card__actions {
@@ -411,22 +451,22 @@
     gap: var(--space-2);
   }
   .ax-kpi__label {
-    font-size: 11px;
-    line-height: 16px;
+    font-size: 0.6875rem;
+    line-height: 1rem;
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--ink-muted);
   }
   .ax-kpi__value {
-    font-size: 30px;
-    line-height: 36px;
+    font-size: 1.875rem;
+    line-height: 2.25rem;
     font-weight: 700;
     letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
   }
   .ax-kpi__value small {
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 500;
     color: var(--ink-muted);
     letter-spacing: 0;
@@ -435,7 +475,7 @@
     display: inline-flex;
     align-items: center;
     gap: var(--space-1);
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 600;
     color: var(--ink-subtle);
   }
@@ -444,6 +484,16 @@
   }
   .ax-kpi__delta.is-down {
     color: var(--danger);
+  }
+  /* Dois por linha no celular: um por linha empurrava a lista para fora da tela. */
+  @media (max-width: 639px) {
+    .ax-kpi {
+      padding: var(--space-3) var(--space-4);
+    }
+    .ax-kpi__value {
+      font-size: 1.5rem;
+      line-height: 1.875rem;
+    }
   }
 
   /* Bar list */
@@ -456,10 +506,10 @@
   }
   .ax-bars__row {
     display: grid;
-    grid-template-columns: minmax(96px, 35%) 1fr 32px;
+    grid-template-columns: minmax(6rem, 35%) 1fr 2rem;
     align-items: center;
     gap: var(--space-3);
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
   .ax-bars__label {
     color: var(--ink-muted);
@@ -468,7 +518,7 @@
     white-space: nowrap;
   }
   .ax-bars__track {
-    height: 12px;
+    height: 0.75rem;
     border-radius: var(--radius-full);
     background: var(--surface-sunken);
     overflow: hidden;
@@ -492,10 +542,13 @@
     box-shadow: var(--shadow-sm);
     background: var(--surface);
   }
+  /* Quebra quando falta espaço: o texto fica com pelo menos 13.75rem e as ações descem
+     para a linha de baixo, em vez de espremer o nome até uma palavra por linha. */
   .ax-row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-4);
+    gap: var(--space-3) var(--space-4);
     padding: var(--space-3) var(--space-4);
     background: var(--surface);
     border-bottom: 1px solid var(--line);
@@ -512,8 +565,8 @@
     opacity: 0.5;
   }
   .ax-row__thumb {
-    width: 48px;
-    height: 48px;
+    width: 3rem;
+    height: 3rem;
     flex: none;
     border-radius: var(--radius-sm);
     background: var(--surface-sunken);
@@ -528,7 +581,7 @@
     object-fit: contain;
   }
   .ax-row__body {
-    flex: 1;
+    flex: 1 1 13.75rem;
     min-width: 0;
   }
   .ax-row__title {
@@ -539,24 +592,39 @@
     min-width: 0;
   }
   .ax-row__title > span:first-child {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .ax-row__title > :not(:first-child) {
+    flex: none;
+  }
   .ax-row__meta {
-    font-size: 12px;
-    line-height: 16px;
+    font-size: 0.75rem;
+    line-height: 1rem;
     color: var(--ink-muted);
-    margin-top: 2px;
+    margin-top: 0.125rem;
   }
   .ax-row__meta code {
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: 0.75rem;
   }
   .ax-row__actions {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-1);
+    margin-left: auto;
+  }
+  /* No celular as ações ficam embaixo do texto, alinhadas com ele (não com a miniatura). */
+  @media (max-width: 639px) {
+    .ax-row__actions {
+      flex-basis: 100%;
+    }
+    .ax-row__thumb ~ .ax-row__actions {
+      padding-left: calc(3rem + var(--space-4));
+    }
   }
 
   /* Distributor card — o único lugar onde a cor da distribuidora aparece */
@@ -567,7 +635,7 @@
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
     padding: var(--space-5);
-    padding-top: calc(var(--space-5) + 4px);
+    padding-top: calc(var(--space-5) + 0.25rem);
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -578,7 +646,7 @@
     content: "";
     position: absolute;
     inset: 0 0 auto 0;
-    height: 4px;
+    height: 0.25rem;
     background: var(--dist);
   }
   .ax-dist:hover {
@@ -589,16 +657,16 @@
     opacity: 0.5;
   }
   .ax-dist__logo {
-    min-height: 48px;
+    min-height: 3rem;
     display: flex;
     align-items: center;
   }
   .ax-dist__logo img {
-    max-height: 48px;
-    max-width: 200px;
+    max-height: 3rem;
+    max-width: 12.5rem;
   }
   .ax-dist__name {
-    font-size: 26px;
+    font-size: 1.625rem;
     font-weight: 700;
     letter-spacing: -0.02em;
     color: var(--dist);
@@ -613,19 +681,19 @@
     align-items: center;
     gap: var(--space-2);
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: 0.75rem;
     color: var(--ink-muted);
     margin-right: auto;
   }
   .ax-dist__color i {
-    width: 12px;
-    height: 12px;
+    width: 0.75rem;
+    height: 0.75rem;
     border-radius: 50%;
     background: var(--dist);
     box-shadow: 0 0 0 1px var(--line);
   }
   .ax-dist__meta {
-    font-size: 12px;
+    font-size: 0.75rem;
     color: var(--ink-muted);
     white-space: nowrap;
   }
@@ -642,29 +710,17 @@
   }
   .ax-page__text {
     flex: 1;
-    min-width: min(100%, 240px);
-  }
-  .ax-page__crumbs {
-    display: flex;
-    gap: var(--space-2);
-    font-size: 12px;
-    line-height: 16px;
-    color: var(--ink-subtle);
-    margin-bottom: 2px;
-  }
-  .ax-page__crumbs .is-current {
-    color: var(--brand);
-    font-weight: 600;
+    min-width: min(100%, 15rem);
   }
   .ax-page__title {
     margin: 0;
-    font-size: 32px;
-    line-height: 38px;
+    font-size: 2rem;
+    line-height: 2.375rem;
     font-weight: 700;
     letter-spacing: -0.02em;
   }
   .ax-page__sub {
-    margin: 2px 0 0;
+    margin: 0.125rem 0 0;
     color: var(--ink-muted);
   }
   .ax-page__actions {
@@ -675,8 +731,8 @@
   }
   @media (max-width: 639px) {
     .ax-page__title {
-      font-size: 24px;
-      line-height: 30px;
+      font-size: 1.5rem;
+      line-height: 1.875rem;
     }
     .ax-page > .ax-tile {
       display: none;

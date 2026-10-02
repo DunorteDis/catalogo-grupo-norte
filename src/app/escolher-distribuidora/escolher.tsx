@@ -32,7 +32,9 @@ export function Escolher({ atual }: { atual: string | null }) {
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-6 px-4 py-12">
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted">TI</p>
+        <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-muted">
+          TI
+        </p>
         <h1 className="mt-1 text-2xl font-bold text-ink">Em qual distribuidora você vai entrar?</h1>
         <p className="mt-1 text-sm text-ink-muted">
           Dá para trocar depois pelo menu. Usuários, catálogos e pedidos são os dela.

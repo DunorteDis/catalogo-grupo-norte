@@ -106,7 +106,6 @@ export default function AdminHome() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        crumbs={["Abastex", "Visão geral"]}
         icon={LayoutDashboard}
         tone="brand"
         title="Visão geral"
@@ -120,7 +119,7 @@ export default function AdminHome() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <KpiCard
           label="Pedidos"
           value={num(noPeriodo.length)}

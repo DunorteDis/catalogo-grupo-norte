@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { chamar } from "@/lib/chamar";
 import { mensagemErro } from "@/lib/erros";
 import { Badge, ListRow, PageHeader, SearchInput } from "@/components/abastex";
+import { Paginacao } from "@/components/paginacao";
 import {
   Dialog,
   DialogContent,
@@ -151,7 +152,6 @@ export default function ProdutosPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        crumbs={["Abastex", "Produtos"]}
         icon={Package}
         tone="warning"
         title="Produtos"
@@ -223,23 +223,7 @@ export default function ProdutosPage() {
           )}
         </div>
 
-        <div className="flex items-center justify-between">
-          <Button
-            variant="outline"
-            disabled={pagina === 0}
-            onClick={() => setPagina((p) => Math.max(0, p - 1))}
-          >
-            Anterior
-          </Button>
-          <span className="text-xs text-ink-muted">Página {pagina + 1}</span>
-          <Button
-            variant="outline"
-            disabled={linhas.length < PAGE}
-            onClick={() => setPagina((p) => p + 1)}
-          >
-            Próxima
-          </Button>
-        </div>
+        <Paginacao pagina={pagina} total={data?.total ?? 0} porPagina={PAGE} onMudar={setPagina} />
       </div>
 
       <Dialog open={editando !== null} onOpenChange={(v) => !v && setEditando(null)}>

@@ -14,6 +14,8 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image" },
 };
 
-export default function Page() {
-  return <Catalogo />;
+// ?c= é a chave do link do cliente (linkDoCatalogo): o pedido chega identificado.
+export default async function Page({ searchParams }: PageProps<"/c/[slug]/[distribuidora]">) {
+  const { c } = await searchParams;
+  return <Catalogo chave={typeof c === "string" ? c : null} />;
 }

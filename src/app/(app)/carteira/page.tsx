@@ -18,7 +18,6 @@ export default function MinhaCarteira() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        crumbs={["Abastex", "Minha carteira"]}
         icon={WalletCards}
         tone="accent"
         title="Minha carteira"
@@ -28,7 +27,7 @@ export default function MinhaCarteira() {
             : "Seus clientes no Winthor. Toque num cliente para ver crédito, títulos em aberto e bloqueio."
         }
       />
-      <ListaCarteira clientes={data?.clientes} carregando={isLoading} erro={error} />
+      <ListaCarteira clientes={data?.clientes} carregando={isLoading} erro={error} comLink />
     </div>
   );
 }

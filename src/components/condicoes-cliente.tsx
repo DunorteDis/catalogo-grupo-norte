@@ -1,29 +1,37 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useRef, useState, type ReactNode } from "react";
 import {
   AlarmClock,
   Ban,
   CalendarClock,
   CalendarPlus,
+  ChevronDown,
   CircleCheck,
   CirclePause,
   HandCoins,
   Info,
   Landmark,
+  Link2,
   PiggyBank,
   ReceiptText,
+  RefreshCw,
   ShoppingCart,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
 
+import { toast } from "sonner";
+
 import { Badge } from "@/components/abastex";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { MenuLinkCatalogo } from "@/components/link-catalogo";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { iniciais } from "@/lib/acessos";
 import { formatarDocumento } from "@/lib/catalogo";
 import { chamar } from "@/lib/chamar";
+import { copiarTexto } from "@/lib/copiar";
 import {
   diasDesde,
   formatarDia,
@@ -34,7 +42,11 @@ import {
 } from "@/lib/credito";
 import { mensagemErro } from "@/lib/erros";
 import { cn } from "@/lib/utils";
-import { condicoesCliente, type CondicoesCliente as Dados } from "@/server/carteira";
+import {
+  condicoesCliente,
+  chaveDoCliente,
+  type CondicoesCliente as Dados,
+} from "@/server/carteira";
 
 const COR_TITULO = {
   vencido: { borda: "border-l-danger", pill: "bg-danger-soft text-danger" },
@@ -43,15 +55,18 @@ const COR_TITULO = {
 } as const;
 
 /**
- * Crédito, títulos e bloqueio do cliente, para decidir a venda a prazo. Usada na
- * carteira do vendedor, na carteira vista pelo admin e na tela de Clientes.
+ * Crédito, títulos e bloqueio do cliente, para decidir a venda a prazo, num drawer à direita.
+ * Usada na carteira do vendedor, na carteira vista pelo admin, em Clientes e nas Conversas.
  */
 export function CondicoesCliente({
   codcli,
+  comLink = false,
   aberto,
   onFechar,
 }: {
   codcli: number | null;
+  /** Vendedor olhando o próprio cliente: mostra o link do catálogo dele. */
+  comLink?: boolean;
   aberto: boolean;
   onFechar: () => void;
 }) {
@@ -61,30 +76,181 @@ export function CondicoesCliente({
     enabled: aberto && codcli != null,
   });
 
+  const [largura, alca] = useLarguraArrastavel();
+
   return (
-    <Dialog open={aberto} onOpenChange={(a) => !a && onFechar()}>
-      <DialogContent className="max-h-[92vh] gap-0 overflow-y-auto p-0 sm:max-w-3xl">
-        {data ? (
-          <Conteudo dados={data} />
-        ) : (
-          <div className="p-6">
-            <DialogTitle>Condições do cliente</DialogTitle>
-            <DialogDescription className="mt-1">
-              {isLoading ? "Buscando crédito, títulos e bloqueio no Winthor..." : null}
-            </DialogDescription>
-            {error && (
-              <p className="mt-4 rounded-xl bg-danger-soft p-4 text-sm text-danger">
-                {mensagemErro(error)}
-              </p>
-            )}
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
+    <Sheet open={aberto} onOpenChange={(a) => !a && onFechar()}>
+      <SheetContent
+        className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-none"
+        style={{ width: largura, maxWidth: "100vw" }}
+      >
+        {alca}
+        {/* @container: os cartões se arrumam pela largura do drawer, não da tela. */}
+        <div className="@container min-h-0 flex-1 overflow-y-auto">
+          {data ? (
+            <Conteudo dados={data} comLink={comLink} />
+          ) : (
+            <div className="p-6">
+              <SheetTitle>Condições do cliente</SheetTitle>
+              <SheetDescription className="mt-1">
+                {isLoading ? "Buscando crédito, títulos e bloqueio no Winthor..." : null}
+              </SheetDescription>
+              {error && (
+                <p className="mt-4 rounded-xl bg-danger-soft p-4 text-sm text-danger">
+                  {mensagemErro(error)}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 
-function Conteudo({ dados }: { dados: Dados }) {
+/**
+ * Link do catálogo já com o cliente, para mandar por fora das Conversas: o vendedor escolhe
+ * o catálogo no menu. "Gerar novo link" é para link que foi parar com outra pessoa: os
+ * links já mandados a este cliente param de funcionar.
+ */
+function LinkCatalogo({ codcli }: { codcli: number }) {
+  // O último copiado fica à vista: o aviso some e o vendedor perde a certeza de qual foi.
+  const [copiado, setCopiado] = useState<{ url: string; catalogo: string } | null>(null);
+  const copiar = async (url: string, catalogo: string) => {
+    if (await copiarTexto(url)) {
+      setCopiado({ url, catalogo });
+      toast.success(`Link do catálogo ${catalogo} copiado.`);
+    } else toast.error("Não foi possível copiar o link. Tente de novo.");
+  };
+  const renovar = useMutation({
+    mutationFn: () => chamar(chaveDoCliente(codcli, true)),
+    onSuccess: () => {
+      setCopiado(null);
+      toast.success("Link novo gerado. Os que você já mandou a este cliente pararam de funcionar.");
+    },
+    onError: (e: Error) => toast.error(mensagemErro(e)),
+  });
+  return (
+    <div className="mt-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <MenuLinkCatalogo codcli={codcli} onLink={copiar}>
+          <Button size="sm" variant="outline" className="bg-card">
+            <Link2 />
+            Copiar link do catálogo
+            <ChevronDown />
+          </Button>
+        </MenuLinkCatalogo>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={renovar.isPending}
+          title="Use se o link foi parar com outra pessoa: os já mandados param de funcionar"
+          onClick={() => renovar.mutate()}
+        >
+          <RefreshCw />
+          Gerar novo link
+        </Button>
+      </div>
+      {copiado && (
+        <div className="mt-3 rounded-xl bg-card px-3 py-2 text-sm">
+          <p className="flex items-center gap-1.5 font-medium text-mint-ink">
+            <CircleCheck className="size-4 shrink-0" aria-hidden />
+            Copiado: catálogo {copiado.catalogo}
+          </p>
+          <p className="mt-0.5 truncate text-xs text-ink-muted" title={copiado.url}>
+            {copiado.url}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const CHAVE_LARGURA = "condicoes-cliente:largura";
+
+// Em rem (26,25 e 36): com a base de 90% do notebook, o drawer encolhe junto com o conteúdo.
+const emPx = (rem: number) =>
+  rem *
+  (typeof document === "undefined"
+    ? 16
+    : parseFloat(getComputedStyle(document.documentElement).fontSize) || 16);
+const LARGURA_MINIMA = () => emPx(26.25);
+const LARGURA_PADRAO = () => emPx(36);
+
+const limitar = (px: number) =>
+  Math.round(Math.max(LARGURA_MINIMA(), Math.min(px, window.innerWidth * 0.95)));
+
+/**
+ * Largura do drawer puxando a borda esquerda com o mouse (setas no teclado; duplo clique
+ * volta ao padrão). Fica guardada no navegador para a próxima vez.
+ */
+function useLarguraArrastavel() {
+  const [largura, setLargura] = useState(() => {
+    try {
+      return Number(localStorage.getItem(CHAVE_LARGURA)) || LARGURA_PADRAO();
+    } catch {
+      return LARGURA_PADRAO();
+    }
+  });
+  const atual = useRef(largura);
+  const mudar = (px: number) => {
+    atual.current = limitar(px);
+    setLargura(atual.current);
+  };
+  const guardar = () => {
+    try {
+      localStorage.setItem(CHAVE_LARGURA, String(atual.current));
+    } catch {
+      // Navegador sem armazenamento (aba anônima): a largura só não fica guardada.
+    }
+  };
+
+  function arrastar(e: React.PointerEvent) {
+    e.preventDefault();
+    const mover = (ev: PointerEvent) => mudar(window.innerWidth - ev.clientX);
+    const soltar = () => {
+      window.removeEventListener("pointermove", mover);
+      window.removeEventListener("pointerup", soltar);
+      document.body.style.removeProperty("cursor");
+      document.body.style.removeProperty("user-select");
+      guardar();
+    };
+    // Enquanto arrasta, o cursor não pisca e o texto não fica selecionado.
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("pointermove", mover);
+    window.addEventListener("pointerup", soltar);
+  }
+
+  const alca = (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Largura do painel: arraste ou use as setas"
+      aria-valuenow={largura}
+      tabIndex={0}
+      onPointerDown={arrastar}
+      onDoubleClick={() => {
+        mudar(LARGURA_PADRAO());
+        guardar();
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+        e.preventDefault();
+        mudar(atual.current + (e.key === "ArrowLeft" ? 40 : -40));
+        guardar();
+      }}
+      title="Arraste para mudar a largura · duplo clique volta ao padrão"
+      className="group absolute inset-y-0 left-0 z-10 hidden w-3 -translate-x-1/2 cursor-col-resize outline-none sm:block"
+    >
+      <span className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 transition-colors group-hover:bg-brand group-focus-visible:bg-brand" />
+      <span className="absolute top-1/2 left-1/2 h-10 w-1.5 -translate-1/2 rounded-full bg-line-strong transition-colors group-hover:bg-brand group-focus-visible:bg-brand" />
+    </div>
+  );
+  return [largura, alca] as const;
+}
+
+function Conteudo({ dados, comLink }: { dados: Dados; comLink: boolean }) {
   const { cliente: c, titulos, creditos } = dados;
   const r = resumoCredito(c.limite, titulos);
 
@@ -123,13 +289,13 @@ function Conteudo({ dados }: { dados: Dados }) {
             {iniciais(c.nome)}
           </span>
           <div className="min-w-0 flex-1">
-            <DialogTitle className="text-lg leading-tight">{c.nome}</DialogTitle>
+            <SheetTitle className="text-lg leading-tight">{c.nome}</SheetTitle>
             {c.razao !== c.nome && <p className="truncate text-sm text-ink-muted">{c.razao}</p>}
-            <DialogDescription className="mt-1 text-xs">
+            <SheetDescription className="mt-1 text-xs">
               Cód. {c.codcli}
               {c.cnpj && ` · ${formatarDocumento(c.cnpj)}`}
               {c.cidade && ` · ${c.cidade}${c.uf ? `/${c.uf}` : ""}`}
-            </DialogDescription>
+            </SheetDescription>
           </div>
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -153,10 +319,11 @@ function Conteudo({ dados }: { dados: Dados }) {
             <b>Motivo:</b> {c.motivoBloqueio}
           </p>
         )}
+        {comLink && <LinkCatalogo key={c.codcli} codcli={c.codcli} />}
       </header>
 
       <div className="flex flex-col gap-5 px-6 py-5">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 @2xl:grid-cols-4">
           <Numero
             icone={Landmark}
             cor="bg-brand-soft text-brand"
@@ -246,7 +413,7 @@ function Conteudo({ dados }: { dados: Dados }) {
           </section>
         )}
 
-        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <dl className="grid grid-cols-2 gap-3 @2xl:grid-cols-4">
           <Dado icone={Wallet} rotulo="Cobrança" valor={c.cobranca ?? "—"} />
           <Dado
             icone={CalendarClock}

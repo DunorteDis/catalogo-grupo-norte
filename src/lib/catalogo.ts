@@ -160,17 +160,29 @@ export function totalPorUnidade(itens: Pick<ItemCarrinho, "quantidade" | "unidad
 
 export function montarMensagem(opts: {
   distribuidora: string;
+  /** Código do pedido (codigoPedido): é por ele que o CRM liga o pedido à conversa. */
+  codigo?: string;
   clienteNome?: string;
   observacao?: string;
-  itens: ItemCarrinho[];
+  /** `codprod`: código do produto no ERP, que o pedido gravou; o `codigo` é o EAN. */
+  itens: (ItemCarrinho & { codprod?: number | null })[];
 }) {
   const linhas: string[] = [];
-  linhas.push(`*Novo pedido - ${opts.distribuidora}*`);
+  linhas.push(`*Novo pedido${opts.codigo ? ` #${opts.codigo}` : ""} - ${opts.distribuidora}*`);
   if (opts.clienteNome?.trim()) linhas.push(`Cliente: ${opts.clienteNome.trim()}`);
   linhas.push("");
   opts.itens.forEach((item, i) => {
     linhas.push(`${i + 1}. ${item.nome}`);
-    linhas.push(`   Cód: ${item.codigo} — Qtd: ${qtdComUnidade(item.quantidade, item.unidade)}`);
+    // Código do produto e EAN; produto sem EAN tem o próprio código no `codigo` e não repete.
+    const codigos =
+      item.codprod == null
+        ? [`Cód: ${item.codigo}`]
+        : [
+            `Cód: ${item.codprod}`,
+            ...(item.codigo !== String(item.codprod) ? [`EAN: ${item.codigo}`] : []),
+          ];
+    const qtd = `Qtd: ${qtdComUnidade(item.quantidade, item.unidade)}`;
+    linhas.push(`   ${[...codigos, qtd].join(" — ")}`);
   });
   linhas.push("");
   linhas.push(`Total: ${totalPorUnidade(opts.itens)}`);
@@ -186,9 +198,16 @@ export const COR_PADRAO = "#501ea1";
 
 /** Tamanho das páginas. Servidor e tela precisam do mesmo número. */
 export const PAGINA_VITRINE = 24;
-export const PAGINA_PRODUTOS = 30;
+export const PAGINA_PRODUTOS = 10;
 export const PAGINA_CATALOGO = 25;
-export const PAGINA_CLIENTES = 30;
+export const PAGINA_CLIENTES = 10;
+/** Listas que paginam no navegador (carteira, pedidos). */
+export const POR_PAGINA = 10;
+
+/** Página que existe: a lista pode ter encolhido (busca, filtro) depois da escolha. */
+export function paginaValida(pagina: number, total: number, porPagina = POR_PAGINA) {
+  return Math.min(pagina, Math.max(0, Math.ceil(total / porPagina) - 1));
+}
 
 /** Imagem do catálogo personalizado. SVG fica de fora: aberto direto no navegador, roda script. */
 export const TIPOS_IMAGEM = ["image/png", "image/jpeg", "image/webp", "image/gif"];

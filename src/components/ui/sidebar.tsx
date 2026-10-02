@@ -192,17 +192,31 @@ const Sidebar = React.forwardRef<
           <SheetContent
             data-sidebar="sidebar"
             data-mobile="true"
-            className="w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+            // O X do Sheet fica visível (fechar pelo botão, além de tocar fora e do Esc),
+            // na cor do menu escuro.
+            className="w-(--sidebar-width) border-sidebar-border bg-sidebar p-0 text-sidebar-foreground [&>button]:top-3.5 [&>button]:text-sidebar-foreground [&>button]:opacity-80"
             style={
               {
                 "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
               } as React.CSSProperties
             }
             side={side}
+            // Ao abrir, o foco vai para a página atual (o padrão caía no primeiro botão
+            // focável, que era o "Sair").
+            onOpenAutoFocus={(e) => {
+              const menu = e.currentTarget as HTMLElement | null;
+              const atual =
+                menu?.querySelector<HTMLElement>("a[aria-current='page']") ??
+                menu?.querySelector<HTMLElement>("a");
+              if (atual) {
+                e.preventDefault();
+                atual.focus();
+              }
+            }}
           >
             <SheetHeader className="sr-only">
-              <SheetTitle>Sidebar</SheetTitle>
-              <SheetDescription>Displays the mobile sidebar.</SheetDescription>
+              <SheetTitle>Menu</SheetTitle>
+              <SheetDescription>Navegação entre as áreas do sistema.</SheetDescription>
             </SheetHeader>
             <div className="flex h-full w-full flex-col">{children}</div>
           </SheetContent>

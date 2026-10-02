@@ -54,7 +54,6 @@ export default function DistribuidorasPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        crumbs={["Abastex", "Distribuidoras"]}
         icon={Warehouse}
         tone="info"
         title="Distribuidoras"
