@@ -16,6 +16,7 @@ import { toast } from "sonner";
 
 import { Badge, Card } from "@/components/abastex";
 import { ClienteDoPedido, EditorDeItens } from "@/components/editar-pedido";
+import { EnviarCotacao } from "@/components/enviar-cotacao";
 import { HistoricoConversa } from "@/components/whatsapp/historico";
 import { Button } from "@/components/ui/button";
 import { useConversas } from "@/hooks/use-conversas";
@@ -162,7 +163,16 @@ export function DetalheDoPedido({ id, voltar }: { id: string; voltar: string }) 
             <FileSpreadsheet />
             Exportar Excel
           </Button>
-          <Button size="sm" disabled title="Em breve: lança o pedido direto no Winthor">
+          <EnviarCotacao
+            pedido={pedido}
+            extras={{ entrega, tipoEntrega, plano, observacao: obsNota }}
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            disabled
+            title="Em breve: lança o pedido direto no Winthor"
+          >
             <Send />
             Lançar no ERP
           </Button>

@@ -26,7 +26,7 @@ export type PedidoDaLista = {
   total_itens: number;
   created_at: string;
   distribuidoras: { nome: string; cor: string } | null;
-  vendedores?: { nome: string } | null;
+  vendedores?: { nome: string; whatsapp?: string | null } | null;
   /** Cliente do Winthor ligado ao pedido; null enquanto ninguém identificou. */
   cliente: { codcli: number; nome: string; cnpj: string | null } | null;
   pedido_itens: {

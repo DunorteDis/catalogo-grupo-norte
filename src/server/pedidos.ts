@@ -29,7 +29,8 @@ async function consultaPedidos(onde: ReturnType<typeof sql>) {
                                      trim(cl.cliente)),
                     'cnpj', nullif(trim(cl.cgcent), ''))
              end as cliente,
-             case when v.id is null then null else json_build_object('nome', v.nome) end as vendedores,
+             case when v.id is null then null
+                  else json_build_object('nome', v.nome, 'whatsapp', v.whatsapp) end as vendedores,
              case when c.id is null then null
                   else json_build_object('nome', coalesce(m.nome, c.nome), 'cor', coalesce(m.cor, c.cor))
              end as distribuidoras,
