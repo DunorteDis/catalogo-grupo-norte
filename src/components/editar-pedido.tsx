@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import {
+  History,
   Package,
   Plus,
   Sparkles,
@@ -15,6 +16,7 @@ import { toast } from "sonner";
 
 import { Card, SearchInput } from "@/components/abastex";
 import { BuscaDeCliente } from "@/components/busca-de-cliente";
+import { CondicoesCliente } from "@/components/condicoes-cliente";
 import type { PedidoDaLista } from "@/components/lista-pedidos";
 import { Button } from "@/components/ui/button";
 import {
@@ -84,6 +86,7 @@ function useRecarregarPedidos() {
  */
 export function ClienteDoPedido({ pedido }: { pedido: PedidoDaLista }) {
   const [aberto, setAberto] = useState(false);
+  const [historico, setHistorico] = useState(false);
   const recarregar = useRecarregarPedidos();
   const c = pedido.cliente;
   const digitado = pedido.cliente_nome?.trim();
@@ -119,6 +122,12 @@ export function ClienteDoPedido({ pedido }: { pedido: PedidoDaLista }) {
             <p className="font-medium text-warning">Ainda não identificado</p>
           )}
         </div>
+        {c && (
+          <Button size="sm" variant="ghost" onClick={() => setHistorico(true)}>
+            <History />
+            Histórico
+          </Button>
+        )}
         <Button
           size="sm"
           variant="ghost"
@@ -138,6 +147,15 @@ export function ClienteDoPedido({ pedido }: { pedido: PedidoDaLista }) {
         <p className="mt-1 text-xs text-ink-muted">
           Celular informado no catálogo: {formatarTelefone(pedido.telefone)}
         </p>
+      )}
+
+      {c && (
+        <CondicoesCliente
+          codcli={c.codcli}
+          abaInicial="historico"
+          aberto={historico}
+          onFechar={() => setHistorico(false)}
+        />
       )}
 
       <Dialog open={aberto} onOpenChange={setAberto}>
