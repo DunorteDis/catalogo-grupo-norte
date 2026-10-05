@@ -9,6 +9,8 @@ import {
   fotoUrl,
   montarMensagem,
   numeroNacional,
+  mascaraCelular,
+  celularValido,
   palavrasBusca,
   parseCodigos,
   qtdComUnidade,
@@ -165,6 +167,19 @@ test("montarMensagem leva a unidade de cada item e totaliza por unidade", () => 
   expect(comCodigo).toContain("Cód: 4822 — Qtd: 2 caixas");
   // Caixa não se soma com unidade: 3 unidades e 7 caixas, nunca "10 itens".
   expect(texto).toContain("Total: 3 unidades e 7 caixas");
+});
+
+test("mascaraCelular formata enquanto digita; celularValido pede DDD e o 9", () => {
+  expect(mascaraCelular("")).toBe("");
+  expect(mascaraCelular("9")).toBe("(9");
+  expect(mascaraCelular("929")).toBe("(92) 9");
+  expect(mascaraCelular("92992177381")).toBe("(92) 99217-7381");
+  expect(mascaraCelular("(92) 99217-73819999")).toBe("(92) 99217-7381");
+  expect(celularValido("(92) 99217-7381")).toBe(true);
+  expect(celularValido("92992177381")).toBe(true);
+  expect(celularValido("(92) 3639-8889")).toBe(false); // fixo
+  expect(celularValido("(02) 99217-7381")).toBe(false); // DDD inválido
+  expect(celularValido("(92) 89217-7381")).toBe(false); // sem o 9
 });
 
 test("numeroNacional deixa DDD + número, do jeito que o ERP e o WhatsApp mandarem", () => {

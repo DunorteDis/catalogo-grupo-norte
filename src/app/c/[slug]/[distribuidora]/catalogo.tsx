@@ -31,7 +31,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
+  celularValido,
   fotoUrl,
+  mascaraCelular,
   montarMensagem,
   PAGINA_VITRINE,
   qtdComUnidade,
@@ -248,6 +250,8 @@ export function Catalogo({ chave }: { chave: string | null }) {
   const [carrinho, setCarrinho] = useState<Record<string, ItemCarrinho>>({});
   const [aberto, setAberto] = useState(false);
   const [cliente, setCliente] = useState("");
+  // Celular de quem pede pelo link geral: obrigatório, é por ele que o pedido acha o cliente.
+  const [telefone, setTelefone] = useState("");
   const [observacao, setObservacao] = useState("");
   const [enviando, setEnviando] = useState(false);
   // Pedido recém-enviado: troca o carrinho pela tela de confirmação. Guarda os
@@ -383,6 +387,7 @@ export function Catalogo({ chave }: { chave: string | null }) {
 
   async function concluir() {
     if (!vendedor || !distribuidora || itens.length === 0) return;
+    if (!clienteLink && !celularValido(telefone)) return;
     setEnviando(true);
     try {
       const { id: pedidoId, codprods } = await chamar(
@@ -391,6 +396,7 @@ export function Catalogo({ chave }: { chave: string | null }) {
           catalogoId: distribuidora.id,
           clienteNome: cliente,
           chave: clienteLink ? chave : null,
+          telefone: clienteLink ? null : telefone,
           observacao,
           itens: itens.map((i) => ({
             codigo: i.codigo,
@@ -735,13 +741,49 @@ export function Catalogo({ chave }: { chave: string | null }) {
                   Pedido para <strong>{clienteLink}</strong>
                 </p>
               ) : (
-                <Input
-                  value={cliente}
-                  onChange={(e) => setCliente(e.target.value)}
-                  placeholder="Seu nome (opcional)"
-                  maxLength={120}
-                  className="h-12 rounded-xl"
-                />
+                <>
+                  <div>
+                    <label htmlFor="celular" className="mb-1.5 block text-sm font-semibold">
+                      Seu celular com DDD
+                      {/* O "obrigatório" para leitor de tela vem do required do campo. */}
+                      <span className="ml-0.5 text-destructive" aria-hidden>
+                        *
+                      </span>
+                    </label>
+                    <Input
+                      id="celular"
+                      value={telefone}
+                      onChange={(e) => setTelefone(mascaraCelular(e.target.value))}
+                      placeholder="(92) 99999-9999"
+                      inputMode="tel"
+                      autoComplete="tel-national"
+                      required
+                      aria-invalid={telefone !== "" && !celularValido(telefone)}
+                      aria-describedby="celular-ajuda"
+                      className="h-12 rounded-xl"
+                    />
+                    <p
+                      id="celular-ajuda"
+                      className={cn(
+                        "mt-1 text-xs",
+                        telefone !== "" && !celularValido(telefone)
+                          ? "text-destructive"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {telefone !== "" && !celularValido(telefone)
+                        ? "Confira o número: DDD e celular, como (92) 99999-9999."
+                        : "Obrigatório: é por ele que o vendedor sabe de quem é o pedido."}
+                    </p>
+                  </div>
+                  <Input
+                    value={cliente}
+                    onChange={(e) => setCliente(e.target.value)}
+                    placeholder="Seu nome (opcional)"
+                    maxLength={120}
+                    className="h-12 rounded-xl"
+                  />
+                </>
               )}
               <Textarea
                 value={observacao}
@@ -756,7 +798,9 @@ export function Catalogo({ chave }: { chave: string | null }) {
             <Button
               className="h-14 w-full rounded-xl text-base font-bold text-white hover:opacity-90"
               style={{ backgroundColor: cor }}
-              disabled={itens.length === 0 || enviando}
+              disabled={
+                itens.length === 0 || enviando || (!clienteLink && !celularValido(telefone))
+              }
               onClick={concluir}
             >
               {enviando ? "Enviando..." : "Concluir pedido no WhatsApp"}

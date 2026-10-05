@@ -24,7 +24,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { formatarDocumento, fotoUrl, UNIDADES, type Unidade } from "@/lib/catalogo";
+import {
+  formatarDocumento,
+  formatarTelefone,
+  fotoUrl,
+  UNIDADES,
+  type Unidade,
+} from "@/lib/catalogo";
 import { chamar } from "@/lib/chamar";
 import { formatarReais } from "@/lib/credito";
 import { confirmar } from "@/lib/confirmar";
@@ -128,6 +134,11 @@ export function ClienteDoPedido({ pedido }: { pedido: PedidoDaLista }) {
           Nome digitado no catálogo: {digitado}
         </p>
       )}
+      {pedido.telefone && (
+        <p className="mt-1 text-xs text-ink-muted">
+          Celular informado no catálogo: {formatarTelefone(pedido.telefone)}
+        </p>
+      )}
 
       <Dialog open={aberto} onOpenChange={setAberto}>
         <DialogContent className="sm:max-w-lg">
@@ -137,6 +148,12 @@ export function ClienteDoPedido({ pedido }: { pedido: PedidoDaLista }) {
               {digitado && (
                 <>
                   O cliente digitou <b className="text-ink">{digitado}</b> no catálogo.{" "}
+                </>
+              )}
+              {pedido.telefone && (
+                <>
+                  Celular informado: <b className="text-ink">{formatarTelefone(pedido.telefone)}</b>
+                  .{" "}
                 </>
               )}
               Busque na base de clientes do Winthor pelo nome, código ou CNPJ.

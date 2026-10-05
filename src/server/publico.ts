@@ -4,10 +4,17 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 
 import type { CatalogoPublico } from "@/hooks/use-catalogos-publicos";
-import { PAGINA_VITRINE, UNIDADES, type Unidade } from "@/lib/catalogo";
+import {
+  celularValido,
+  PAGINA_VITRINE,
+  somenteDigitos,
+  UNIDADES,
+  type Unidade,
+} from "@/lib/catalogo";
 import { acao, Recusa } from "@/server/acao";
 import { camposCatalogo, catalogoNoAr, condicaoBusca, sql } from "@/server/db";
 import { ipDaRequisicao } from "@/server/sessao";
+import { clientePeloTelefone } from "@/server/whatsapp";
 
 // Tudo aqui é público (cliente sem login): nada de lista de vendedores.
 
@@ -155,6 +162,8 @@ const pedidoSchema = z.object({
   observacao: z.string().trim().max(500, "Observação com no máximo 500 caracteres."),
   /** Chave do link do cliente (?c=); sem ela, o nome digitado vale. */
   chave: z.string().max(40).nullish(),
+  /** Celular de quem pede: obrigatório no link geral (sem a chave). */
+  telefone: z.string().max(20).nullish(),
   itens: z
     .array(
       z.object({
@@ -189,6 +198,10 @@ export const criarPedido = acao(async (entrada: z.input<typeof pedidoSchema>) =>
   // O cliente sai da chave, nunca do navegador. Chave que não vale mais: pedido sem cliente,
   // como no link genérico.
   const cliente = p.chave ? await clientePorChave({ id: p.vendedorId }, p.chave) : null;
+  // Link geral: o celular é obrigatório e é por ele que o pedido tenta achar o cliente.
+  const celular = p.telefone && celularValido(p.telefone) ? somenteDigitos(p.telefone) : null;
+  if (!p.chave && !celular)
+    throw new Recusa("Informe seu celular com DDD, no formato (92) 99999-9999.");
 
   return sql.begin(async (tx) => {
     if (origem) {
@@ -200,12 +213,17 @@ export const criarPedido = acao(async (entrada: z.input<typeof pedidoSchema>) =>
       if ((linha?.recentes ?? 0) >= 10)
         throw new Recusa("Muitos pedidos seguidos. Espere um minuto e tente de novo.");
     }
+    // Sem a chave, o cliente sai do celular, como na conversa: os contatos do CRM, os do
+    // ERP e o telefone do cadastro. Vários clientes no mesmo número: vale o da carteira;
+    // ainda empatado, nenhum, e o vendedor identifica na tela do pedido.
+    const codcli =
+      cliente?.codcli ?? (celular ? await clientePeloTelefone(tx, p.vendedorId, celular) : null);
     // total_itens é recalculado pelo trigger de pedido_itens; aqui só passa o CHECK > 0.
     const [pedido] = await tx<{ id: string }[]>`
       insert into pedidos (vendedor_id, catalogo_id, distribuidora_id, cliente_nome, codcli,
-                           observacao, total_itens, origem_hash)
+                           telefone, observacao, total_itens, origem_hash)
       values (${p.vendedorId}, ${p.catalogoId}, ${dona.distribuidora_id},
-              ${cliente?.nome ?? (p.clienteNome || null)}, ${cliente?.codcli ?? null},
+              ${cliente?.nome ?? (p.clienteNome || null)}, ${codcli}, ${celular},
               ${p.observacao || null}, ${p.itens.reduce((s, i) => s + i.quantidade, 0)}, ${origem})
       returning id`;
     // O codprod de cada item é o gatilho do banco que acha (pedido_item_codprod). Sem o

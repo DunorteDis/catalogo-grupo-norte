@@ -1,8 +1,16 @@
 import Link from "next/link";
 import { useState } from "react";
-import { ChevronRight, ShoppingBag, ShoppingCart, TriangleAlert, User, Users } from "lucide-react";
+import {
+  ChevronRight,
+  Phone,
+  ShoppingBag,
+  ShoppingCart,
+  TriangleAlert,
+  User,
+  Users,
+} from "lucide-react";
 
-import { paginaValida, POR_PAGINA } from "@/lib/catalogo";
+import { formatarTelefone, paginaValida, POR_PAGINA } from "@/lib/catalogo";
 import { formatarData } from "@/lib/periodo";
 import { cn } from "@/lib/utils";
 import { codigoPedido } from "@/lib/whatsapp";
@@ -12,6 +20,8 @@ import { Paginacao } from "@/components/paginacao";
 export type PedidoDaLista = {
   id: string;
   cliente_nome: string | null;
+  /** Celular informado no link geral do catálogo, só dígitos. */
+  telefone: string | null;
   observacao: string | null;
   total_itens: number;
   created_at: string;
@@ -164,6 +174,16 @@ export function ListaPedidos({
                         </>
                       )}
                       <span>{formatarData(pedido.created_at)}</span>
+                      {/* Celular informado no link geral: ajuda a saber de quem é o pedido. */}
+                      {pedido.telefone && (
+                        <>
+                          <span aria-hidden>·</span>
+                          <span className="inline-flex items-center gap-1 font-medium text-ink">
+                            <Phone className="size-3" aria-hidden />
+                            {formatarTelefone(pedido.telefone)}
+                          </span>
+                        </>
+                      )}
                     </p>
                   </div>
                   <Badge tone="brand">

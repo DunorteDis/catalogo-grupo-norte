@@ -21,7 +21,7 @@ const periodo = z.tuple([z.string().datetime(), z.string().datetime()]);
 async function consultaPedidos(onde: ReturnType<typeof sql>) {
   return [
     ...(await sql<PedidoDaLista[]>`
-      select p.id, p.cliente_nome, p.observacao, p.total_itens, p.created_at, p.conversa_id,
+      select p.id, p.cliente_nome, p.telefone, p.observacao, p.total_itens, p.created_at, p.conversa_id,
              case when cl.codcli is null then null
                   else json_build_object(
                     'codcli', cl.codcli,

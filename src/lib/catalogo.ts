@@ -24,6 +24,19 @@ export function whatsappNumero(valor: string) {
   return n;
 }
 
+/** Celular enquanto a pessoa digita: "(92) 99217-7381". Só dígitos entram, até 11. */
+export function mascaraCelular(valor: string) {
+  const d = somenteDigitos(valor).slice(0, 11);
+  if (d.length <= 2) return d ? `(${d}` : "";
+  if (d.length <= 7) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
+/** Celular com DDD: 11 dígitos, o terceiro é o 9 (DDD brasileiro não tem 0). */
+export function celularValido(valor: string) {
+  return /^[1-9]{2}9\d{8}$/.test(somenteDigitos(valor));
+}
+
 /**
  * DDD + número, só dígitos, sem o 55 nem o 0 da operadora: "+55 (92) 99217-7381"
  * vira "92992177381". É assim que o contato de cliente fica gravado, para bater

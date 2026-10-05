@@ -123,7 +123,11 @@ export async function vendedorDaInstancia(instancia: string) {
  * telefone do cadastro. Um só, fica ele; vários, vale o único da carteira do vendedor;
  * ainda empatado, ninguém, e o vendedor escolhe na tela.
  */
-async function clientePeloTelefone(tx: TransactionSql, vendedorId: string, telefone: string) {
+export async function clientePeloTelefone(
+  tx: TransactionSql,
+  vendedorId: string,
+  telefone: string,
+) {
   const candidatos = await tx<{ codcli: number; na_carteira: boolean }[]>`
     with alvo as (select crm.chave_telefone(${telefone}) as chave),
     achados as (
