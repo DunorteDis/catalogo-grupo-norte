@@ -4,8 +4,8 @@ import { z } from "zod";
 
 import { numeroNacional, PAGINA_CLIENTES, TIPOS_CONTATO } from "@/lib/catalogo";
 import { acao, Recusa } from "@/server/acao";
-import { condicaoBusca, sql } from "@/server/db";
-import { exigirAdmin } from "@/server/sessao";
+import { carteiraWinthor, condicaoBusca, sql } from "@/server/db";
+import { exigirAdmin, exigirLogin } from "@/server/sessao";
 
 export type Situacao = "ativos" | "inativos" | "todos";
 
@@ -24,6 +24,47 @@ export type Cliente = {
   /** Do ERP mais os cadastrados aqui. */
   contatos: number;
 };
+
+export type ClienteDaBusca = {
+  codcli: number;
+  nome: string;
+  cnpj: string | null;
+  cidade: string | null;
+  naCarteira: boolean;
+};
+
+/**
+ * Todos os clientes ativos do Winthor, por nome, código ou CNPJ, para dizer de quem é a
+ * conversa ou o pedido: quem compra pode não ser da carteira. Para o vendedor, os da
+ * carteira dele vêm primeiro.
+ */
+export const buscarClientes = acao(async (entrada: string) => {
+  const s = await exigirLogin();
+  const termo = z.string().max(200).parse(entrada).trim();
+  if (termo.length < 2) return [];
+  // CNPJ só com dígitos: acha com ou sem a pontuação digitada.
+  const busca = condicaoBusca(termo, [
+    sql`c.cliente`,
+    sql`c.fantasia`,
+    sql`c.codcli::text`,
+    sql`regexp_replace(c.cgcent, '[^0-9]', '', 'g')`,
+  ]);
+  // A carteira sai uma vez e entra por join: um exists por cliente achado levava ~0,6 s.
+  const linhas = await sql<ClienteDaBusca[]>`
+    with minha as (
+      select distinct k.codcli from vendedores v join ${carteiraWinthor()} k on k.codusur = v.codusur
+       where v.user_id = ${s.sub})
+    select c.codcli,
+           coalesce(case when c.fantasia ~ '[A-Za-z]' then trim(c.fantasia) end, trim(c.cliente)) as nome,
+           nullif(trim(c.cgcent), '') as cnpj,
+           nullif(trim(c.municent) || coalesce('/' || trim(c.estent), ''), '') as cidade,
+           m.codcli is not null as "naCarteira"
+      from system.pcclient c left join minha m on m.codcli = c.codcli
+     where c.dtexclusao is null ${busca}
+     order by "naCarteira" desc, nome, c.codcli
+     limit 30`;
+  return [...linhas];
+});
 
 /** Cliente vem da system.pcclient: aqui só se lê. */
 export const listarClientes = acao(async (termo: string, situacao: Situacao, pagina: number) => {

@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 
 import { Badge, SearchInput } from "@/components/abastex";
+import { BuscaDeCliente } from "@/components/busca-de-cliente";
 import { CondicoesCliente } from "@/components/condicoes-cliente";
 import { BotaoConexao } from "@/components/whatsapp/conexao";
 import { HistoricoConversa } from "@/components/whatsapp/historico";
@@ -33,12 +34,7 @@ import { chamar } from "@/lib/chamar";
 import { confirmar } from "@/lib/confirmar";
 import { mensagemErro } from "@/lib/erros";
 import { cn } from "@/lib/utils";
-import {
-  clientesParaConversa,
-  identificarCliente,
-  minhasConversas,
-  type ConversaDaLista,
-} from "@/server/conversas";
+import { identificarCliente, minhasConversas, type ConversaDaLista } from "@/server/conversas";
 
 /** "14:32" hoje, "Ontem", "12/09/26" antes disso — como na lista do WhatsApp. */
 function quando(iso: string | null) {
@@ -307,7 +303,7 @@ function Conversas() {
   );
 }
 
-/** Escolhe o cliente da carteira para a conversa; o número fica nos contatos dele. */
+/** Escolhe o cliente da conversa (qualquer cliente ativo do Winthor); o número fica nos contatos dele. */
 function IdentificarCliente({
   conversa,
   aberto,
@@ -318,18 +314,6 @@ function IdentificarCliente({
   onFechar: () => void;
 }) {
   const qc = useQueryClient();
-  const [busca, setBusca] = useState("");
-  const [termo, setTermo] = useState("");
-  useEffect(() => {
-    const t = setTimeout(() => setTermo(busca.trim()), 350);
-    return () => clearTimeout(t);
-  }, [busca]);
-  // Busca em todos os clientes ativos: quem escreve pode não ser da carteira.
-  const clientes = useQuery({
-    queryKey: ["clientes-conversa", termo],
-    queryFn: () => chamar(clientesParaConversa(termo)),
-    enabled: aberto && termo.length >= 2,
-  });
   // Com cliente, o diálogo troca ou remove; sem, identifica.
   const trocando = conversa.codcli !== null;
   const escolher = useMutation({
@@ -368,63 +352,11 @@ function IdentificarCliente({
             Busque o cliente pelo nome, código ou CNPJ; os da sua carteira aparecem primeiro.
           </DialogDescription>
         </DialogHeader>
-        <SearchInput
-          autoFocus
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-          placeholder="Nome, código ou CNPJ"
+        <BuscaDeCliente
+          ativo={aberto}
+          desabilitado={escolher.isPending}
+          onEscolher={(c) => escolher.mutate(c.codcli)}
         />
-        <ul className="-mx-2 max-h-80 overflow-y-auto">
-          {termo.length < 2 && (
-            <li className="p-4 text-center text-sm text-ink-muted">
-              Digite pelo menos 2 letras ou números.
-            </li>
-          )}
-          {clientes.isFetching && !clientes.data && (
-            <li className="p-4 text-center text-sm text-ink-muted">Buscando...</li>
-          )}
-          {clientes.error && (
-            <li className="rounded-xl bg-danger-soft p-3 text-sm text-danger">
-              {mensagemErro(clientes.error)}
-            </li>
-          )}
-          {termo.length >= 2 && clientes.data?.length === 0 && (
-            <li className="p-4 text-center text-sm text-ink-muted">
-              Nenhum cliente ativo com isso.
-            </li>
-          )}
-          {termo.length >= 2 &&
-            clientes.data?.map((c) => (
-              <li key={c.codcli}>
-                <button
-                  type="button"
-                  disabled={escolher.isPending}
-                  onClick={() => escolher.mutate(c.codcli)}
-                  className="flex w-full cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-surface-hover"
-                >
-                  <span
-                    className={cn(
-                      "grid size-9 shrink-0 place-items-center rounded-full text-xs font-bold uppercase",
-                      c.naCarteira ? "bg-mint-soft text-mint-ink" : "bg-info-soft text-info",
-                    )}
-                  >
-                    {iniciais(c.nome)}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-2">
-                      <span className="truncate text-sm font-semibold">{c.nome}</span>
-                      {c.naCarteira && <Badge tone="accent">sua carteira</Badge>}
-                    </span>
-                    <span className="block truncate text-xs text-ink-muted">
-                      Cód. {c.codcli}
-                      {c.cnpj && ` · ${formatarDocumento(c.cnpj)}`}
-                      {c.cidade && ` · ${c.cidade}`}
-                    </span>
-                  </span>
-                </button>
-              </li>
-            ))}
-        </ul>
         {trocando && (
           <div className="flex justify-end border-t pt-3">
             <Button

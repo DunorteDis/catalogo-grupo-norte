@@ -4,6 +4,7 @@ import * as AccordionPrimitive from "@radix-ui/react-accordion";
 import {
   ChevronDown,
   FileSpreadsheet,
+  Pencil,
   MessageCircle,
   Package,
   ShoppingBag,
@@ -21,6 +22,7 @@ import { baixarPlanilhaDoPedido } from "@/lib/planilha-pedido";
 import { cn } from "@/lib/utils";
 import { codigoPedido } from "@/lib/whatsapp";
 import { Badge, IconTile, KpiCard } from "@/components/abastex";
+import { ClienteDoPedido, CodigosDoItem, EditorDeItens } from "@/components/editar-pedido";
 import { Paginacao } from "@/components/paginacao";
 import { HistoricoConversa } from "@/components/whatsapp/historico";
 import { useConversas } from "@/hooks/use-conversas";
@@ -35,7 +37,10 @@ export type PedidoDaLista = {
   created_at: string;
   distribuidoras: { nome: string; cor: string } | null;
   vendedores?: { nome: string } | null;
+  /** Cliente do Winthor ligado ao pedido; null enquanto ninguém identificou. */
+  cliente: { codcli: number; nome: string; cnpj: string | null } | null;
   pedido_itens: {
+    id: string;
     /** EAN do produto, ou o codprod quando ele não tem EAN. */
     codigo: string;
     /** Código do produto no Winthor; nulo quando o item não achou o produto. */
@@ -49,28 +54,6 @@ export type PedidoDaLista = {
 };
 
 const num = (n: number) => n.toLocaleString("pt-BR");
-
-/**
- * Código do Winthor e EAN, cada um com o nome. Produto sem EAN tem o próprio codprod no
- * `codigo`: aí só o do Winthor aparece. Item que não achou o produto mostra o código como veio.
- */
-function CodigosDoItem({ codigo, codprod }: { codigo: string; codprod: number | null }) {
-  const temEan = codprod == null || codigo !== String(codprod);
-  return (
-    <p className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-ink-muted">
-      {codprod != null && (
-        <span>
-          Cód. Winthor <code className="font-mono font-semibold text-ink">{codprod}</code>
-        </span>
-      )}
-      {temEan && (
-        <span>
-          {codprod != null ? "EAN" : "Código"} <code className="font-mono">{codigo}</code>
-        </span>
-      )}
-    </p>
-  );
-}
 
 export function ListaPedidos({
   pedidos,
@@ -86,6 +69,8 @@ export function ListaPedidos({
 }) {
   // O período inteiro vem de uma vez: os números do topo somam tudo, a lista pagina.
   const [pagina, setPagina] = useState(0);
+  // Pedido com os itens abertos para edição (um por vez).
+  const [editando, setEditando] = useState<string | null>(null);
   // A conversa do pedido faz parte do módulo de Conversas, ainda em desenvolvimento.
   const conversas = useConversas();
   // Outro período é outra lista: volta para a primeira página. Assinatura primitiva
@@ -112,8 +97,8 @@ export function ListaPedidos({
   });
 
   const itens = pedidos.reduce((s, p) => s + (p.total_itens ?? 0), 0);
-  const clientes = new Set(pedidos.map((p) => p.cliente_nome?.trim().toLowerCase()).filter(Boolean))
-    .size;
+  // Identificado = ligado a um cliente do Winthor, não o nome digitado no catálogo.
+  const clientes = new Set(pedidos.flatMap((p) => (p.cliente ? [p.cliente.codcli] : []))).size;
   const vendedores = new Set(pedidos.map((p) => p.vendedores?.nome).filter(Boolean)).size;
 
   return (
@@ -158,7 +143,8 @@ export function ListaPedidos({
       {pedidos.length > 0 && (
         <AccordionPrimitive.Root type="single" collapsible className="flex flex-col gap-2">
           {visiveis.map((pedido) => {
-            const cliente = pedido.cliente_nome?.trim();
+            // O nome do Winthor vale mais que o digitado no catálogo.
+            const cliente = pedido.cliente?.nome ?? pedido.cliente_nome?.trim();
             return (
               <AccordionPrimitive.Item
                 key={pedido.id}
@@ -186,6 +172,11 @@ export function ListaPedidos({
                         >
                           {cliente || "Cliente não identificado"}
                         </span>
+                        {!pedido.cliente && (
+                          <span className="w-fit shrink-0 rounded-full bg-warning-soft px-2 text-[0.6875rem] font-semibold text-warning">
+                            sem cliente
+                          </span>
+                        )}
                       </p>
                       <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-ink-muted">
                         {mostrarVendedor && pedido.vendedores?.nome && (
@@ -217,65 +208,79 @@ export function ListaPedidos({
                 </AccordionPrimitive.Header>
                 <AccordionPrimitive.Content className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
                   <div className="border-t bg-surface-sunken px-4 pb-3 pt-1 sm:pl-17">
-                    <ul className="divide-y divide-dashed">
-                      {pedido.pedido_itens.map((item, idx) => {
-                        const foto = fotoUrl(fotosQuery.data?.[item.codigo]);
-                        return (
-                          <li key={idx} className="flex items-center gap-3 py-2.5">
-                            <div className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-sm bg-card text-ink-subtle">
-                              {foto ? (
-                                <img
-                                  src={foto}
-                                  alt=""
-                                  loading="lazy"
-                                  className="h-full w-full object-contain"
-                                />
-                              ) : (
-                                <Package size={20} aria-hidden />
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-[0.8125rem] font-medium leading-snug">
-                                {item.nome}
-                              </p>
-                              <CodigosDoItem codigo={item.codigo} codprod={item.codprod} />
-                            </div>
-                            <b className="shrink-0 text-[0.8125rem] tabular-nums">
-                              {qtdComUnidade(item.quantidade, item.unidade)}
-                            </b>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                    {conversas && pedido.conversa_id && (
-                      <div className="mt-3 overflow-hidden rounded-xl border">
-                        <p className="flex items-center gap-2 bg-(--wa-painel) px-3 py-2 text-xs font-semibold text-(--wa-texto)">
-                          <MessageCircle className="size-4 text-(--wa-verde)" aria-hidden />
-                          Conversa do WhatsApp
-                        </p>
-                        <HistoricoConversa conversaId={pedido.conversa_id} className="h-96" />
-                      </div>
+                    <ClienteDoPedido pedido={pedido} />
+                    {editando === pedido.id ? (
+                      <EditorDeItens pedido={pedido} onFechar={() => setEditando(null)} />
+                    ) : (
+                      <>
+                        <ul className="divide-y divide-dashed">
+                          {pedido.pedido_itens.map((item) => {
+                            const foto = fotoUrl(fotosQuery.data?.[item.codigo]);
+                            return (
+                              <li key={item.id} className="flex items-center gap-3 py-2.5">
+                                <div className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-sm bg-card text-ink-subtle">
+                                  {foto ? (
+                                    <img
+                                      src={foto}
+                                      alt=""
+                                      loading="lazy"
+                                      className="h-full w-full object-contain"
+                                    />
+                                  ) : (
+                                    <Package size={20} aria-hidden />
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-[0.8125rem] font-medium leading-snug">
+                                    {item.nome}
+                                  </p>
+                                  <CodigosDoItem codigo={item.codigo} codprod={item.codprod} />
+                                </div>
+                                <b className="shrink-0 text-[0.8125rem] tabular-nums">
+                                  {qtdComUnidade(item.quantidade, item.unidade)}
+                                </b>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                        {conversas && pedido.conversa_id && (
+                          <div className="mt-3 overflow-hidden rounded-xl border">
+                            <p className="flex items-center gap-2 bg-(--wa-painel) px-3 py-2 text-xs font-semibold text-(--wa-texto)">
+                              <MessageCircle className="size-4 text-(--wa-verde)" aria-hidden />
+                              Conversa do WhatsApp
+                            </p>
+                            <HistoricoConversa conversaId={pedido.conversa_id} className="h-96" />
+                          </div>
+                        )}
+                        {pedido.observacao && (
+                          <p className="border-t border-dashed pt-3 text-[0.8125rem] text-ink-muted">
+                            <span className="font-semibold text-ink">Observação:</span>{" "}
+                            {pedido.observacao}
+                          </p>
+                        )}
+                        <div className="flex flex-wrap justify-end gap-2 border-t border-dashed pt-3">
+                          <Button size="sm" variant="ghost" onClick={() => setEditando(pedido.id)}>
+                            <Pencil />
+                            Editar itens
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              baixarPlanilhaDoPedido({
+                                ...pedido,
+                                cliente_nome: cliente ?? null,
+                              }).catch(() =>
+                                toast.error("Não foi possível gerar a planilha. Tente de novo."),
+                              )
+                            }
+                          >
+                            <FileSpreadsheet />
+                            Exportar Excel
+                          </Button>
+                        </div>
+                      </>
                     )}
-                    {pedido.observacao && (
-                      <p className="border-t border-dashed pt-3 text-[0.8125rem] text-ink-muted">
-                        <span className="font-semibold text-ink">Observação:</span>{" "}
-                        {pedido.observacao}
-                      </p>
-                    )}
-                    <div className="flex justify-end border-t border-dashed pt-3">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          baixarPlanilhaDoPedido(pedido).catch(() =>
-                            toast.error("Não foi possível gerar a planilha. Tente de novo."),
-                          )
-                        }
-                      >
-                        <FileSpreadsheet />
-                        Exportar Excel
-                      </Button>
-                    </div>
                   </div>
                 </AccordionPrimitive.Content>
               </AccordionPrimitive.Item>

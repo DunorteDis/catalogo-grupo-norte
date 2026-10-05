@@ -150,45 +150,6 @@ export const enviarMensagem = acao(
   },
 );
 
-export type ClienteParaConversa = {
-  codcli: number;
-  nome: string;
-  cnpj: string | null;
-  cidade: string | null;
-  naCarteira: boolean;
-};
-
-/**
- * Clientes ativos do Winthor para ligar à conversa: quem escreve pode não ser da carteira
- * do vendedor. Os da carteira vêm primeiro.
- */
-export const clientesParaConversa = acao(async (termo: string) => {
-  const vendedorId = await meuVendedor();
-  if (termo.trim().length < 2) return [];
-  // CNPJ só com dígitos: acha com ou sem a pontuação digitada.
-  const busca = condicaoBusca(termo, [
-    sql`c.cliente`,
-    sql`c.fantasia`,
-    sql`c.codcli::text`,
-    sql`regexp_replace(c.cgcent, '[^0-9]', '', 'g')`,
-  ]);
-  // A carteira sai uma vez e entra por join: um exists por cliente achado levava ~0,6 s.
-  const linhas = await sql<ClienteParaConversa[]>`
-    with minha as (
-      select distinct k.codcli from vendedores v join ${carteiraWinthor()} k on k.codusur = v.codusur
-       where v.id = ${vendedorId})
-    select c.codcli,
-           coalesce(case when c.fantasia ~ '[A-Za-z]' then trim(c.fantasia) end, trim(c.cliente)) as nome,
-           nullif(trim(c.cgcent), '') as cnpj,
-           nullif(trim(c.municent) || coalesce('/' || trim(c.estent), ''), '') as cidade,
-           m.codcli is not null as "naCarteira"
-      from system.pcclient c left join minha m on m.codcli = c.codcli
-     where c.dtexclusao is null ${busca}
-     order by "naCarteira" desc, nome, c.codcli
-     limit 30`;
-  return [...linhas];
-});
-
 /**
  * O vendedor diz de que cliente é a conversa (qualquer cliente ativo; quem escreve pode
  * não ser da carteira). O celular vai para os contatos do cliente: da próxima vez esse
