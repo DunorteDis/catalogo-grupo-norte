@@ -50,7 +50,7 @@ export default function MeusPedidosPage() {
         icon={ShoppingBag}
         tone="accent"
         title="Pedidos recebidos"
-        subtitle="Tudo que os clientes concluíram pelos seus links. Clique num pedido para ver os itens."
+        subtitle="Tudo que os clientes concluíram pelos seus links. Clique num pedido para abrir, identificar o cliente e editar os itens."
         actions={
           <FiltroPeriodo
             valor={periodo}
@@ -62,6 +62,7 @@ export default function MeusPedidosPage() {
 
       <ListaPedidos
         pedidos={pedidosQuery.data ?? []}
+        base="/meus-pedidos"
         carregando={pedidosQuery.isLoading}
         erro={pedidosQuery.error as Error | null}
       />

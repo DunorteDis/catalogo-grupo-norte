@@ -18,12 +18,7 @@ export type PedidoResumo = {
 const periodo = z.tuple([z.string().datetime(), z.string().datetime()]);
 
 /** Mesma forma que o embed do PostgREST devolvia: itens, vendedor e catálogo aninhados. */
-async function listaPedidos(
-  inicio: string,
-  fim: string,
-  filtro: { vendedorId: string } | { dist: string },
-) {
-  const [de, ate] = periodo.parse([inicio, fim]);
+async function consultaPedidos(onde: ReturnType<typeof sql>) {
   return [
     ...(await sql<PedidoDaLista[]>`
       select p.id, p.cliente_nome, p.observacao, p.total_itens, p.created_at, p.conversa_id,
@@ -47,14 +42,22 @@ async function listaPedidos(
         left join vendedores v on v.id = p.vendedor_id
         left join catalogos c on c.id = p.catalogo_id
         left join distribuidoras m on m.id = c.marca_id
-       where p.created_at between ${de} and ${ate}
-         ${
-           "vendedorId" in filtro
-             ? sql`and p.vendedor_id = ${filtro.vendedorId}`
-             : sql`and p.distribuidora_id = ${filtro.dist}`
-         }
+       where ${onde}
        order by p.created_at desc`),
   ];
+}
+
+function listaPedidos(
+  inicio: string,
+  fim: string,
+  filtro: { vendedorId: string } | { dist: string },
+) {
+  const [de, ate] = periodo.parse([inicio, fim]);
+  const dono =
+    "vendedorId" in filtro
+      ? sql`p.vendedor_id = ${filtro.vendedorId}`
+      : sql`p.distribuidora_id = ${filtro.dist}`;
+  return consultaPedidos(sql`p.created_at between ${de} and ${ate} and ${dono}`);
 }
 
 export const meuVendedor = acao(async () => {
@@ -228,5 +231,91 @@ export const salvarItensDoPedido = acao(
          where pedido_id = ${id} and not (id::text = any(${tx.array(ficam)}))`;
     });
     return { ok: true as const };
+  },
+);
+
+/** O pedido aberto na tela dele, com a mesma regra de quem pode mexer. */
+export const pedidoDetalhe = acao(async (pedidoId: string) => {
+  const id = await exigirPedido(pedidoId);
+  const [pedido] = await consultaPedidos(sql`p.id = ${id}`);
+  if (!pedido) throw new Recusa("Pedido não encontrado.");
+  return pedido;
+});
+
+/**
+ * O que o cliente do pedido mais comprou nos últimos 3 meses (vendas do ERP, em
+ * crm.compras_recentes) e não está no pedido. ponytail: é a frequência pura; a sugestão
+ * pela IA, olhando o histórico inteiro, entra no lugar desta consulta.
+ */
+export const sugeridosDoPedido = acao(async (pedidoId: string) => {
+  const id = await exigirPedido(pedidoId);
+  return [
+    ...(await sql<(ProdutoParaPedido & { compras: number })[]>`
+      select p.id, p.codigo, p.cod_produto as codprod, p.nome, p.arquivo, r.pedidos as compras
+        from pedidos o
+        join compras_recentes r on r.codcli = o.codcli
+        join produtos p on p.cod_produto = r.codprod and p.ativo
+       where o.id = ${id}
+         and not exists (select 1 from pedido_itens i
+                          where i.pedido_id = o.id and (i.codprod = p.cod_produto or i.codigo = p.codigo))
+       order by r.pedidos desc, p.nome
+       limit 10`),
+  ];
+});
+
+export type PrecosDoPedido = {
+  /** Filial que fatura: a do vendedor no Winthor (pcusuari), ou a 1. */
+  filial: string;
+  /** Região de preço usada e de onde ela veio. Sem cliente, null. */
+  regiao: number | null;
+  origem: "cliente-filial" | "cadastro" | "praca" | null;
+  /** Por codprod: preço de tabela da unidade de venda e quantas vêm na caixa master. */
+  precos: Record<number, { preco: number; porCaixa: number | null }>;
+};
+
+/**
+ * Preço de tabela do Winthor (system.pctabpr) na região do cliente do pedido, sem desconto.
+ * A região sai, nesta ordem: a do cliente na filial que fatura (pctabprccli), a do cadastro
+ * (pcclient.numregiaocli) e a da praça (pcpraca). ponytail: a ordem entre as duas primeiras
+ * é a que o analista passou e ainda não foi conferida contra o ptabela dos pedidos do ERP.
+ */
+export const precosDoPedido = acao(
+  async (pedidoId: string, entrada: number[]): Promise<PrecosDoPedido> => {
+    const id = await exigirPedido(pedidoId);
+    const codprods = z.array(z.number().int().positive()).max(2000).parse(entrada);
+    const [r] = await sql<Omit<PrecosDoPedido, "precos">[]>`
+      with ped as (
+        select o.codcli,
+               coalesce((select u.codfilial from system.pcusuari u
+                          where u.codusur = v.codusur and u.codfilial is not null
+                          limit 1), '1') as filial
+          from pedidos o left join vendedores v on v.id = o.vendedor_id
+         where o.id = ${id})
+      select ped.filial,
+             coalesce(t.numregiao, c.numregiaocli, pr.numregiao)::int as regiao,
+             case when t.numregiao is not null then 'cliente-filial'
+                  when c.numregiaocli is not null then 'cadastro'
+                  when pr.numregiao is not null then 'praca' end as origem
+        from ped
+        left join system.pcclient c     on c.codcli = ped.codcli
+        left join system.pctabprccli t  on t.codcli = ped.codcli and t.codfilialnf = ped.filial
+        left join system.pcpraca pr     on pr.codpraca = c.codpraca`;
+    const base = r ?? { filial: "1", regiao: null, origem: null };
+    if (base.regiao == null || codprods.length === 0) return { ...base, precos: {} };
+    const linhas = await sql<{ codprod: number; preco: number; porCaixa: number | null }[]>`
+      select t.codprod, t.pvenda::float8 as preco,
+             (select nullif(p.qtunitcx, 0)::float8 from system.pcprodut p
+               where p.codprod = t.codprod limit 1) as "porCaixa"
+        from system.pctabpr t
+       where t.numregiao = ${base.regiao}
+         and t.codprod = any(${sql.array(codprods)}::int[])
+         and coalesce(t.excluido, 'N') <> 'S'
+         and t.pvenda > 0`;
+    return {
+      ...base,
+      precos: Object.fromEntries(
+        linhas.map((l) => [l.codprod, { preco: l.preco, porCaixa: l.porCaixa }]),
+      ),
+    };
   },
 );

@@ -29,7 +29,7 @@ export default function PedidosPage() {
         icon={ShoppingBag}
         tone="accent"
         title="Pedidos"
-        subtitle="Tudo que os clientes concluíram pelos links dos vendedores. Clique num pedido para ver os itens."
+        subtitle="Tudo que os clientes concluíram pelos links dos vendedores. Clique num pedido para abrir, identificar o cliente e editar os itens."
         actions={
           <FiltroPeriodo
             valor={periodo}
@@ -41,6 +41,7 @@ export default function PedidosPage() {
 
       <ListaPedidos
         pedidos={pedidosQuery.data ?? []}
+        base="/admin/pedidos"
         carregando={pedidosQuery.isLoading}
         erro={pedidosQuery.error as Error | null}
         mostrarVendedor
