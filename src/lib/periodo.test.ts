@@ -1,7 +1,15 @@
 // Roda com: bun test
 import { expect, test } from "bun:test";
 
-import { ATALHOS, diasAtras, fimDoDia, inicioDoDia, paraInput } from "./periodo";
+import {
+  ATALHOS,
+  diasAtras,
+  fimDoDia,
+  formatarDuracao,
+  inicioDoDia,
+  mediana,
+  paraInput,
+} from "./periodo";
 
 test("paraInput usa a data local, não a UTC", () => {
   // 21h em UTC-4 já é o dia seguinte em UTC; o filtro tem que mostrar o dia local
@@ -48,4 +56,19 @@ test("'30 dias' são 30 dias contando hoje", () => {
   const de = inicioDoDia(ATALHOS.find((a) => a.id === "30dias")!.de());
   const ate = fimDoDia(paraInput(new Date()));
   expect(Math.round((ate.getTime() - de.getTime()) / 86_400_000)).toBe(30);
+});
+
+test("formatarDuracao: minutos, horas e dias, sem zero sobrando", () => {
+  expect(formatarDuracao(0.4)).toBe("menos de 1 min");
+  expect(formatarDuracao(45)).toBe("45 min");
+  expect(formatarDuracao(60)).toBe("1h");
+  expect(formatarDuracao(135)).toBe("2h 15min");
+  expect(formatarDuracao(24 * 60)).toBe("1d");
+  expect(formatarDuracao(3 * 24 * 60 + 4 * 60 + 20)).toBe("3d 4h");
+});
+
+test("mediana: o do meio, a média dos dois do meio, null sem nada", () => {
+  expect(mediana([])).toBeNull();
+  expect(mediana([30, 5, 10_000])).toBe(30);
+  expect(mediana([40, 10, 20, 30])).toBe(25);
 });

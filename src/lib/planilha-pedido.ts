@@ -1,9 +1,16 @@
 import type * as XLSX from "xlsx";
 
-import { slugify } from "@/lib/catalogo";
+import { qtdEmUnidades, slugify } from "@/lib/catalogo";
 
 /** `codigo` é o EAN (ou o codprod, se o produto não tem EAN); `codprod`, o código no Winthor. */
-type ItemPlanilha = { codigo: string; codprod?: number | null; quantidade: number };
+type ItemPlanilha = {
+  codigo: string;
+  codprod?: number | null;
+  nome: string;
+  quantidade: number;
+  unidade: string;
+  porCaixa: number | null;
+};
 type PedidoPlanilha = {
   cliente_nome: string | null;
   created_at: string;
@@ -15,13 +22,23 @@ type PedidoPlanilha = {
  * A "Cód.Prod ou EAN" e B "Qde", uma linha por item, tudo como texto (no modelo
  * as duas colunas são texto; código como texto também preserva zero à esquerda).
  * Vai o código do produto no Winthor; o EAN só quando o item não tem esse código.
- * A unidade (UN/CX) fica de fora de propósito, igual ao modelo — decisão do
- * negócio: quem importa usa a unidade padrão do produto.
+ * A Qde vai sempre em unidades: item em caixa é multiplicado pelo qtunitcx do
+ * Winthor. Caixa sem qtunitcx não tem como converter, e aí a planilha não sai.
  */
 export function linhasPlanilha(itens: ItemPlanilha[]) {
+  const semConversao = itens.filter((i) => qtdEmUnidades(i) == null);
+  if (semConversao.length)
+    throw new Error(
+      "Sem quantidade por caixa (QTUNITCX) no Winthor para converter em unidades: " +
+        `${semConversao.map((i) => i.nome).join(", ")}. ` +
+        "Mude esses itens para unidade e salve antes de exportar.",
+    );
   return [
     ["Cód.Prod ou EAN", "Qde"],
-    ...itens.map((i) => [i.codprod != null ? String(i.codprod) : i.codigo, String(i.quantidade)]),
+    ...itens.map((i) => [
+      i.codprod != null ? String(i.codprod) : i.codigo,
+      String(qtdEmUnidades(i)),
+    ]),
   ];
 }
 

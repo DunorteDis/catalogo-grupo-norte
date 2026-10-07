@@ -5,8 +5,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import {
   LayoutDashboard,
+  Lock,
   ShoppingBag,
   ShoppingCart,
+  Timer,
   TrendingUp,
   TriangleAlert,
   Users,
@@ -14,11 +16,12 @@ import {
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, XAxis, YAxis } from "recharts";
 
 import { chamar } from "@/lib/chamar";
-import { fimDoDia, inicioDoDia, paraInput } from "@/lib/periodo";
+import { fimDoDia, formatarDuracao, inicioDoDia, mediana, paraInput } from "@/lib/periodo";
+import { cn } from "@/lib/utils";
 import { Badge, BarList, Card, Chip, KpiCard, PageHeader } from "@/components/abastex";
 import { FiltroPeriodo, periodoInicial } from "@/components/filtro-periodo";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { resumoPainel, vendedoresAtivos } from "@/server/pedidos";
+import { resumoPainel, vendedoresAtivos, type PedidoResumo } from "@/server/pedidos";
 
 function variacao(atual: number, anterior: number) {
   if (anterior === 0) return atual === 0 ? 0 : null; // null = sem base de comparação
@@ -36,6 +39,12 @@ function comparar(atual: number, anterior: number) {
 }
 
 const num = (n: number) => n.toLocaleString("pt-BR");
+
+/** Do pedido chegar até a primeira exportação do Excel; null se ainda não saiu. */
+const minutosDeAtendimento = (p: PedidoResumo) =>
+  p.exportado_em ? (Date.parse(p.exportado_em) - Date.parse(p.created_at)) / 60_000 : null;
+const temposDe = (ps: PedidoResumo[]) =>
+  ps.map(minutosDeAtendimento).filter((m): m is number => m != null);
 
 function Aviso({ children }: { children: React.ReactNode }) {
   return <p className="py-16 text-center text-sm text-ink-muted">{children}</p>;
@@ -98,6 +107,24 @@ export default function AdminHome() {
     porVendedor.set(nome, atual);
   }
   const ranking = [...porVendedor.values()].sort((a, b) => b.pedidos - a.pedidos).slice(0, 8);
+
+  // Tempo de atendimento, pela mediana. Para tempo, subir é piorar: a cor inverte.
+  const tempos = temposDe(noPeriodo);
+  const tempo = mediana(tempos);
+  const tempoAnt = mediana(temposDe(anteriores));
+  const dTempo = tempo != null && tempoAnt != null ? variacao(tempo, tempoAnt) : null;
+  const temposPorVendedor = new Map<string, number[]>();
+  for (const p of noPeriodo) {
+    const m = minutosDeAtendimento(p);
+    if (m == null) continue;
+    const nome = p.vendedores?.nome ?? "Sem vendedor";
+    temposPorVendedor.set(nome, [...(temposPorVendedor.get(nome) ?? []), m]);
+  }
+  // Mais lento em cima: é onde está a ação.
+  const tempoPorVendedor = [...temposPorVendedor]
+    .map(([nome, ms]) => ({ label: nome, value: mediana(ms)! }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8);
   const ativos = vendedoresQuery.data?.length ?? 0;
   const semPedido = (vendedoresQuery.data ?? []).filter((v) => !comPedido.has(v.id));
 
@@ -229,6 +256,54 @@ export default function AdminHome() {
           )}
         </Card>
       </div>
+
+      <Card
+        title={
+          <span className="flex items-center gap-2">
+            <Timer className="size-4 text-brand" aria-hidden />
+            Tempo de atendimento
+          </span>
+        }
+        subtitle="Do pedido chegar até a primeira exportação do Excel, pela mediana. Exportar de novo não muda o tempo. Os vendedores não veem este indicador."
+        actions={
+          <Badge tone="info" icon={Lock}>
+            Só administradores
+          </Badge>
+        }
+      >
+        {carregando ? (
+          <Aviso>Carregando...</Aviso>
+        ) : tempo == null ? (
+          <Aviso>Nenhum pedido do período foi exportado ainda.</Aviso>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
+            <div>
+              <p className="text-3xl font-bold tracking-tight tabular-nums">
+                {formatarDuracao(tempo)}
+              </p>
+              <p className="mt-1 text-sm text-ink-muted">
+                {num(tempos.length)} de {num(noPeriodo.length)} pedidos exportados
+              </p>
+              <p
+                className={cn(
+                  "mt-2 text-xs font-medium",
+                  !dTempo ? "text-ink-muted" : dTempo > 0 ? "text-danger" : "text-mint-ink",
+                )}
+              >
+                {dTempo == null
+                  ? "sem base anterior"
+                  : `${dTempo > 0 ? "+" : ""}${dTempo}% vs período anterior${
+                      dTempo > 0 ? " (mais lento)" : dTempo < 0 ? " (mais rápido)" : ""
+                    }`}
+              </p>
+            </div>
+            <div>
+              <p className="mb-2 text-sm font-medium">Por vendedor</p>
+              <BarList data={tempoPorVendedor} formatar={formatarDuracao} color="chart-2" />
+            </div>
+          </div>
+        )}
+      </Card>
 
       <Card
         title="Vendedores sem pedido no período"

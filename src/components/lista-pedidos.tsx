@@ -38,6 +38,8 @@ export type PedidoDaLista = {
     nome: string;
     quantidade: number;
     unidade: string;
+    /** Unidades na caixa master do Winthor (qtunitcx); nulo quando o produto não tem. */
+    porCaixa: number | null;
   }[];
   /** Conversa do WhatsApp em que o pedido chegou (pelo código "Pedido #..." da mensagem). */
   conversa_id?: string | null;

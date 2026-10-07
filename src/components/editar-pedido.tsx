@@ -30,6 +30,8 @@ import {
   formatarDocumento,
   formatarTelefone,
   fotoUrl,
+  qtdComUnidade,
+  qtdEmUnidades,
   UNIDADES,
   type Unidade,
 } from "@/lib/catalogo";
@@ -216,6 +218,7 @@ type Linha = {
   nome: string;
   quantidade: number;
   unidade: Unidade;
+  porCaixa: number | null;
 };
 
 const qtdValida = (n: number) => Number.isInteger(n) && n >= 1 && n <= 9999;
@@ -244,23 +247,24 @@ function Foto({ arquivo }: { arquivo: string | null | undefined }) {
 function PrecoDaLinha({
   total,
   preco,
-  caixa,
+  porCaixa,
   carregando,
 }: {
   total: number | null;
-  preco: { preco: number; porCaixa: number | null } | undefined;
-  caixa: boolean;
+  preco: number | undefined;
+  /** Só na linha em caixa. */
+  porCaixa: number | null;
   carregando: boolean;
 }) {
   return (
     <div className="ml-auto min-w-0 text-right tabular-nums sm:w-32">
       {carregando ? (
         <span className="text-xs text-ink-subtle">Buscando preço...</span>
-      ) : total != null && preco ? (
+      ) : total != null && preco != null ? (
         <>
           <p className="text-sm font-semibold">{formatarReais(total)}</p>
           <p className="text-[0.6875rem] text-ink-muted">
-            {formatarReais(preco.preco)} {caixa ? `× ${preco.porCaixa} por caixa` : "cada"}
+            {formatarReais(preco)} {porCaixa ? `× ${porCaixa} por caixa` : "cada"}
           </p>
         </>
       ) : (
@@ -292,6 +296,7 @@ export function EditorDeItens({
       nome: i.nome,
       quantidade: i.quantidade,
       unidade: i.unidade === "CX" ? "CX" : "UN",
+      porCaixa: i.porCaixa,
     })),
   );
   const [linhas, setLinhas] = useState(original);
@@ -312,6 +317,7 @@ export function EditorDeItens({
         nome: p.nome,
         quantidade: 1,
         unidade: "UN",
+        porCaixa: p.porCaixa,
       },
     ]);
   };
@@ -377,8 +383,8 @@ export function EditorDeItens({
   // Caixa é a caixa master do Winthor: qtunitcx unidades de venda.
   const totalDe = (l: Linha) => {
     const p = precoDe(l.codprod);
-    const fator = l.unidade === "CX" ? p?.porCaixa : 1;
-    return p && fator && qtdValida(l.quantidade) ? p.preco * fator * l.quantidade : null;
+    const unidades = qtdEmUnidades(l);
+    return p && unidades != null && qtdValida(l.quantidade) ? p.preco * unidades : null;
   };
   const totais = linhas.map(totalDe);
   const total = totais.reduce<number>((soma, t) => soma + (t ?? 0), 0);
@@ -414,37 +420,58 @@ export function EditorDeItens({
                 <CodigosDoItem codigo={l.codigo} codprod={l.codprod} />
               </div>
               <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
-                <input
-                  value={Number.isNaN(l.quantidade) ? "" : String(l.quantidade)}
-                  onChange={(e) => {
-                    const digitos = e.target.value.replace(/\D/g, "").slice(0, 4);
-                    mudar(l.chave, { quantidade: digitos ? Number(digitos) : Number.NaN });
-                  }}
-                  inputMode="numeric"
-                  aria-label={`Quantidade de ${l.nome}`}
-                  aria-invalid={!qtdValida(l.quantidade)}
-                  className={cn(
-                    "h-9 w-16 shrink-0 rounded-md border border-input bg-card px-2 text-right text-sm tabular-nums sm:w-20",
-                    !qtdValida(l.quantidade) && "border-danger",
+                <div className="flex shrink-0 flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={Number.isNaN(l.quantidade) ? "" : String(l.quantidade)}
+                      onChange={(e) => {
+                        const digitos = e.target.value.replace(/\D/g, "").slice(0, 4);
+                        mudar(l.chave, { quantidade: digitos ? Number(digitos) : Number.NaN });
+                      }}
+                      inputMode="numeric"
+                      aria-label={`Quantidade de ${l.nome}`}
+                      aria-invalid={!qtdValida(l.quantidade)}
+                      className={cn(
+                        "h-9 w-16 shrink-0 rounded-md border border-input bg-card px-2 text-right text-sm tabular-nums sm:w-20",
+                        !qtdValida(l.quantidade) && "border-danger",
+                      )}
+                    />
+                    <select
+                      value={l.unidade}
+                      onChange={(e) => mudar(l.chave, { unidade: e.target.value as Unidade })}
+                      aria-label={`Unidade de ${l.nome}`}
+                      className="h-9 rounded-md border border-input bg-card px-2 text-sm"
+                    >
+                      {UNIDADES.map((u) => (
+                        <option key={u.valor} value={u.valor}>
+                          {u.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* Caixa também em unidades. w-0 min-w-full: quebra linha em vez de alargar
+                      a coluna e desalinhar a quantidade das outras linhas. */}
+                  {l.unidade === "CX" && qtdValida(l.quantidade) && (
+                    <p className="w-0 min-w-full text-[0.6875rem] text-ink-muted tabular-nums">
+                      {l.porCaixa ? (
+                        <>
+                          ={" "}
+                          <b className="font-semibold text-ink">
+                            {qtdComUnidade(l.quantidade * l.porCaixa, "UN")}
+                          </b>{" "}
+                          ({l.porCaixa} por caixa)
+                        </>
+                      ) : (
+                        <span className="text-warning">Sem qtd. por caixa no Winthor</span>
+                      )}
+                    </p>
                   )}
-                />
-                <select
-                  value={l.unidade}
-                  onChange={(e) => mudar(l.chave, { unidade: e.target.value as Unidade })}
-                  aria-label={`Unidade de ${l.nome}`}
-                  className="h-9 rounded-md border border-input bg-card px-2 text-sm"
-                >
-                  {UNIDADES.map((u) => (
-                    <option key={u.valor} value={u.valor}>
-                      {u.nome}
-                    </option>
-                  ))}
-                </select>
+                </div>
                 {pedido.cliente && (
                   <PrecoDaLinha
                     total={totalDe(l)}
-                    preco={precoDe(l.codprod)}
-                    caixa={l.unidade === "CX"}
+                    preco={precoDe(l.codprod)?.preco}
+                    porCaixa={l.unidade === "CX" ? l.porCaixa : null}
                     carregando={precos.isLoading}
                   />
                 )}

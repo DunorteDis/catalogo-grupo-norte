@@ -4,9 +4,10 @@ import * as X from "xlsx";
 
 import { linhasPlanilha, nomeArquivoPlanilha, planilhaDoPedido } from "./planilha-pedido";
 
+const item = { nome: "Produto", unidade: "UN", porCaixa: null };
 const ITENS = [
-  { codigo: "7896064445214", quantidade: 3 },
-  { codigo: "0012345", quantidade: 50 },
+  { ...item, codigo: "7896064445214", quantidade: 3 },
+  { ...item, codigo: "0012345", quantidade: 50 },
 ];
 
 test("gera um .xls que abre com o layout do modelo 9816-2.xls", () => {
@@ -28,14 +29,35 @@ test("gera um .xls que abre com o layout do modelo 9816-2.xls", () => {
 test("linhas: vai o código do Winthor; o EAN só quando ele falta", () => {
   expect(
     linhasPlanilha([
-      { codigo: "7896064445214", codprod: 4821, quantidade: 3 },
-      { codigo: "7891000100103", codprod: null, quantidade: 1 },
+      { ...item, codigo: "7896064445214", codprod: 4821, quantidade: 3 },
+      { ...item, codigo: "7891000100103", codprod: null, quantidade: 1 },
     ]),
   ).toEqual([
     ["Cód.Prod ou EAN", "Qde"],
     ["4821", "3"],
     ["7891000100103", "1"],
   ]);
+});
+
+test("linhas: caixa vai em unidades, pelo qtunitcx", () => {
+  expect(
+    linhasPlanilha([
+      { ...item, codigo: "1", codprod: 10, quantidade: 5, unidade: "CX", porCaixa: 12 },
+      { ...item, codigo: "2", codprod: 20, quantidade: 7, unidade: "UN", porCaixa: 24 },
+    ]),
+  ).toEqual([
+    ["Cód.Prod ou EAN", "Qde"],
+    ["10", "60"],
+    ["20", "7"],
+  ]);
+});
+
+test("linhas: caixa sem qtunitcx não sai como se fosse unidade", () => {
+  expect(() =>
+    linhasPlanilha([
+      { ...item, codigo: "1", quantidade: 5, unidade: "CX", porCaixa: null, nome: "Arroz 5kg" },
+    ]),
+  ).toThrow(/QTUNITCX.*Arroz 5kg/);
 });
 
 test("linhas: cabeçalho do modelo e uma linha por item", () => {

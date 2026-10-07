@@ -10,12 +10,19 @@ import { exigirAdmin, exigirLogin } from "@/server/sessao";
 
 export type PedidoResumo = {
   created_at: string;
+  /** Primeira exportação do Excel. Só sai daqui, que é só do admin. */
+  exportado_em: string | null;
   total_itens: number;
   vendedor_id: string | null;
   vendedores: { nome: string } | null;
 };
 
 const periodo = z.tuple([z.string().datetime(), z.string().datetime()]);
+
+/** Unidades de venda na caixa master do Winthor (pcprodut.qtunitcx); null quando não tem. */
+const porCaixa = (codprod: ReturnType<typeof sql>) =>
+  sql`(select nullif(x.qtunitcx, 0)::float8 from system.pcprodut x
+        where x.codprod = ${codprod} limit 1)`;
 
 /** Mesma forma que o embed do PostgREST devolvia: itens, vendedor e catálogo aninhados. */
 async function consultaPedidos(onde: ReturnType<typeof sql>) {
@@ -35,7 +42,8 @@ async function consultaPedidos(onde: ReturnType<typeof sql>) {
                   else json_build_object('nome', coalesce(m.nome, c.nome), 'cor', coalesce(m.cor, c.cor))
              end as distribuidoras,
              coalesce((select json_agg(json_build_object('id', i.id, 'codigo', i.codigo, 'codprod', i.codprod, 'nome', i.nome,
-                                                         'quantidade', i.quantidade, 'unidade', i.unidade)
+                                                         'quantidade', i.quantidade, 'unidade', i.unidade,
+                                                         'porCaixa', ${porCaixa(sql`i.codprod`)})
                                        order by i.created_at, i.id)
                          from pedido_itens i where i.pedido_id = p.id), '[]'::json) as pedido_itens
         from pedidos p
@@ -98,7 +106,7 @@ export const resumoPainel = acao(async (desde: string, ate: string) => {
   const [de, fim] = periodo.parse([desde, ate]);
   return [
     ...(await sql<PedidoResumo[]>`
-      select p.created_at, p.total_itens, p.vendedor_id,
+      select p.created_at, p.exportado_em, p.total_itens, p.vendedor_id,
              case when v.id is null then null else json_build_object('nome', v.nome) end as vendedores
         from pedidos p left join vendedores v on v.id = p.vendedor_id
        where p.distribuidora_id = ${s.dist} and p.created_at between ${de} and ${fim}
@@ -152,6 +160,7 @@ export type ProdutoParaPedido = {
   codprod: number | null;
   nome: string;
   arquivo: string | null;
+  porCaixa: number | null;
 };
 
 /** Produtos ativos para incluir no pedido, por nome, EAN ou código do ERP. */
@@ -162,7 +171,8 @@ export const produtosParaPedido = acao(async (entrada: string) => {
   const busca = condicaoBusca(termo, [sql`p.nome`, sql`p.codigo`, sql`p.cod_produto::text`]);
   return [
     ...(await sql<ProdutoParaPedido[]>`
-      select p.id, p.codigo, p.cod_produto as codprod, p.nome, p.arquivo
+      select p.id, p.codigo, p.cod_produto as codprod, p.nome, p.arquivo,
+             ${porCaixa(sql`p.cod_produto`)} as "porCaixa"
         from produtos p
        where p.ativo ${busca}
        order by p.nome, p.id
@@ -235,6 +245,19 @@ export const salvarItensDoPedido = acao(
   },
 );
 
+/**
+ * Marca a primeira exportação do Excel: é o fim do atendimento no painel do admin.
+ * Não devolve nada sobre o tempo: o vendedor também exporta e não vê o indicador.
+ */
+export const registrarExportacao = acao(async (pedidoId: string) => {
+  const id = await exigirPedido(pedidoId);
+  const s = await exigirLogin();
+  await sql`
+    update pedidos set exportado_em = now(), exportado_por = ${s.sub}
+     where id = ${id} and exportado_em is null`;
+  return { ok: true as const };
+});
+
 /** O pedido aberto na tela dele, com a mesma regra de quem pode mexer. */
 export const pedidoDetalhe = acao(async (pedidoId: string) => {
   const id = await exigirPedido(pedidoId);
@@ -252,7 +275,8 @@ export const sugeridosDoPedido = acao(async (pedidoId: string) => {
   const id = await exigirPedido(pedidoId);
   return [
     ...(await sql<(ProdutoParaPedido & { compras: number })[]>`
-      select p.id, p.codigo, p.cod_produto as codprod, p.nome, p.arquivo, r.pedidos as compras
+      select p.id, p.codigo, p.cod_produto as codprod, p.nome, p.arquivo, r.pedidos as compras,
+             ${porCaixa(sql`p.cod_produto`)} as "porCaixa"
         from pedidos o
         join compras_recentes r on r.codcli = o.codcli
         join produtos p on p.cod_produto = r.codprod and p.ativo
@@ -270,8 +294,8 @@ export type PrecosDoPedido = {
   /** Região de preço usada e de onde ela veio. Sem cliente, null. */
   regiao: number | null;
   origem: "cliente-filial" | "cadastro" | "praca" | null;
-  /** Por codprod: preço de tabela da unidade de venda e quantas vêm na caixa master. */
-  precos: Record<number, { preco: number; porCaixa: number | null }>;
+  /** Por codprod: preço de tabela da unidade de venda. Quantas vêm na caixa está no item. */
+  precos: Record<number, { preco: number }>;
 };
 
 /**
@@ -303,10 +327,8 @@ export const precosDoPedido = acao(
         left join system.pcpraca pr     on pr.codpraca = c.codpraca`;
     const base = r ?? { filial: "1", regiao: null, origem: null };
     if (base.regiao == null || codprods.length === 0) return { ...base, precos: {} };
-    const linhas = await sql<{ codprod: number; preco: number; porCaixa: number | null }[]>`
-      select t.codprod, t.pvenda::float8 as preco,
-             (select nullif(p.qtunitcx, 0)::float8 from system.pcprodut p
-               where p.codprod = t.codprod limit 1) as "porCaixa"
+    const linhas = await sql<{ codprod: number; preco: number }[]>`
+      select t.codprod, t.pvenda::float8 as preco
         from system.pctabpr t
        where t.numregiao = ${base.regiao}
          and t.codprod = any(${sql.array(codprods)}::int[])
@@ -314,9 +336,7 @@ export const precosDoPedido = acao(
          and t.pvenda > 0`;
     return {
       ...base,
-      precos: Object.fromEntries(
-        linhas.map((l) => [l.codprod, { preco: l.preco, porCaixa: l.porCaixa }]),
-      ),
+      precos: Object.fromEntries(linhas.map((l) => [l.codprod, { preco: l.preco }])),
     };
   },
 );

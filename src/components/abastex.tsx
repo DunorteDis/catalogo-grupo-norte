@@ -237,10 +237,12 @@ export function BarList({
   data,
   color = "chart-1",
   max,
+  formatar = String,
 }: {
   data: { label: string; value: number }[];
   color?: `chart-${1 | 2 | 3 | 4 | 5}`;
   max?: number;
+  formatar?: (valor: number) => ReactNode;
 }) {
   const teto = max ?? Math.max(1, ...data.map((r) => r.value));
   return (
@@ -256,7 +258,7 @@ export function BarList({
               style={{ width: `${(100 * r.value) / teto}%`, background: `var(--${color})` }}
             />
           </span>
-          <span className="ax-bars__value">{r.value}</span>
+          <span className="ax-bars__value">{formatar(r.value)}</span>
         </li>
       ))}
     </ol>

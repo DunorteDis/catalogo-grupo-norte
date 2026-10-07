@@ -148,6 +148,12 @@ export function qtdComUnidade(quantidade: number, unidade: string) {
   return `${quantidade} ${quantidade === 1 ? u.nome.toLowerCase() : u.plural}`;
 }
 
+/** Quantidade em unidades: caixa vale `porCaixa` (qtunitcx). Caixa sem qtunitcx dá null. */
+export function qtdEmUnidades(i: { quantidade: number; unidade: string; porCaixa: number | null }) {
+  if (i.unidade !== "CX") return i.quantidade;
+  return i.porCaixa ? i.quantidade * i.porCaixa : null;
+}
+
 export type ItemCarrinho = {
   produto_id: string;
   codigo: string;

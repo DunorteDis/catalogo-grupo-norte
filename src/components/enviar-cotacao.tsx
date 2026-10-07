@@ -155,7 +155,7 @@ export function EnviarCotacao({
           quantidade: i.quantidade,
           unidade: i.unidade,
           preco: p?.preco ?? null,
-          porCaixa: p?.porCaixa ?? null,
+          porCaixa: i.porCaixa,
         };
       }),
       // O tipo de entrega só vai junto com a data: sozinho é o valor padrão do campo.

@@ -25,7 +25,7 @@ import { mensagemErro } from "@/lib/erros";
 import { formatarData } from "@/lib/periodo";
 import { baixarPlanilhaDoPedido } from "@/lib/planilha-pedido";
 import { codigoPedido } from "@/lib/whatsapp";
-import { pedidoDetalhe, sugeridosDoPedido } from "@/server/pedidos";
+import { pedidoDetalhe, registrarExportacao, sugeridosDoPedido } from "@/server/pedidos";
 
 // ponytail: entrega, pagamento e observação da nota são ilustrativos (estado da tela, nada
 // no banco) até a Fase 2 definir o cabeçalho do pedido no ERP. Aí viram colunas do pedido.
@@ -155,9 +155,13 @@ export function DetalheDoPedido({ id, voltar }: { id: string; voltar: string }) 
             size="sm"
             variant="outline"
             onClick={() =>
-              baixarPlanilhaDoPedido({ ...pedido, cliente_nome: nomeCliente }).catch(() =>
-                toast.error("Não foi possível gerar a planilha. Tente de novo."),
-              )
+              baixarPlanilhaDoPedido({ ...pedido, cliente_nome: nomeCliente })
+                // Marca o fim do atendimento para o painel do admin. Falhar aqui não
+                // atrapalha quem exportou: a planilha já saiu.
+                .then(() => chamar(registrarExportacao(pedido.id)).catch(() => {}))
+                .catch((e) =>
+                  toast.error(mensagemErro(e, "Não foi possível gerar a planilha. Tente de novo.")),
+                )
             }
           >
             <FileSpreadsheet />

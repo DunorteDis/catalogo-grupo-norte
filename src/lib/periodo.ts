@@ -37,6 +37,25 @@ export const ATALHOS = [
 
 export type Atalho = (typeof ATALHOS)[number]["id"] | "personalizado";
 
+/** "45 min", "2h 15min", "3d 4h": tempo de atendimento no painel. */
+export function formatarDuracao(minutos: number) {
+  const m = Math.round(minutos);
+  if (m < 1) return "menos de 1 min";
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return m % 60 ? `${h}h ${m % 60}min` : `${h}h`;
+  const d = Math.floor(h / 24);
+  return h % 24 ? `${d}d ${h % 24}h` : `${d}d`;
+}
+
+/** Mediana: um pedido esquecido no fim de semana não puxa o número como puxaria a média. */
+export function mediana(valores: number[]) {
+  if (!valores.length) return null;
+  const v = [...valores].sort((a, b) => a - b);
+  const meio = Math.floor(v.length / 2);
+  return v.length % 2 ? v[meio]! : (v[meio - 1]! + v[meio]!) / 2;
+}
+
 export function formatarData(iso: string) {
   return new Date(iso).toLocaleString("pt-BR", {
     day: "2-digit",
