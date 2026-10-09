@@ -2,11 +2,11 @@
 
 import { z } from "zod";
 
-import { MAX_FOTO, PAGINA_PRODUTOS, TIPOS_IMAGEM } from "@/lib/catalogo";
+import { CHAVE_FOTO, MAX_FOTO, PAGINA_PRODUTOS, TIPOS_IMAGEM } from "@/lib/catalogo";
 import { acao, Recusa } from "@/server/acao";
 import { guardarFoto } from "@/server/s3";
 import { condicaoBusca, sql } from "@/server/db";
-import { exigirAdmin } from "@/server/sessao";
+import { exigirAdmin, exigirLogin } from "@/server/sessao";
 
 type Produto = {
   id: string;
@@ -20,8 +20,10 @@ type Produto = {
   descricao_erp: string | null;
 };
 
+// Listar e trocar foto valem para o vendedor também; descrição e o que aparece no catálogo,
+// só para o admin.
 export const listarProdutos = acao(async (termo: string, pagina: number) => {
-  await exigirAdmin();
+  await exigirLogin();
   const [linhas, [contagem]] = await Promise.all([
     sql<Produto[]>`
       select p.id, p.codigo, p.nome, p.arquivo, p.ativo, p.cod_produto, p.nome_editado,
@@ -45,7 +47,7 @@ const edicaoSchema = z.object({
 
 /** Foto arrastada no cadastro: vai para o bucket privado e volta o caminho /fotos/<chave>. */
 export const enviarFotoProduto = acao(async (dados: FormData) => {
-  await exigirAdmin();
+  await exigirLogin();
   const arquivo = dados.get("arquivo");
   if (!(arquivo instanceof File)) throw new Recusa("Escolha uma foto para o produto.");
   if (!TIPOS_IMAGEM.includes(arquivo.type))
@@ -71,6 +73,18 @@ export const editarProduto = acao(async (id: string, entrada: z.input<typeof edi
            nome_editado = ${v.nome} is distinct from
              (select trim(x.descricao) from system.pcprodut x where x.codprod = p.cod_produto)
      where p.id = ${id}`;
+});
+
+/**
+ * Só a foto: o que o vendedor pode mudar. Vale a que acabou de subir por enviarFotoProduto
+ * (/fotos/<chave>) ou nenhuma, nunca um endereço qualquer, que apareceria em todo catálogo.
+ */
+export const trocarFotoProduto = acao(async (id: string, arquivo: string) => {
+  await exigirLogin();
+  const chave = arquivo.startsWith("/fotos/") ? arquivo.slice("/fotos/".length) : "";
+  if (arquivo && !CHAVE_FOTO.test(chave))
+    throw new Recusa("Foto inválida. Escolha a foto de novo.");
+  await sql`update produtos set arquivo = ${arquivo || null} where id = ${id}`;
 });
 
 export const ativarProduto = acao(async (id: string, ativo: boolean) => {

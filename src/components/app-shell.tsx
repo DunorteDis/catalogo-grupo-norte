@@ -84,6 +84,7 @@ const MENU_VENDEDOR: Grupo[] = [
       { to: "/conversas", label: "Conversas", icon: MessageCircle, conversas: true },
       { to: "/carteira", label: "Minha carteira", icon: WalletCards },
       { to: "/meus-pedidos", label: "Pedidos", icon: ShoppingBag },
+      { to: "/produtos", label: "Produtos", icon: Package },
     ],
   },
 ];

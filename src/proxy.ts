@@ -19,6 +19,7 @@ export const config = {
     "/carteira/:path*",
     "/conversas/:path*",
     "/meus-pedidos/:path*",
+    "/produtos/:path*",
     "/definir-senha",
     "/escolher-distribuidora",
   ],

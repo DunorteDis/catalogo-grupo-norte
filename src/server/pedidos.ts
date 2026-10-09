@@ -267,15 +267,18 @@ export const pedidoDetalhe = acao(async (pedidoId: string) => {
 });
 
 /**
- * O que o cliente do pedido mais comprou nos últimos 3 meses (vendas do ERP, em
- * crm.compras_recentes) e não está no pedido. ponytail: é a frequência pura; a sugestão
- * pela IA, olhando o histórico inteiro, entra no lugar desta consulta.
+ * O que o cliente do pedido comprou nos últimos 3 meses (vendas do ERP, em
+ * crm.compras_recentes) e não está no pedido, do que está há mais tempo sem pedir para o
+ * mais recente; no empate, o que ele mais comprou. A última compra é a mesma do histórico do
+ * cliente (venda faturada); sem ela, vai para o fim. ponytail: é uma regra simples; a
+ * sugestão pela IA, olhando o histórico inteiro, entra no lugar desta consulta.
  */
 export const sugeridosDoPedido = acao(async (pedidoId: string) => {
   const id = await exigirPedido(pedidoId);
   return [
-    ...(await sql<(ProdutoParaPedido & { compras: number })[]>`
+    ...(await sql<(ProdutoParaPedido & { compras: number; ultimaCompra: string | null })[]>`
       select p.id, p.codigo, p.cod_produto as codprod, p.nome, p.arquivo, r.pedidos as compras,
+             r.ultima_compra::timestamp as "ultimaCompra",
              ${porCaixa(sql`p.cod_produto`)} as "porCaixa"
         from pedidos o
         join compras_recentes r on r.codcli = o.codcli
@@ -283,7 +286,7 @@ export const sugeridosDoPedido = acao(async (pedidoId: string) => {
        where o.id = ${id}
          and not exists (select 1 from pedido_itens i
                           where i.pedido_id = o.id and (i.codprod = p.cod_produto or i.codigo = p.codigo))
-       order by r.pedidos desc, p.nome
+       order by r.ultima_compra nulls last, r.pedidos desc, p.nome
        limit 10`),
   ];
 });

@@ -51,7 +51,7 @@ Hoje o sistema é um catálogo digital com pedido pelo WhatsApp, separado por di
 | --- | --- | --- |
 | Acesso | Login próprio (bcrypt e cookie JWT de 7 dias), papéis TI, admin e vendedor, senha provisória, TI escolhe a distribuidora ao entrar | `src/server/auth.ts`, `src/proxy.ts` |
 | Distribuidoras | Cadastro com nome, cor e logo, liga e desliga; cada admin e vendedor vê só a sua | `/admin/distribuidoras` |
-| Produtos | Espelho da `pcprodut` sincronizado todo dia às 03:00 (pg_cron); foto no S3 e descrição editáveis | `/admin/produtos` |
+| Produtos | Espelho da `pcprodut` sincronizado todo dia às 03:00 (pg_cron); foto no S3 e descrição editáveis; o vendedor troca só a foto | `/admin/produtos`, `/produtos` |
 | Catálogos | De marca ou personalizado, seções ordenáveis, vínculo por busca ou colando EANs, cópia entre catálogos | `/admin/catalogo` |
 | Vitrine pública | Link do vendedor, escolha do catálogo, carrinho por unidade ou caixa, pedido gravado e aberto no `wa.me` | `/c/[slug]/[distribuidora]` |
 | Pedidos | Lista por período com itens e exportação para Excel no layout 9816-2 | `/admin/pedidos`, `/meus-pedidos` |

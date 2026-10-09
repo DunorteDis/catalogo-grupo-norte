@@ -36,7 +36,7 @@ import {
   type Unidade,
 } from "@/lib/catalogo";
 import { chamar } from "@/lib/chamar";
-import { formatarReais } from "@/lib/credito";
+import { diasDesde, formatarReais, plural } from "@/lib/credito";
 import { confirmar } from "@/lib/confirmar";
 import { mensagemErro } from "@/lib/erros";
 import { cn } from "@/lib/utils";
@@ -284,7 +284,7 @@ export function EditorDeItens({
   sugeridos,
 }: {
   pedido: PedidoDaLista;
-  sugeridos?: (ProdutoParaPedido & { compras: number })[];
+  sugeridos?: (ProdutoParaPedido & { compras: number; ultimaCompra: string | null })[];
 }) {
   const recarregar = useRecarregarPedidos();
   const [original] = useState<Linha[]>(() =>
@@ -580,7 +580,7 @@ export function EditorDeItens({
               Produtos sugeridos
             </span>
           }
-          subtitle="O que este cliente mais comprou nos últimos 3 meses e não está no pedido. A sugestão pela IA entra aqui."
+          subtitle="O que este cliente comprou nos últimos 3 meses e não está no pedido, do que está há mais tempo sem pedir para o mais recente. A sugestão pela IA entra aqui."
         >
           {!pedido.cliente ? (
             <p className="py-3 text-sm text-ink-muted">
@@ -599,7 +599,12 @@ export function EditorDeItens({
                     <p className="text-[0.8125rem] font-medium leading-snug">{s.nome}</p>
                     <CodigosDoItem codigo={s.codigo} codprod={s.codprod} />
                   </div>
-                  <span className="text-xs text-ink-muted">
+                  <span className="text-right text-xs text-ink-muted">
+                    {s.ultimaCompra && (
+                      <b className="block font-semibold text-ink">
+                        Não pede há {plural(diasDesde(s.ultimaCompra), "dia")}
+                      </b>
+                    )}
                     Em {s.compras} {s.compras === 1 ? "pedido" : "pedidos"} nos últimos 3 meses
                   </span>
                   {precoDe(s.codprod) && (

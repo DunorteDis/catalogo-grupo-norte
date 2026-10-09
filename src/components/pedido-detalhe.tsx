@@ -183,65 +183,74 @@ export function DetalheDoPedido({ id, voltar }: { id: string; voltar: string }) 
         </div>
       </header>
 
-      <Card
-        title="Geral"
-        subtitle="Entrega, pagamento e observação da nota são ilustrativos: ainda não são salvos."
-      >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="sm:col-span-2">
-            <ClienteDoPedido pedido={pedido} />
-          </div>
-          <Campo id="entrega" rotulo="Data de entrega">
-            <input
-              id="entrega"
-              type="date"
-              value={entrega}
-              onChange={(e) => setEntrega(e.target.value)}
-              className={CAMPO}
-            />
-          </Campo>
-          <Campo id="tipo-entrega" rotulo="Tipo de entrega">
-            <select
-              id="tipo-entrega"
-              value={tipoEntrega}
-              onChange={(e) => setTipoEntrega(e.target.value)}
-              className={CAMPO}
-            >
-              {ENTREGAS.map((t) => (
-                <option key={t}>{t}</option>
-              ))}
-            </select>
-          </Campo>
-          <Campo id="plano" rotulo="Plano de pagamento" className="sm:col-span-2 xl:col-span-1">
-            <select
-              id="plano"
-              value={plano}
-              onChange={(e) => setPlano(e.target.value)}
-              className={CAMPO}
-            >
-              <option value="">Escolha o plano</option>
-              {PLANOS.map((p) => (
-                <option key={p}>{p}</option>
-              ))}
-            </select>
-          </Campo>
-          <Campo id="obs-nota" rotulo="Observação da nota" className="sm:col-span-2 xl:col-span-3">
-            <input
+      {/* Fixo abaixo da barra do topo ao rolar: o vendedor vê de quem é o pedido enquanto
+          mexe nos itens. Só em tela larga, onde o card é baixo; no celular ocuparia a tela.
+          A faixa de fundo (pt-5) esconde os itens que passam por trás. */}
+      <div className="xl:sticky xl:top-16 xl:z-5 xl:-mt-5 xl:bg-background xl:pt-5">
+        <Card
+          title="Geral"
+          subtitle="Entrega, pagamento e observação da nota são ilustrativos: ainda não são salvos."
+        >
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="sm:col-span-2">
+              <ClienteDoPedido pedido={pedido} />
+            </div>
+            <Campo id="entrega" rotulo="Data de entrega">
+              <input
+                id="entrega"
+                type="date"
+                value={entrega}
+                onChange={(e) => setEntrega(e.target.value)}
+                className={CAMPO}
+              />
+            </Campo>
+            <Campo id="tipo-entrega" rotulo="Tipo de entrega">
+              <select
+                id="tipo-entrega"
+                value={tipoEntrega}
+                onChange={(e) => setTipoEntrega(e.target.value)}
+                className={CAMPO}
+              >
+                {ENTREGAS.map((t) => (
+                  <option key={t}>{t}</option>
+                ))}
+              </select>
+            </Campo>
+            <Campo id="plano" rotulo="Plano de pagamento" className="sm:col-span-2 xl:col-span-1">
+              <select
+                id="plano"
+                value={plano}
+                onChange={(e) => setPlano(e.target.value)}
+                className={CAMPO}
+              >
+                <option value="">Escolha o plano</option>
+                {PLANOS.map((p) => (
+                  <option key={p}>{p}</option>
+                ))}
+              </select>
+            </Campo>
+            <Campo
               id="obs-nota"
-              value={obsNota}
-              onChange={(e) => setObsNota(e.target.value)}
-              placeholder="Sai impressa na nota fiscal"
-              maxLength={200}
-              className={CAMPO}
-            />
-          </Campo>
-        </div>
-        {pedido.observacao && (
-          <p className="mt-4 rounded-xl bg-surface-sunken px-3 py-2 text-sm">
-            <span className="font-semibold">Observação do cliente:</span> {pedido.observacao}
-          </p>
-        )}
-      </Card>
+              rotulo="Observação da nota"
+              className="sm:col-span-2 xl:col-span-3"
+            >
+              <input
+                id="obs-nota"
+                value={obsNota}
+                onChange={(e) => setObsNota(e.target.value)}
+                placeholder="Sai impressa na nota fiscal"
+                maxLength={200}
+                className={CAMPO}
+              />
+            </Campo>
+          </div>
+          {pedido.observacao && (
+            <p className="mt-4 rounded-xl bg-surface-sunken px-3 py-2 text-sm">
+              <span className="font-semibold">Observação do cliente:</span> {pedido.observacao}
+            </p>
+          )}
+        </Card>
+      </div>
 
       <EditorDeItens key={versaoItens} pedido={pedido} sugeridos={sugeridosQuery.data ?? []} />
 
